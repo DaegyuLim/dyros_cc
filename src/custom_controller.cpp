@@ -1018,7 +1018,7 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 			// swing_foot_rot_trajectory_from_global_ = swing_foot_transform_init_.linear();
 			swing_foot_rot_trajectory_from_global_.setIdentity();
 		}
-		else if (walking_phase_ < 0.98)
+		else if (walking_phase_ < 0.95)
 		{
 			double ssp = (phase - dsp_coeff * switching_phase_duration_) / (0.95 - dsp_coeff * switching_phase_duration_);
 
