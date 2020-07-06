@@ -134,25 +134,22 @@ void CustomController::computeSlow()
 
 		getRobotData(wbc_);
 		walkingStateManager();
-		getProcessedRobotData(wbc_);
-			
+		getProcessedRobotData(wbc_);	
+
 		motionGenerator();
+		getZmpTrajectory();
+		getComTrajectory_Preview();
 		getCOMTrajectory();
 		getSwingFootXYTrajectory(walking_phase_, com_pos_current_, com_vel_current_, com_vel_desired_);
 
 		// torque_task_ += comVelocityControlCompute(wbc_);             //support control for COM velocity control
-		torque_task_ += comVelocityControlCompute2(wbc_); //support control for COM velocity control
-		if (int(current_time_ * 2000) % 400 == 0)
-			cout<<"torque_task_com_vel: \n" << torque_task_<<endl;
+		torque_task_ += comVelocityControlCompute(wbc_); //support control for COM velocity control
+		// if (int(current_time_ * 2000) % 400 == 0)
+		// 	cout<<"torque_task_com_vel: \n" << torque_task_<<endl;
 		// cout<<"walking_speed: \n" << walking_speed_<<endl;
 		// first_torque_supplier_ = 1;
 		torque_task_ += jointTrajectoryPDControlCompute(wbc_) * first_torque_supplier_; //upper body motion + swing foot control + knee angle control
-		// if(walking_phase_ > 0.1)
-		// {
-		// cout<<"torque_task_joint_pd: \n" << jointTrajectoryPDControlCompute(wbc_)*first_torque_supplier_<<endl;
-		//     cout<<"first_torque_supplier_: \n" << first_torque_supplier_<<endl;
-		// }
-			
+
 		savePreData();
 
 		////////////////////////////////TORQUE LIMIT//////////////////////////////
@@ -161,18 +158,27 @@ void CustomController::computeSlow()
 			torque_task_(i) = DyrosMath::minmax_cut(torque_task_(i), -300, 300);
 		}
 		///////////////////////////////////////////////////////////////////////////
+        
+		// wbc_.set_contact(rd_, 1, 1);
+
 		ControlVal_ = torque_task_;
-			
+ 
 		if (int(current_time_ * 2000) % 400 == 0)
 		{
 			cout << "walking_phase_: " << walking_phase_ << endl;
 			cout << "foot_contact_: " << foot_contact_ << endl;
 			
-			cout << "foot_swing_trigger_: " << foot_swing_trigger_ << endl;
-			cout << "stop_walking_trigger_: " << stop_walking_trigger_ << endl;
-			cout << "first_step_trigger_: " << first_step_trigger_ << endl;
-
-			cout << "ControlVal_: " << ControlVal_ << endl;
+			// cout << "foot_swing_trigger_: " << foot_swing_trigger_ << endl;
+			// cout << "stop_walking_trigger_: " << stop_walking_trigger_ << endl;
+			// cout << "first_step_trigger_: " << first_step_trigger_ << endl;
+			
+			// cout << "pelv_rpy_current_: \n" << pelv_rpy_current_<< endl;
+			// cout << "pelv_rot_current_yaw_aline_: \n" << DyrosMath::rot2Euler(pelv_rot_current_yaw_aline_) << endl;
+			// cout << "rfoot_transform_current_from_global_.linear(): \n" << DyrosMath::rot2Euler(rfoot_transform_current_from_global_.linear()) << endl;
+			// cout << "rd_.link_[Right_Foot].Rotm: \n" << rd_.link_[Right_Foot].Rotm << endl;
+			cout << "com_pos_desired_: \n" << com_pos_desired_ << endl;
+			cout << "desired_q_: \n" << desired_q_.segment(0, 12) << endl;
+			cout << "ControlVal_: \n" << ControlVal_ << endl;
 		}
 
 	}
@@ -183,8 +189,9 @@ void CustomController::computeFast()
 	if (tc.mode == 10)
 	{
 	}
-	else if (tc.mode == 11)
+	else if (tc.mode == 14)
 	{
+
 	}
 }
 
@@ -211,19 +218,28 @@ void CustomController::initWalkingParameter()
 	walking_mode_on_ = true;
 	stop_vel_threshold_ = 0.20;
 	walking_duration_ = 0.6;
-	walking_speed_ = 0.3;
-	step_width_ = 0.091;
+	turning_duration_ = walking_duration_*0.8;
+	walking_phase_ = 0;
+	turning_phase_ = 0;
+	walking_speed_ = 0.0;
+	// step_width_ = 0.0915;  						//for linear velocity
+	step_width_ = 0.22;  						//for preview control
 	knee_target_angle_ = 0.1; //
 	// knee_target_angle_ = M_PI/40;                               //4.5degree
 	yaw_angular_vel_ = 0; //   rad/s
 	swing_foot_height_ = 0.05;
 	switching_phase_duration_ = 0.01;
-	foot_contact_ = 1;
-
+	foot_contact_ = -1;
+	foot_contact_pre_ = foot_contact_;
 	start_walking_trigger_ = false;
 	first_step_trigger_ = false;
 	foot_swing_trigger_ = false;
 	stop_walking_trigger_ = true;
+
+	preview_horizon_ = 1.6; //seconds
+	preview_hz_ = 200;
+	zmp_size_ = preview_horizon_*preview_hz_; // 보행 중 720개 (240 * 3)
+	ref_zmp_.setZero(zmp_size_, 2);
 
 	jac_rhand_.setZero(6, MODEL_DOF_VIRTUAL);
 	jac_lhand_.setZero(6, MODEL_DOF_VIRTUAL);
@@ -232,6 +248,8 @@ void CustomController::initWalkingParameter()
 	//set init pre data
 	com_pos_desired_pre_ = dc_.link_[COM_id].xpos;
 	com_vel_desired_pre_.setZero();
+	com_acc_desired_pre_.setZero();
+
 	pre_time_ = rd_.control_time_;
 	pre_desired_q_ = rd_.q_;
 
@@ -241,6 +259,7 @@ void CustomController::initWalkingParameter()
 	desired_q_ddot_.setZero();
 	torque_task_.setZero();
 	torque_task_pre_.setZero();
+
 }
 
 void CustomController::getRobotData(WholebodyController &wbc)
@@ -268,6 +287,7 @@ void CustomController::getRobotData(WholebodyController &wbc)
 
 	com_pos_current_ = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[COM_id].xpos - pelv_pos_current_);
 	com_vel_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[COM_id].v;
+	// com_acc_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[COM_id].a;
 	// com_acc_current_ = ;
 
 	lfoot_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Foot].xpos - pelv_pos_current_);
@@ -285,6 +305,7 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	R_R.setZero();
 	R_R.block(0, 0, 3, 3) = pelv_yaw_rot_current_from_global_.transpose();
 	R_R.block(3, 3, 3, 3) = pelv_yaw_rot_current_from_global_.transpose();
+	// R_R.setIdentity();
 
 	jac_com_ = R_R * rd_.link_[COM_id].Jac;
 	jac_com_pos_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[COM_id].Jac_COM_p;
@@ -318,7 +339,7 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	l_ft_ = rd_.ContactForce_FT.segment(0, 6);
 	r_ft_ = rd_.ContactForce_FT.segment(6, 6);
 
-	first_torque_supplier_ = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.1, 0, 1, 0, 0);
+	first_torque_supplier_ = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ + walking_duration_*0.5, 0, 1, 0, 0);
 }
 
 void CustomController::walkingStateManager()
@@ -340,8 +361,8 @@ void CustomController::walkingStateManager()
 						start_walking_trigger_ = false;
 						stop_walking_trigger_ = false;
 						start_time_ = current_time_;
-						foot_contact_ = -foot_contact_;  //support foot change
-						cout << " ################################ Balancing Control ON! ################################" << endl;
+						// foot_contact_ = -foot_contact_;  //support foot change
+						std::cout << " ################################ Balancing Control ON! ################################" << std::endl;
 					}
 					else
 					{
@@ -360,12 +381,12 @@ void CustomController::walkingStateManager()
 			if (foot_swing_trigger_ == false)
 			{
 				// if( checkZMPinWhichFoot(zmp_measured_) == true )
-				if ((com_pos_current_(0) - support_foot_transform_current_.translation()(0)) / (walking_speed_ * walking_duration_) > 0.2 || (com_vel_current_(0) / (walking_speed_ + 1e-3) > 0.4))
+				if ((com_pos_current_(0) - support_foot_transform_current_.translation()(0)) / (walking_speed_ * walking_duration_) > 0.4 || (com_vel_current_(0) / (walking_speed_ + 1e-3) > 0.5))
 				{
 					first_step_trigger_ = true;
 					foot_swing_trigger_ = true;
 					start_walking_trigger_ = false;
-					cout << " ################################ First Step Triggered! ################################" << endl;
+					std::cout << " ################################ First Step Triggered! ################################" << std::endl;
 				}
 				else
 				{
@@ -373,7 +394,6 @@ void CustomController::walkingStateManager()
 					first_step_trigger_ = false;
 					start_walking_trigger_ = true;
 					start_time_ = current_time_;
-					;
 				}
 			}
 			else
@@ -388,7 +408,7 @@ void CustomController::walkingStateManager()
 					{
 						start_time_ = current_time_ - walking_duration_; //make walking_phase_ 1
 						walking_phase_ = 1;
-						cout << " ################ Early Step Change Occured! #########################" << endl;
+						std::cout << " ################ Early Step Change Occured! #########################" << std::endl;
 					}
 				}
 				else if (foot_contact_ == -1)
@@ -400,7 +420,7 @@ void CustomController::walkingStateManager()
 					{
 						start_time_ = current_time_ - walking_duration_; //make walking_phase_ 1
 						walking_phase_ = 1;
-						cout << " ################ Early Step Change Occured! #########################" << endl;
+						std::cout << " ################ Early Step Change Occured! #########################" << std::endl;
 					}
 				}
 			}
@@ -420,7 +440,7 @@ void CustomController::walkingStateManager()
 				{
 					first_step_trigger_ = false;
 				}
-				cout << " ################################ Balancing Control ON! ################################" << endl;
+				std::cout << " ################################ Balancing Control ON! ################################" << std::endl;
 			}
 			else
 			{
@@ -431,7 +451,7 @@ void CustomController::walkingStateManager()
 
 				foot_contact_ = -foot_contact_;
 				stance_start_time_ = current_time_;
-				cout << " ################################ Robot Stops Walking! ################################" << endl;
+				std::cout << " ################################ Robot Stops Walking! ################################" << std::endl;
 			}
 		}
 		else
@@ -442,15 +462,16 @@ void CustomController::walkingStateManager()
 			start_walking_trigger_ = false;
 
 			foot_contact_ = -foot_contact_;
-			cout << " ################################ Support Foot Changed! ################################" << endl;
+			std::cout << " ################################ Support Foot Changed! ################################" << std::endl;
 		}
-
 		start_time_ = current_time_;
 	}
 
 	// walking_duration_ = 1;
 	walking_phase_ = (current_time_ - start_time_) / walking_duration_;
 	walking_phase_ = DyrosMath::minmax_cut(walking_phase_, 0, 1);
+	turning_phase_ = (walking_phase_-0.1)/0.8;
+	turning_phase_ = DyrosMath::minmax_cut(turning_phase_, 0, 1);
 	// cout <<"walking_phase_: "<<walking_phase_<<endl;
 	// cout <<"foot_contact_: "<<foot_contact_<<endl;
 	// cout <<"foot_contact_: "<<foot_contact_<<endl;
@@ -470,21 +491,22 @@ bool CustomController::balanceTrigger(Eigen::Vector2d com_pos_2d, Eigen::Vector2
 	capture_point_2d = com_pos_2d + com_vel_2d / omega;
 	middle_point_of_foot_2d = middle_of_both_foot_.segment(0, 2);
 
+	
 	// if(capture_point_2d.norm() > stop_vel_threshold_)
 	// {
 	//     trigger = true;
 	//     cout<<"balance swing foot control activated"<<endl;
 	// }
-	if ((capture_point_2d(0) > middle_point_of_foot_2d(0) + 0.12) || (capture_point_2d(0) < middle_point_of_foot_2d(0) - 0.12))
+	if ((capture_point_2d(0) > middle_point_of_foot_2d(0) + 0.10) || (capture_point_2d(0) < middle_point_of_foot_2d(0) - 0.6))
 	{
 		trigger = true;
-		cout << "Catpure point in X axis is over the safety boundary! balance swing foot control activated" << endl;
+		std::cout << "Catpure point in X axis is over the safety boundary! balance swing foot control activated" << std::endl;
 	}
 
-	if ((capture_point_2d(1) > lfoot_transform_current_from_global_.translation()(1) + 0.02) || (capture_point_2d(1) < rfoot_transform_current_from_global_.translation()(1) - 0.02))
+	if ((capture_point_2d(1) > lfoot_transform_current_from_global_.translation()(1) - 0.02 ) || (capture_point_2d(1) < rfoot_transform_current_from_global_.translation()(1) + 0.02))
 	{
 		trigger = true;
-		cout << "Catpure point in Y axis is over the safety boundary! balance swing foot control activated" << endl;
+		std::cout << "Catpure point in Y axis is over the safety boundary! balance swing foot control activated" << std::endl;
 	}
 
 	// if( com_vel_2d.norm() > stop_vel_threshold_)
@@ -493,16 +515,16 @@ bool CustomController::balanceTrigger(Eigen::Vector2d com_pos_2d, Eigen::Vector2
 	//     cout<<"com vel is over the limit ("<< com_vel_2d.norm()<<")"<<endl;
 	// }
 
-	if (com_vel_2d(0) > 0.2 || abs(com_vel_2d(1)) > 0.4)
+	if ( abs(com_vel_2d(0)) > 0.2 || abs(com_vel_2d(1)) > 0.15)
 	{
 		trigger = true;
-		cout << "com vel is over the limit (" << com_vel_2d(0) << "," << com_vel_2d(1) << ")" << endl;
+		std::cout << "com vel is over the limit (" << com_vel_2d(0) << "," << com_vel_2d(1) << ")" << std::endl;
 	}
 
-	if (abs(lfoot_transform_current_from_global_.translation()(0) - rfoot_transform_current_from_global_.translation()(0)) > 0.03 || abs(lfoot_transform_current_from_global_.translation()(1) - rfoot_transform_current_from_global_.translation()(1)) > 0.22)
+	if (abs(lfoot_transform_current_from_global_.translation()(0) - rfoot_transform_current_from_global_.translation()(0)) > 0.03 || abs(lfoot_transform_current_from_global_.translation()(1) - rfoot_transform_current_from_global_.translation()(1)) > 0.25)
 	{
 		trigger = true;
-		cout << "Foot is not aligned" << endl;
+		std::cout << "Foot is not aligned" << std::endl;
 	}
 
 	// if (current_q_(3) > 0.2 || current_q_(9) > 0.2)
@@ -554,6 +576,30 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		start_time_ = current_time_;
 		program_start_time_ = current_time_;
 
+		com_pos_desired_preview_ = com_pos_current_;
+		com_vel_desired_preview_.setZero();
+		com_acc_desired_preview_.setZero();
+
+		com_vel_desired_preview_pre_ = com_pos_current_;
+		com_vel_desired_preview_pre_.setZero();
+		com_vel_desired_preview_pre_.setZero();
+
+		xs_.setZero();
+		ys_.setZero();
+
+		xi_ = com_pos_current_(0);
+		yi_ = com_pos_current_(1);
+
+		xd_.setZero();
+		yd_.setZero();
+		xd_(0) = com_pos_current_(0);
+		yd_(0) = com_pos_current_(1);
+
+		xd_b.setZero();
+		yd_b.setZero();
+		xd_b(0) = com_pos_current_(0);
+		yd_b(0) = com_pos_current_(1);
+		
 		walking_mode_on_ = false;
 	}
 
@@ -609,6 +655,17 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 	zmp_measured_local_ = wbc.GetZMPpos_fromFT(rd_, true);
 
 	middle_of_both_foot_ = (lfoot_transform_current_from_global_.translation() + rfoot_transform_current_from_global_.translation()) / 2;
+	zc_ = com_pos_current_(2) - support_foot_transform_current_.translation()(2);
+
+	if(current_time_ == program_start_time_)
+	{
+		support_foot_transform_pre_ = support_foot_transform_current_;
+		swing_foot_transform_pre_ = swing_foot_transform_current_;
+
+		com_pos_desired_preview_pre_ = com_pos_current_;
+		com_vel_desired_preview_pre_.setZero();
+		com_acc_desired_preview_pre_.setZero();
+	}
 }
 
 void CustomController::motionGenerator()
@@ -620,7 +677,7 @@ void CustomController::motionGenerator()
 
 	///////////////////////LEG/////////////////////////
 	//////LEFT LEG///////0 0 0.02 0.15 -0.17 0
-	motion_q_(0) = 0;
+	motion_q_(0) = turning_duration_*yaw_angular_vel_;
 	motion_q_(1) = 0;
 	motion_q_(2) = 0.02;
 	// motion_q_(3)   = DyrosMath::cubic(walking_phase_, 0.7, 1, knee_target_angle_, 2*knee_target_angle_, 0, 0); //0.1
@@ -635,7 +692,7 @@ void CustomController::motionGenerator()
 	pd_control_mask_(5) = 1;
 	//////////////////////
 	/////RIFHT LEG////////0 0 0.02 0.15 -0.17 0
-	motion_q_(6) = 0;
+	motion_q_(6) = turning_duration_*yaw_angular_vel_;
 	motion_q_(7) = 0;
 	motion_q_(8) = 0.02;
 	// motion_q_(9)   = DyrosMath::cubic(walking_phase_, 0.7, 1, knee_target_angle_, 2*knee_target_angle_, 0, 0); //0.1
@@ -649,7 +706,7 @@ void CustomController::motionGenerator()
 	pd_control_mask_(10) = 1;
 	pd_control_mask_(11) = 1;
 	///////////////////////WAIST/////////////////////////
-	motion_q_(12) = 0; //yaw
+	motion_q_(12) = (1-turning_phase_)*init_q_(12) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1; //yaw
 	motion_q_(13) = 0; //pitch
 	motion_q_(14) = 0; //roll
 	pd_control_mask_(12) = 1;
@@ -658,7 +715,7 @@ void CustomController::motionGenerator()
 	/////////////////////////////////////////////////////
 
 	///////////////////////HEAD/////////////////////////
-	motion_q_(23) = 0; //yaw
+	motion_q_(23) = (1-turning_phase_)*init_q_(23) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1.3; //yaw
 	motion_q_(24) = 0; //pitch
 	pd_control_mask_(23) = 1;
 	pd_control_mask_(24) = 1;
@@ -739,19 +796,26 @@ void CustomController::getCOMTrajectory()
 	double desired_step_position_in_y;
 	double desired_step_velocity_in_y;
 	double d_temp_y;
+	com_pos_desired_.setZero();
+	com_vel_desired_.setZero();
+	com_acc_desired_.setZero();
 
 	com_pos_desired_(2) = com_pos_current_(2);
 	com_vel_desired_(2) = com_vel_current_(2);
-	com_acc_desired_.setZero();
 
+
+	com_pos_desired_(1) = yd_(0);  // from preview
+	com_vel_desired_(1) = yd_(1);
+	com_acc_desired_(1) = yd_(2);
+	
 	if ((walking_speed_ != 0)) // when the robot want to move
 	{
-
 		// com_vel_desired_(0) = walking_speed_;
 		// com_pos_desired_(0) = com_pos_current_(0) + com_vel_desired_(0)*dt_;
 
 		if (start_walking_trigger_ == true)
 		{
+			// com_acc_desired_(2) = GRAVITY/2;
 			// com_vel_desired_(0) = walking_speed_;
 			// com_pos_desired_(0) = com_pos_current_(0) + com_vel_desired_(0)*dt_;
 
@@ -761,14 +825,15 @@ void CustomController::getCOMTrajectory()
 			// com_pos_desired_(1) = com_pos_current_(1);
 			// com_vel_desired_(1) = ( desired_step_position_in_y-com_pos_init_(1)+support_foot_transform_init_.translation()(1) )/(walking_duration_);
 			// com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (1-walking_phase_)*(com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + walking_phase_*desired_step_position_in_y;
-			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_ + 0 * walking_duration_, stance_start_time_ + 3 * walking_duration_, (com_pos_init_)(0), 0, 0, middle_of_both_foot_(0) + walking_speed_ * walking_duration_, 0, 0)(0);
-			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_ + 0 * walking_duration_, stance_start_time_ + 3 * walking_duration_, (com_pos_init_)(0), 0, 0, middle_of_both_foot_(0) + walking_speed_ * walking_duration_, 0, 0)(1);
-			com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 4 * walking_duration_, (com_pos_init_)(1), 0, 0, support_foot_transform_current_.translation()(1) - 0.03 * foot_contact_, 0, 0)(0); //-0.03*foot_contact_
-			com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 4 * walking_duration_, (com_pos_init_)(1), 0, 0, support_foot_transform_current_.translation()(1) - 0.03 * foot_contact_, 0, 0)(1);
+			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_ + 0 * walking_duration_, stance_start_time_ + 1 * walking_duration_, (com_pos_init_)(0), 0, 0, middle_of_both_foot_(0) + walking_speed_ * walking_duration_, 0, 0)(0);
+			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_ + 0 * walking_duration_, stance_start_time_ + 1 * walking_duration_, (com_pos_init_)(0), 0, 0, middle_of_both_foot_(0) + walking_speed_ * walking_duration_, 0, 0)(1);
+			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 1 * walking_duration_, (com_pos_init_)(1), 0, 0, support_foot_transform_current_.translation()(1) - 0.00 * foot_contact_, 0, 0)(0); //-0.03*foot_contact_
+			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 1 * walking_duration_, (com_pos_init_)(1), 0, 0, support_foot_transform_current_.translation()(1) - 0.00 * foot_contact_, 0, 0)(1);
 			// com_acc_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+2*walking_duration_, (com_pos_init_)(1), 0, 0, support_foot_transform_current_.translation()(1)  , 0, 0)(2);
 		}
 		else
 		{
+			// com_acc_desired_(2) = GRAVITY;
 			///////////////X DIRECTIOIN///////////
 			com_pos_desired_(0) = com_pos_current_(0);
 			com_vel_desired_(0) = walking_speed_;
@@ -778,18 +843,25 @@ void CustomController::getCOMTrajectory()
 			desired_step_position_in_y = -(step_width_)*foot_contact_;
 			double target_com_y_speed = (support_foot_transform_init_.translation()(1) + desired_step_position_in_y - com_pos_init_(1)) / (walking_duration_);
 
-			com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (1 - walking_phase_) * (com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + walking_phase_ * (desired_step_position_in_y);
-			com_vel_desired_(1) = target_com_y_speed;
+			// com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (1 - walking_phase_) * (com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + walking_phase_ * (desired_step_position_in_y);
+			// com_vel_desired_(1) = target_com_y_speed;
 
 			// cout<<"l: "<<l<<endl;
 			// cout<<"desired_step_velocity_in_y: "<<desired_step_velocity_in_y<<endl;
-			// cout<<"desired_step_position_in_y: "<<desired_step_position_in_y<<endl;
+
+			// if( int(current_time_*2000)%400 == 0 )
+			// {
+			// 	cout<<"support_foot_transform_init_.translation()(1): "<<support_foot_transform_init_.translation()(1)<<endl;
+			// 	cout<<"com_pos_init_(1): "<<com_pos_init_(1)<<endl;
+			// 	cout<<"desired_step_position_in_y: "<<desired_step_position_in_y<<endl;
+			// }
 		}
 	}
 	else
 	{
 		if ((foot_swing_trigger_ == true))
 		{
+			// com_acc_desired_(2) = GRAVITY;		//divide 2 because each legs apply same acc
 			// double traj_duraiton = 3.0;
 			///////////////X DIRECTIOIN///////////
 			// com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(0);
@@ -806,22 +878,35 @@ void CustomController::getCOMTrajectory()
 			// com_vel_desired_(1) = 0;
 			// com_pos_desired_(1) = com_pos_current_(1);
 			// com_vel_desired_(1) = DyrosMath::cubic(walking_phase_, 0, 5*switching_phase_duration_, 0, target_com_y_speed, 0, 0);
-			com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (1 - walking_phase_) * (com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + walking_phase_ * (desired_step_position_in_y);
-			com_vel_desired_(1) = target_com_y_speed;
+			// com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (1 - walking_phase_) * (com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + walking_phase_ * (desired_step_position_in_y);
+			// com_vel_desired_(1) = target_com_y_speed;
 		}
 		else if (program_start_time_ == stance_start_time_)
 		{
-			com_pos_desired_(0) = middle_of_both_foot_(0);
-			com_vel_desired_(0) = 0;
+			// com_pos_desired_(2) = com_pos_init_(2) - support_foot_transform_init_.translation()(2) + support_foot_transform_current_.translation()(2);
+			// com_vel_desired_(2) = 0;
+			// com_acc_desired_(2) = GRAVITY/2;
+			// com_pos_desired_(0) = middle_of_both_foot_(0);
+			// com_vel_desired_(0) = 0;
 
-			com_pos_desired_(1) = middle_of_both_foot_(1);
-			com_vel_desired_(1) = 0;
+			// com_pos_desired_(1) = middle_of_both_foot_(1);
+			// com_vel_desired_(1) = 0;
+			
+			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(0);
+			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(1);
+
+			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(0);
+			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(1);
 		}
 		else if (stop_walking_trigger_ == true)
 		{
-			double traj_duraiton = walking_duration_;
+			// com_pos_desired_(2) = com_pos_init_(2) - support_foot_transform_init_.translation()(2) + support_foot_transform_current_.translation()(2);
+			// com_vel_desired_(2) = 0;
+			// com_acc_desired_(2) = GRAVITY/2;		//divide 2 because each legs apply same acc
 
-			// com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0), 0, 0)(0);
+			double traj_duraiton = walking_duration_*0.5;
+
+			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0), 0, 0)(0);
 			// com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0), 0, 0)(1);
 			// com_pos_desired_(0) = com_pos_init_(0);
 			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, start_time_, start_time_+5, (com_pos_init_)(1), 0, 0, lfoot_transform_current_from_global_.translation()(1), 0, 0)(0);
@@ -829,44 +914,44 @@ void CustomController::getCOMTrajectory()
 			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(1), com_vel_init_(1), 0, (middle_of_both_foot_)(1), 0, 0)(0);
 			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(1), com_vel_init_(1), 0, (middle_of_both_foot_)(1), 0, 0)(1);
 			
-			com_pos_desired_(0) = middle_of_both_foot_(0);
+			// com_pos_desired_(0) = middle_of_both_foot_(0);
 			com_vel_desired_(0) = 0;
 
 			// com_pos_desired_(1) = middle_of_both_foot_(1);
 			// com_vel_desired_(1) = 0;
 			
-			// com_pos_desired_(1) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, com_pos_init_(1), (support_foot_transform_current_)(1), com_vel_init_(1), 0);
-			// com_vel_desired_(1) = DyrosMath::cubicDot(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, com_pos_init_(1), (support_foot_transform_current_)(1), com_vel_init_(1), 0, 0);
+			// com_pos_desired_(1) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, com_pos_init_(1), swing_foot_transform_current_.translation()(1), 0, 0);
+			// com_vel_desired_(1) = DyrosMath::cubicDot(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, com_pos_init_(1), swing_foot_transform_current_.translation()(1), 0, 0, 0);
 			
-			if(current_time_ < stance_start_time_ + traj_duraiton)
-			{
-				desired_step_position_in_y = -(step_width_*3)*foot_contact_; // positive sign because foot_contact_ does not changed at the walking stop.
-				double target_com_y_speed = (support_foot_transform_init_.translation()(1) + desired_step_position_in_y - com_pos_init_(1)) / (walking_duration_);
-				com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (stance_start_time_ + traj_duraiton - current_time_)/traj_duraiton * (com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + (current_time_- stance_start_time_)/traj_duraiton* (desired_step_position_in_y);
-				com_vel_desired_(1) = target_com_y_speed;
-			}
-			else
-			{
-				com_pos_desired_(0) = middle_of_both_foot_(0);
-				com_vel_desired_(0) = 0;
-				com_pos_desired_(1) = middle_of_both_foot_(1);
-				com_vel_desired_(1) = 0;
-				// com_pos_desired_(1) = DyrosMath::cubic(current_time_, stance_start_time_+traj_duraiton, stance_start_time_+2*traj_duraiton, com_pos_init_(1), (support_foot_transform_current_)(1), com_vel_init_(1), 0);
-				// com_vel_desired_(1) = DyrosMath::cubicDot(current_time_, stance_start_time_+traj_duraiton, stance_start_time_+2*traj_duraiton, com_pos_init_(1), (support_foot_transform_current_)(1), com_vel_init_(1), 0, 0);
-			}
+			// if(current_time_ < stance_start_time_ + traj_duraiton)
+			// {
+			// 	desired_step_position_in_y = -(step_width_*1.5)*foot_contact_; // positive sign because foot_contact_ does not changed at the walking stop.
+			// 	double target_com_y_speed = (support_foot_transform_init_.translation()(1) + desired_step_position_in_y - com_pos_init_(1)) / (walking_duration_);
+			// 	com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (stance_start_time_ + traj_duraiton - current_time_)/traj_duraiton * (com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + (current_time_- stance_start_time_)/traj_duraiton* (desired_step_position_in_y);
+			// 	com_vel_desired_(1) = target_com_y_speed;
+			// }
+			// else
+			// {
+
+			// 	// com_pos_desired_(1) = middle_of_both_foot_(1);
+			// 	// com_vel_desired_(1) = 0;
+			// 	com_pos_desired_(1) = DyrosMath::cubic(current_time_, stance_start_time_+traj_duraiton, stance_start_time_+2*traj_duraiton, com_pos_init_(1), (support_foot_transform_current_)(1), com_vel_init_(1), 0);
+			// 	com_vel_desired_(1) = DyrosMath::cubicDot(current_time_, stance_start_time_+traj_duraiton, stance_start_time_+2*traj_duraiton, com_pos_init_(1), (support_foot_transform_current_)(1), com_vel_init_(1), 0, 0);
+			// }
 
 			if (int(current_time_ * 2000) % 400 == 0)
 			{
-				cout << " WALKING STOPPED " << endl;
-				cout << " com_pos_desired_: " << com_pos_desired_<<endl;
-				cout << " com_vel_desired_: " << com_vel_desired_<<endl;
-				cout << " support_foot_transform_init_.translation()(1): " << support_foot_transform_init_.translation()(1)<<endl;
-				cout << " desired_step_position_in_y: " << desired_step_position_in_y <<endl;
-			}
-				
+				std::cout << " WALKING STOPPED " << std::endl;
+				std::cout << " foot_contact_: " <<foot_contact_ << std::endl;
+				std::cout << " com_pos_desired_: " << com_pos_desired_<<std::endl;
+				std::cout << " com_vel_desired_: " << com_vel_desired_<<std::endl;
+				std::cout << " support_foot_transform_init_.translation()(1): " << support_foot_transform_init_.translation()(1)<<std::endl;
+				std::cout << " desired_step_position_in_y: " << desired_step_position_in_y <<std::endl;
+			}	
 		}
 	}
 
+	// com_acc_desired_(2) = 0.4*com_acc_desired_(2) + 0.6*com_acc_desired_pre_(2);
 	// cout<<"com_pos_desired: "<< com_pos_desired_<<endl;
 	// cout<<"com_vel_desired: "<< com_vel_desired_<<endl;
 	// cout<<"com_pos_current_: "<< com_pos_current_<<endl;
@@ -883,6 +968,13 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 	double d_temp_y;
 	double alpha_x = 0.05;
 	double alpha_y = 0.0;
+
+	if(walking_speed_ == 0)
+	{
+		alpha_x = 0;
+		alpha_y = 0.0;
+	}
+
 
 	if (foot_swing_trigger_ == true)
 	{
@@ -904,7 +996,7 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 
 		if (com_vel_current(0) * walking_speed_ < 0)
 		{
-			alpha_x = 0.15;
+			alpha_x = 0.10;
 		}
 
 		d_prime(0) = d(0) - alpha_x * com_vel_desired(0);
@@ -923,9 +1015,10 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 		{
 			swing_foot_pos_trajectory_from_global_ = swing_foot_transform_init_.translation();
 			swing_foot_vel_trajectory_from_global_.setZero();
-			swing_foot_rot_trajectory_from_global_ = swing_foot_transform_init_.linear();
+			// swing_foot_rot_trajectory_from_global_ = swing_foot_transform_init_.linear();
+			swing_foot_rot_trajectory_from_global_.setIdentity();
 		}
-		else if (walking_phase_ < 0.95)
+		else if (walking_phase_ < 0.98)
 		{
 			double ssp = (phase - dsp_coeff * switching_phase_duration_) / (0.95 - dsp_coeff * switching_phase_duration_);
 
@@ -948,12 +1041,12 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 		if (foot_contact_ == 1) //left support
 		{
 			swing_foot_pos_trajectory_from_global_(0) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(0), lfoot_transform_current_from_global_.translation()(0) - 0.5, lfoot_transform_current_from_global_.translation()(0) + 1.0);
-			swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), lfoot_transform_current_from_global_.translation()(1) - 0.8, lfoot_transform_current_from_global_.translation()(1) - 0.2);
+			swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), lfoot_transform_current_from_global_.translation()(1) - 0.8, lfoot_transform_current_from_global_.translation()(1) - 0.21);
 		}
 		else if (foot_contact_ == -1) // right support
 		{
 			swing_foot_pos_trajectory_from_global_(0) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(0), rfoot_transform_current_from_global_.translation()(0) - 0.5, rfoot_transform_current_from_global_.translation()(0) + 1.0);
-			swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), rfoot_transform_current_from_global_.translation()(1) + 0.2, rfoot_transform_current_from_global_.translation()(1) + 0.8);
+			swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), rfoot_transform_current_from_global_.translation()(1) + 0.21, rfoot_transform_current_from_global_.translation()(1) + 0.8);
 		}
 
 	}
@@ -961,7 +1054,8 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 	{
 		swing_foot_pos_trajectory_from_global_ = swing_foot_transform_init_.translation();
 		swing_foot_vel_trajectory_from_global_.setZero();
-		swing_foot_rot_trajectory_from_global_ = swing_foot_transform_init_.linear();
+		// swing_foot_rot_trajectory_from_global_ = swing_foot_transform_init_.linear();
+		swing_foot_rot_trajectory_from_global_.setIdentity();
 	}
 
 
@@ -994,122 +1088,6 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 
 Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController &wbc)
 {
-
-	/////////////////////////////////////////////////////////////////////////////
-	//     const int arm_task_number = 6;
-	// const int arm_dof = 8;
-	// ////////// CoM Control //////////////////////
-	// wc_.set_contact(rd_, 1, 1);
-	// task_number = 6;
-	// J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
-	// f_star.setZero(task_number);
-
-	// J_task = rd_.link_[COM_id].Jac;
-	// J_task.block(0, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac_COM_p;
-	// J_task.block(0, 21, 6, arm_dof).setZero(); // Exclude Left Arm Jacobian
-	// J_task.block(0, 31, 6, arm_dof).setZero(); // Exclude Right Arm Jacobian
-
-	// rd_.link_[COM_id].x_desired = rd_.link_[COM_id].x_init;
-	// rd_.link_[COM_id].Set_Trajectory_from_quintic(control_time_, atc.command_time, atc.command_time + atc.traj_time);
-
-	// // f_star = wc_.getfstar6d(rd_, COM_id);
-	// torque_grav.setZero();
-	// torque_task = wc_.task_control_torque_QP2(rd_, J_task, f_star);
-	//////////////////////////////////////////////////////////////////
-
-	Eigen::VectorQd torque;
-
-	Eigen::VectorXd f_star;
-	Eigen::MatrixXd J_task;
-	const int task_dof = 6;
-
-	J_task.setZero(task_dof, MODEL_DOF_VIRTUAL);
-	f_star.setZero(task_dof);
-
-	wbc.set_contact(rd_, 1, 1);
-	if (foot_swing_trigger_ == true)
-	{
-		if ((foot_contact_ == 1))
-		{
-			wbc.set_contact(rd_, 1, 0);
-		}
-		else if ((foot_contact_ == -1))
-		{
-			wbc.set_contact(rd_, 0, 1);
-		}
-	}
-
-	////////////// Set J_task  ////////////////
-	J_task = rd_.link_[COM_id].Jac;
-	// J_task = rd_.link_[COM_id].Jac.block(0, 0, 2, MODEL_DOF_VIRTUAL);
-	J_task.block(0, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac_COM_p;
-	// J_task.block(3, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[Head].Jac.block(3, 0, 3, MODEL_DOF_VIRTUAL);
-	J_task.block(0, 21, 6, 8).setZero(); // Exclude Left hand Jacobian
-	J_task.block(0, 31, 6, 8).setZero(); // Exclude Right hand Jacobian
-	// J_task.block(0, 29, 6, 2).setZero(); // Exclude Head Jacobian
-
-	if (foot_swing_trigger_ == true)
-	{
-		if (foot_contact_ == 1) //left support
-		{
-			J_task.block(0, 12, 6, 8).setZero(); //Exclude Rifht Leg Jacobian
-		}
-		else if (foot_contact_ == -1) //right support
-		{
-			J_task.block(0, 6, 6, 8).setZero(); //Exclude Left Leg Jacobian
-		}
-	}
-	////////////////////////////////////////////
-
-	////////////// Set f_start  ////////////////
-	double kp = 2500; // 2500(reference paper)
-	double kv = 100;	// 100(reference paper)
-
-	// f_star(0) = kv*(com_vel_desired_(0) - com_vel_current_(0)) + kp*(com_pos_desired_(1)- com_pos_current_(1));                                                          //X axis D control
-	// f_star(1) = kv*(com_vel_desired_(1) - com_vel_current_(1)) + kp*(com_pos_desired_(1)- com_pos_current_(1));          //Y axis PD control
-	// f_star(2) = kv*(com_vel_desired_(2) - com_vel_current_(2)) + kp*(com_pos_desired_(2)- com_pos_current_(2));
-	rd_.link_[COM_id].x_traj = com_pos_desired_;
-	rd_.link_[COM_id].v_traj = com_vel_desired_;
-	rd_.link_[COM_id].a_traj.setZero();
-	rd_.link_[COM_id].r_traj = Eigen::Matrix3d::Identity();
-	rd_.link_[COM_id].w_traj.setZero();
-
-	// rd_.link_[Head].r_traj = Eigen::Matrix3d::Identity();
-	// rd_.link_[Head].w_traj = Eigen::Vector3d::Zero();
-	// f_star.segment(3, 3) = wc.getfstar_rot(rd_, COM_id);
-	// f_star.segment(3, 3) = wc.getfstar_rot(rd_, Head);
-	f_star = wbc.getfstar6d(rd_, COM_id);
-	f_star(2) = 0;
-	f_star(5) = 0;
-	/////////////////////////////////////////////
-
-	double contact_dist_ratio = 0;
-	// if( (foot_swing_trigger_ == false) && (walking_speed_ != 0))
-	// {
-	//     if(foot_contact_ == 1)
-	//     {
-	//         contact_dist_ratio = 1;
-	//     }
-	//     else if(foot_contact_ == -1)
-	//     {
-	//         contact_dist_ratio = -1;
-	//     }
-	// }
-
-	torque = wbc.task_control_torque_QP_dg(rd_, J_task, f_star, 1); //jacobian control + gravity torque
-
-	// if(int(control_time_) %2 ==0)
-	// {
-	//     cout<<"Com Vel torque: \n"<< torque <<endl;
-	//     cout<<"f_com: \n"<< f_com <<endl;
-	// }
-	// torque = tuneTorqueForZMPSafety( torque );        //turn off velocity tuning if the zmp is outside of the foot
-
-	return torque;
-}
-
-Eigen::VectorQd CustomController::comVelocityControlCompute2(WholebodyController &wbc)
-{
 	Eigen::VectorQd torque;
 	Eigen::VectorQd torque_g;
 
@@ -1117,9 +1095,11 @@ Eigen::VectorQd CustomController::comVelocityControlCompute2(WholebodyController
 	Eigen::MatrixXd J_task;
 	VectorQd torque_r_vel_tun;
 	VectorQd torque_l_vel_tun;
-	const int task_dof = 3;
+	const int task_dof = 6;
 	torque.setZero();
 	torque_g.setZero();
+	phi_pelv_.setZero();
+	torque_pelv_.setZero();
 	J_task.setZero(task_dof, MODEL_DOF_VIRTUAL);
 	f_star.setZero(task_dof);
 
@@ -1139,71 +1119,91 @@ Eigen::VectorQd CustomController::comVelocityControlCompute2(WholebodyController
 	torque_g = wbc.gravity_compensation_torque(rd_, true);
 
 	////////////// Set f_start  ////////////////
-	double kp = 14400; // 2500(reference paper)
-	double kv = 240;	 // 100(reference paper)
+	double kp = 196; // 2500(reference paper)
+	double kv = 28;	 // 100(reference paper)
 
 	// com_pos_desired_(1) = com_pos_init_(0) + sin(2*M_PI/8*current_time_-tc.command_time);
 	// com_vel_desired_(1) = M_PI/2*cos(2*M_PI/8*current_time_-tc.command_time);
-	f_star(0) = kv * (com_vel_desired_(0) - (com_vel_current_)(0)) + kp * (com_pos_desired_(0) - com_pos_current_(0)); // + rd_.com_.mass*com_acc_desired_(0);                                                          //X axis D control
-	f_star(1) = kv * (com_vel_desired_(1) - (com_vel_current_)(1)) + kp * (com_pos_desired_(1) - com_pos_current_(1)); // + rd_.com_.mass*com_acc_desired_(1);          //Y axis PD control
-	f_star(2) = 0;
+	f_star(0) = kv * (com_vel_desired_(0) - (com_vel_current_)(0)) + kp * (com_pos_desired_(0) - com_pos_current_(0)) + com_acc_desired_(0);		//X axis PD control
+	f_star(1) = kv * (com_vel_desired_(1) - (com_vel_current_)(1)) + kp * (com_pos_desired_(1) - com_pos_current_(1)) + com_acc_desired_(1);		//Y axis PD control
+	f_star(2) = kv * (com_vel_desired_(2) - (com_vel_current_)(2)) + kp * (com_pos_desired_(2) - com_pos_current_(2)) + com_acc_desired_(2);
 
-	// cout<<"com_vel_desired_: "<<com_vel_desired_<<endl;
-	// cout<<"com_vel_current_: "<<com_vel_current_<<endl;
-	// cout<<"com_pos_desired_: "<<com_pos_desired_<<endl;
-
-	// cout<<"f_star: "<<f_star<<endl;
-
-	// f_star(2) = kv*(com_vel_desired_(2) - com_vel_current_(2)) + kp*(com_pos_desired_(2)- com_pos_current_(2));
-	// rd_.link_[COM_id].x_traj = com_pos_desired_;
-	// rd_.link_[COM_id].v_traj = com_vel_desired_;
-	// rd_.link_[COM_id].a_traj.setZero();
-	// rd_.link_[COM_id].r_traj = Eigen::Matrix3d::Identity();
-	// rd_.link_[COM_id].w_traj.setZero();
-
-	// rd_.link_[Head].r_traj = Eigen::Matrix3d::Identity();
-	// rd_.link_[Head].w_traj = Eigen::Vector3d::Zero();
-	// f_star.segment(2, 3) = wc.getfstar_rot(rd_, COM_id);
-	// f_star.segment(3, 3) = wc.getfstar_rot(rd_, Head);
-	// f_star = wc.getfstar6d(rd_, COM_id);
-
-	// f_star_xy_ = 0.3*f_star + 0.7*f_star_xy_pre_;
+	f_star(0) *= rd_.com_.mass;				//cancle out mass effect
+	f_star(1) *= rd_.com_.mass;
+	f_star(2) *= rd_.com_.mass;
+	
+	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
+	ang_vel_pelv_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Pelvis].w;
+	double kpa_pelv = 4900; //angle error gain
+	double kva_pelv = 140;	//angular velocity gain
+	torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * ang_vel_pelv_;
+	torque_pelv_(2) = 0;
+	f_star.segment(3,3) = torque_pelv_*2;
 	/////////////////////////////////////////////
 
 	/////////////////////JACOBIAN///////////////////////////////////////
 
 	MatrixXd lfoot_to_com_jac_from_global;
 	MatrixXd rfoot_to_com_jac_from_global;
-	lfoot_to_com_jac_from_global.setZero(3, MODEL_DOF_VIRTUAL);
-	rfoot_to_com_jac_from_global.setZero(3, MODEL_DOF_VIRTUAL);
+	lfoot_to_com_jac_from_global.setZero(task_dof, MODEL_DOF_VIRTUAL);
+	rfoot_to_com_jac_from_global.setZero(task_dof, MODEL_DOF_VIRTUAL);
 	Matrix6d adjoint_pelv_to_ankle;
 	adjoint_pelv_to_ankle.block(0, 0, 3, 3) = -Eigen::Matrix3d::Identity();
 	adjoint_pelv_to_ankle.block(0, 3, 3, 3) = DyrosMath::skm(com_pos_current_ - lfoot_transform_current_from_global_.translation());
 	adjoint_pelv_to_ankle.block(3, 3, 3, 3) = -Eigen::Matrix3d::Identity();
 
-	lfoot_to_com_jac_from_global = (adjoint_pelv_to_ankle * rd_.link_[Left_Foot].Jac).block(0, 0, 3, MODEL_DOF_VIRTUAL) + rd_.link_[COM_id].Jac_COM_p;
-	lfoot_to_com_jac_from_global.block(0, 12, 3, 6).setZero();
-	lfoot_to_com_jac_from_global.block(0, 21, 3, 8).setZero();
-	lfoot_to_com_jac_from_global.block(0, 31, 3, 8).setZero();
+	lfoot_to_com_jac_from_global.block(0, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_lfoot_).block(0, 0, 3, MODEL_DOF_VIRTUAL) + jac_com_pos_;
+	lfoot_to_com_jac_from_global.block(3, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_lfoot_).block(3, 0, 3, MODEL_DOF_VIRTUAL);
+	lfoot_to_com_jac_from_global.block(0, 6, 6, 1).setZero(); 		// 	left yaw
+	lfoot_to_com_jac_from_global.block(0, 12, 6, 6).setZero(); 		//	right leg
+	lfoot_to_com_jac_from_global.block(0, 21, 6, 8).setZero();		//	left arm
+	lfoot_to_com_jac_from_global.block(0, 31, 6, 8).setZero();		// 	right arm
+	
+	lfoot_to_com_jac_from_global.block(3, 9, 3, 3).setZero();		// 	left leg roation component: knee pitch, ankle pitch, ankle roll
+	lfoot_to_com_jac_from_global.block(3, 18, 3, 3).setZero();		// 	waist roation component
+	lfoot_to_com_jac_from_global.block(3, 29, 3, 2).setZero();		// 	head roation component
 
 	adjoint_pelv_to_ankle.block(0, 0, 3, 3) = -Eigen::Matrix3d::Identity();
 	adjoint_pelv_to_ankle.block(0, 3, 3, 3) = DyrosMath::skm(com_pos_current_ - rfoot_transform_current_from_global_.translation());
 	adjoint_pelv_to_ankle.block(3, 3, 3, 3) = -Eigen::Matrix3d::Identity();
 
-	rfoot_to_com_jac_from_global = (adjoint_pelv_to_ankle * rd_.link_[Right_Foot].Jac).block(0, 0, 3, MODEL_DOF_VIRTUAL) + rd_.link_[COM_id].Jac_COM_p;
-	rfoot_to_com_jac_from_global.block(0, 6, 3, 6).setZero();
-	rfoot_to_com_jac_from_global.block(0, 21, 3, 8).setZero();
-	rfoot_to_com_jac_from_global.block(0, 31, 3, 8).setZero();
+	rfoot_to_com_jac_from_global.block(0, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(0, 0, 3, MODEL_DOF_VIRTUAL) + jac_com_pos_;
+	rfoot_to_com_jac_from_global.block(3, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(3, 0, 3, MODEL_DOF_VIRTUAL);
+	rfoot_to_com_jac_from_global.block(0, 6, 6, 6).setZero();		//	left leg
+	rfoot_to_com_jac_from_global.block(0, 12, 6, 1).setZero(); 		// 	right yaw
+	rfoot_to_com_jac_from_global.block(0, 21, 6, 8).setZero();		//	left arm
+	rfoot_to_com_jac_from_global.block(0, 31, 6, 8).setZero();		//	right arm
 
-	torque_l_vel_tun = (lfoot_to_com_jac_from_global.transpose() * f_star).segment(6, MODEL_DOF);
-	torque_r_vel_tun = (rfoot_to_com_jac_from_global.transpose() * f_star).segment(6, MODEL_DOF);
+	rfoot_to_com_jac_from_global.block(3, 15, 3, 3).setZero();		// 	right leg roation component: knee pitch, ankle pitch, ankle roll
+	rfoot_to_com_jac_from_global.block(3, 18, 3, 3).setZero();		// 	waist roation component
+	rfoot_to_com_jac_from_global.block(3, 29, 3, 2).setZero();		// 	head roation component
 
+	Eigen::Vector6d f_internal_left;
+	Eigen::Vector6d f_internal_right;
+
+	f_internal_left.setZero();
+	f_internal_right.setZero();
+	// if(stop_walking_trigger_ == true)
+	// {
+	// 	f_internal_left(1) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_+0.01, 0, -1, 0, 0);
+	// 	f_internal_right(1) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_+0.01, 0, 1, 0, 0);
+	// }
+	
+	
+
+	torque_l_vel_tun = (lfoot_to_com_jac_from_global.transpose() * (f_star + f_internal_left)).segment(6, MODEL_DOF);
+	torque_r_vel_tun = (rfoot_to_com_jac_from_global.transpose() * (f_star + f_internal_right)).segment(6, MODEL_DOF);
+
+	// jointLimit(torque_l_vel_tun);
+	// jointLimit(torque_r_vel_tun);
 	// cout<<"adjoint_pelv_to_ankle: "<< adjoint_pelv_to_ankle<<endl;
 	// cout<<"rd_.link_[Right_Foot].Jac: "<< rd_.link_[Right_Foot].Jac<<endl;
 	// cout<<"rd_.link_[COM_id].Jac_COM_p: "<< rd_.link_[COM_id].Jac_COM_p<<endl;
-
-	// cout<<"lfoot_to_com_jac_from_global: "<< lfoot_to_com_jac_from_global<<endl;
-	// cout<<"rfoot_to_com_jac_from_global: "<< rfoot_to_com_jac_from_global<<endl;
+	// if( int(current_time_*2000)%400 == 0)
+	// {
+	// 	cout<<"lfoot_to_com_jac_from_global: \n"<< lfoot_to_com_jac_from_global<<endl;
+	// 	cout<<"rfoot_to_com_jac_from_global: \n"<< rfoot_to_com_jac_from_global<<endl;
+	// }
 	// J_task = jac_com_pos_;
 	/////////////////////////////////////////////////////////////////////////////
 
@@ -1291,32 +1291,67 @@ Eigen::VectorQd CustomController::comVelocityControlCompute2(WholebodyController
 	}
 	else
 	{
-		if (stop_walking_trigger_ == true)
+
+		if(stance_start_time_ == program_start_time_)
+		{
+			if(foot_contact_ == -1)
+			{
+				torque_l_vel_tun.segment(12, 3).setZero(); // waist torque
+				torque_l_vel_tun.segment(23, 2).setZero(); // head torque
+			}
+			else if (foot_contact_ == 1)
+			{
+				torque_r_vel_tun.segment(12, 3).setZero(); // waist torque
+				torque_r_vel_tun.segment(23, 2).setZero(); // head torque
+			}
+			
+			lfoot_task_torque_switch = first_torque_supplier_;
+			rfoot_task_torque_switch = first_torque_supplier_;
+
+			lfoot_torque_g_switch = 1-first_torque_supplier_;
+			rfoot_torque_g_switch = 1-first_torque_supplier_;
+
+			// lfoot_task_torque_switch = 0;
+			// rfoot_task_torque_switch = 0;
+
+			// lfoot_torque_g_switch = 0;
+			// rfoot_torque_g_switch = 0;
+		}
+		else if(stop_walking_trigger_ == true)
 		{
 			if (foot_contact_ == -1) // right support, left support previously
 			{
+				torque_l_vel_tun.segment(12, 3).setZero(); // waist torque
+				torque_l_vel_tun.segment(23, 2).setZero(); // head torque
+
 				lfoot_task_torque_switch = 1;
 				rfoot_task_torque_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 0, 1, 0, 0);
 
 				lfoot_torque_g_switch = 0;
 				rfoot_torque_g_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 1, 0, 0, 0);
+
+				// lfoot_task_torque_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 1, 0, 0, 0);
+				// rfoot_task_torque_switch = 0;
+
+				// lfoot_torque_g_switch = 0;
+				// rfoot_torque_g_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 1, 0, 0, 0);
 			}
 			else if (foot_contact_ == 1)
 			{
+				torque_r_vel_tun.segment(12, 3).setZero(); // waist torque
+				torque_r_vel_tun.segment(23, 2).setZero(); // head torque
+
 				lfoot_task_torque_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 0, 1, 0, 0);
 				rfoot_task_torque_switch = 1;
 
 				lfoot_torque_g_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 1, 0, 0, 0);
 				rfoot_torque_g_switch = 0;
+				// rfoot_task_torque_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 1, 0, 0, 0);
+				// lfoot_task_torque_switch = 0;
+				
+				// rfoot_torque_g_switch = 0;
+				// lfoot_torque_g_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + walking_duration_ * switching_phase_duration_, 1, 0, 0, 0);
 			}
-		}
-		else
-		{
-			lfoot_task_torque_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.1 * walking_duration_, 0, 1, 0, 0);
-			rfoot_task_torque_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.1 * walking_duration_, 0, 1, 0, 0);
-
-			lfoot_torque_g_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.1 * walking_duration_, 1, 0, 0, 0);
-			rfoot_torque_g_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.1 * walking_duration_, 1, 0, 0, 0);
 		}
 	}
 
@@ -1371,7 +1406,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	Eigen::Isometry3d lleg_transform_target;
 	Eigen::Isometry3d rleg_transform_target;
 	Eigen::Matrix3d pevl_target_rot;
-
+	Eigen::Vector3d torque_pelv_for_ankle;
+ 
 	double default_stance_foot_z_from_pelv = -0.349 * (cos(0.02) + cos(0.12)) - 0.1225;
 	// lleg_transform_target.translation()(0) = -0.015;
 	// lleg_transform_target.translation()(1) = 0.1025;
@@ -1394,34 +1430,33 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	pelv_transform_from_global.linear() = pelv_rot_current_yaw_aline_; //
 	// pelv_transform_from_global.linear() = pelv_yaw_rot_current_from_global_;
 	// pelv_transform_from_global.linear().setIdentity();
-	Vector3d phi_pelv;
-	Vector3d ang_vel_pelv;
-	Vector3d torque_pelv;
-	VectorQd torque_stance_hip;
-	VectorQd torque_swing_assist;
 
-	torque_pelv.setZero();
-	torque_stance_hip.setZero();
-	torque_swing_assist.setZero();
 
-	phi_pelv = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
-	ang_vel_pelv = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Pelvis].w;
+	torque_pelv_.setZero();
+	torque_pelv_for_ankle.setZero();
+	torque_stance_hip_.setZero();
+	torque_swing_assist_.setZero();
+
+	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
+	ang_vel_pelv_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Pelvis].w;
 	double kpa_pelv = 6400; //angle error gain
 	double kva_pelv = 160;	//angular velocity gain
-	torque_pelv = kpa_pelv * phi_pelv - kva_pelv * ang_vel_pelv;
+	// torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * ang_vel_pelv_;
+	// torque_pelv_for_ankle = 100*phi_pelv_ - 20*ang_vel_pelv_;
+
 	Vector3d axis;
 	double angle;
-	// angle = (phi_pelv.norm())*dt_ ;
-	// axis = phi_pelv.normalized();
+	// angle = (phi_pelv_.norm())*dt_ ;
+	// axis = phi_pelv_.normalized();
 
 	Eigen::AngleAxisd aa(pelv_rot_current_yaw_aline_.transpose());
 	angle = aa.angle();
 	axis = aa.axis();
 
-	if(foot_swing_trigger_ == false)
-	{
-		torque_pelv(0) = 2500 * phi_pelv(0) - 100 * ang_vel_pelv(0);
-	}
+	// if(foot_swing_trigger_ == false)
+	// {
+	// 	torque_pelv_(0) = 2500 * phi_pelv_(0) - 100 * ang_vel_pelv_(0);
+	// }
 
 	// if( walking_phase_>0.1 )
 	// {
@@ -1449,8 +1484,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	double swing_pd_switch;
 	for (int i = 0; i < MODEL_DOF; i++)
 	{
-		kp_joint(i) = 64;
-		kv_joint(i) = 16;
+		kp_joint(i) = 100;
+		kv_joint(i) = 20;
 	}
 
 	// for(int i = 0; i<12; i++)      //Leg
@@ -1470,8 +1505,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 
 	for (int i = 0; i < 3; i++) //Waist Joint Gains
 	{
-		kp_joint(12 + i) = 169;
-		kv_joint(12 + i) = 26;
+		kp_joint(12 + i) = 196;
+		kv_joint(12 + i) = 28;
 	}
 	// kp_joint(12) = 50;
 	// kv_joint(12) = 14;
@@ -1497,10 +1532,10 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	kp_stiff_joint(3) = 2500; //L knee joint gain
 	kv_stiff_joint(3) = 100;
 
-	kp_stiff_joint(4) = 100; //L ankle pitch joint gain
-	kv_stiff_joint(4) = 20;
-	kp_stiff_joint(5) = 100; //L ankle roll joint gain
-	kv_stiff_joint(5) = 20;
+	kp_stiff_joint(4) = 900; //L ankle pitch joint gain
+	kv_stiff_joint(4) = 60;
+	kp_stiff_joint(5) = 900; //L ankle roll joint gain
+	kv_stiff_joint(5) = 60;
 
 	kp_stiff_joint(6) = 2500; //R hip yaw joint gain
 	kv_stiff_joint(6) = 100;
@@ -1512,10 +1547,10 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	kp_stiff_joint(9) = 2500; //R knee joint gain
 	kv_stiff_joint(9) = 100;
 
-	kp_stiff_joint(10) = 100; //R ankle pitch joint gain
-	kv_stiff_joint(10) = 20;
-	kp_stiff_joint(11) = 100; //R ankle roll joint gain
-	kv_stiff_joint(11) = 20;
+	kp_stiff_joint(10) = 900; //R ankle pitch joint gain
+	kv_stiff_joint(10) = 60;
+	kp_stiff_joint(11) = 900; //R ankle roll joint gain
+	kv_stiff_joint(11) = 60;
 
 	//soft
 	kp_soft_joint(0) = 2500; //L hip yaw joint gain
@@ -1590,9 +1625,11 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				// }
 			}
 
-			desired_q_(0) = 0.5 * motion_q_(0) + 0.5 * pre_desired_q_(0);
+			desired_q_(0) = 0.5 * 0 + 0.5 * pre_desired_q_(0);
+			// desired_q_(0) = motion_q_(0);
 			Vector3d phi_swing_ankle;
-			phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			// phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			phi_swing_ankle = -DyrosMath::getPhi(lfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
 			// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
 			desired_q_dot_(4) = 200 * phi_swing_ankle(1); //swing ankle pitch
@@ -1601,7 +1638,9 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			desired_q_(5) = current_q_(5) + desired_q_dot_(5) * dt_;
 
 			Vector3d phi_support_ankle;
-			phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			// phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			phi_support_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), DyrosMath::rotateWithZ(current_q_(6)));
+
 
 			desired_q_dot_(10) = 200 * phi_support_ankle(1);
 			desired_q_dot_(11) = 200 * phi_support_ankle(0);
@@ -1609,7 +1648,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			desired_q_(11) = current_q_(11) + desired_q_dot_(11) * dt_;
 
 			// low pass filter for suppport foot target position
-			desired_q_(6) = 0.5 * motion_q_(6) + 0.5 * pre_desired_q_(6); //right support foot hip yaw
+			// desired_q_(6) = 0.5 * motion_q_(6) + 0.5 * pre_desired_q_(6); //right support foot hip yaw
+			desired_q_(6) = DyrosMath::QuinticSpline(turning_phase_, 0, 1, init_q_(6), 0, 0, motion_q_(6), 0, 0)(0); 
 			desired_q_(9) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, init_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
 			// desired_q_(9) = 0.5*motion_q_(9) + 0.5*pre_desired_q_(9); //right support foot
 			// desired_q_(9) = desired_q_leg(9); //right support foot knee
@@ -1649,7 +1689,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			// torque_swing_assist.segment(1, 3) = jac_lfoot_.block(2, 7, 1, 3).transpose()*swing_foot_acc_trajectory_from_global_(2);
 			// torque_swing_assist.segment(1, 3) = (jac_lfoot_.transpose()).block(7, 0, 3, 6)*rd_.lambda.block(0, 2, 6, 1)*swing_foot_acc_trajectory_from_global_(2);
 
-			torque_swing_assist.segment(1, 3) = wbc.task_control_torque(rd_, jac_lfoot_.block(0, 0, 3, MODEL_DOF_VIRTUAL), f_star).segment(1, 3);
+			torque_swing_assist_.segment(1, 3) = wbc.task_control_torque(rd_, jac_lfoot_.block(0, 0, 3, MODEL_DOF_VIRTUAL), f_star).segment(1, 3);
 
 			/////////////////////////////////////////////////////////////////////////////
 
@@ -1665,11 +1705,17 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(7) = 0;
 				pd_control_mask_(8) = 0;
 
-				torque_stance_hip(2) = -torque_pelv(1) * (1 - swing_pd_switch); // left hip pitch
-				torque_stance_hip(1) = -torque_pelv(0) * (1 - swing_pd_switch); // left hip roll
+				torque_stance_hip_(2) = -torque_pelv_(1) * (1 - swing_pd_switch); // left hip pitch
+				torque_stance_hip_(1) = -torque_pelv_(0) * (1 - swing_pd_switch); // left hip roll
 
-				torque_stance_hip(8) = -torque_pelv(1); // right hip pitch
-				torque_stance_hip(7) = -torque_pelv(0); // right hip roll
+				torque_stance_hip_(4) = -torque_pelv_for_ankle(1) * (1 - swing_pd_switch); // left ankle pitch
+				torque_stance_hip_(5) = -torque_pelv_for_ankle(0) * (1 - swing_pd_switch); // left ankle roll
+
+				torque_stance_hip_(8) = -torque_pelv_(1); // right hip pitch
+				torque_stance_hip_(7) = -torque_pelv_(0); // right hip roll
+
+				torque_stance_hip_(10) = -torque_pelv_for_ankle(1); // right ankle pitch
+				torque_stance_hip_(11) = -torque_pelv_for_ankle(0); // right ankle roll
 			}
 			else
 			{
@@ -1681,11 +1727,17 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(7) = 1 - swing_pd_switch;
 				pd_control_mask_(8) = 1 - swing_pd_switch;
 
-				torque_stance_hip(2) = -torque_pelv(1) * (1 - swing_pd_switch); // left hip pitch
-				torque_stance_hip(1) = -torque_pelv(0) * (1 - swing_pd_switch); // left hip roll
+				torque_stance_hip_(2) = -torque_pelv_(1) * (1 - swing_pd_switch); // left hip pitch
+				torque_stance_hip_(1) = -torque_pelv_(0) * (1 - swing_pd_switch); // left hip roll
 
-				torque_stance_hip(8) = -torque_pelv(1) * swing_pd_switch; // right hip pitch
-				torque_stance_hip(7) = -torque_pelv(0) * swing_pd_switch; // right hip roll
+				torque_stance_hip_(4) = -torque_pelv_for_ankle(1) * (1 - swing_pd_switch); // left ankle pitch
+				torque_stance_hip_(5) = -torque_pelv_for_ankle(0) * (1 - swing_pd_switch); // left ankle roll
+
+				torque_stance_hip_(8) = -torque_pelv_(1) * swing_pd_switch; // right hip pitch
+				torque_stance_hip_(7) = -torque_pelv_(0) * swing_pd_switch; // right hip roll
+
+				torque_stance_hip_(10) = -torque_pelv_for_ankle(1) * swing_pd_switch; // right ankle pitch
+				torque_stance_hip_(11) = -torque_pelv_for_ankle(0) * swing_pd_switch; // right ankle roll
 			}
 		}
 		else if (foot_contact_ == 1) //left support
@@ -1723,9 +1775,10 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				// }
 			}
 
-			desired_q_(6) = 0.5 * motion_q_(6) + 0.5 * pre_desired_q_(6);
+			desired_q_(6) = 0.5 * 0 + 0.5 * pre_desired_q_(6);
 			Vector3d phi_swing_ankle;
-			phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			// phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			phi_swing_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
 			// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
 			desired_q_dot_(10) = 200 * phi_swing_ankle(1); //swing ankle pitch
@@ -1734,14 +1787,17 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			desired_q_(11) = current_q_(11) + desired_q_dot_(11) * dt_;
 
 			Vector3d phi_support_ankle;
-			phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			// phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
+			phi_support_ankle = -DyrosMath::getPhi(lfoot_transform_current_from_global_.linear(), DyrosMath::rotateWithZ(current_q_(0)));
+
 
 			desired_q_dot_(4) = 200 * phi_support_ankle(1);
 			desired_q_dot_(5) = 200 * phi_support_ankle(0);
 			desired_q_(4) = current_q_(4) + desired_q_dot_(4) * dt_;
 			desired_q_(5) = current_q_(5) + desired_q_dot_(5) * dt_;
 
-			desired_q_(0) = 0.5 * motion_q_(0) + 0.5 * pre_desired_q_(0); //left support foot hip yaw
+			// desired_q_(0) = 0.5 * motion_q_(0) + 0.5 * pre_desired_q_(0); //left support foot hip yaw
+			desired_q_(0) = DyrosMath::QuinticSpline(turning_phase_, 0, 1, init_q_(0), 0, 0, motion_q_(0), 0, 0)(0);  //left support foot hip yaw
 			desired_q_(3) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, init_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
 			// desired_q_(3) = 0.5*motion_q_(3) + 0.5*pre_desired_q_(3); //left support foot knee
 			// desired_q_(3) = desired_q_leg(3); //left support foot knee
@@ -1778,9 +1834,9 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			f_star.setZero(3);
 			f_star(2) = swing_foot_acc_trajectory_from_global_(2);
 
-			torque_swing_assist.segment(7, 3) = wbc.task_control_torque(rd_, jac_rfoot_.block(0, 0, 3, MODEL_DOF_VIRTUAL), f_star).segment(7, 3);
+			torque_swing_assist_.segment(7, 3) = wbc.task_control_torque(rd_, jac_rfoot_.block(0, 0, 3, MODEL_DOF_VIRTUAL), f_star).segment(7, 3);
 
-			// torque_swing_assist.segment(7, 3) = (jac_lfoot_.transpose()).block(13, 0, 3, 6)*rd_.lambda.block(0, 2, 6, 1)*swing_foot_acc_trajectory_from_global_(2);
+			// torque_swing_assist.segment(7, 3) = (jac_rfoot_.transpose()).block(13, 0, 3, 6)*rd_.lambda.block(0, 2, 6, 1)*swing_foot_acc_trajectory_from_global_(2);
 			/////////////////////////////////////////////////////////////////////////////
 
 			swing_pd_switch = DyrosMath::cubic(walking_phase_, 0, switching_phase_duration_, 0, 1, 0, 0);
@@ -1796,11 +1852,17 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(7) = swing_pd_switch;
 				pd_control_mask_(8) = swing_pd_switch;
 
-				torque_stance_hip(2) = -torque_pelv(1); // left hip pitch
-				torque_stance_hip(1) = -torque_pelv(0); // left hip roll
+				torque_stance_hip_(2) = -torque_pelv_(1); // left hip pitch
+				torque_stance_hip_(1) = -torque_pelv_(0); // left hip roll
 
-				torque_stance_hip(8) = -torque_pelv(1) * (1 - swing_pd_switch); // right hip pitch
-				torque_stance_hip(7) = -torque_pelv(0) * (1 - swing_pd_switch); // right hip roll
+				torque_stance_hip_(4) = -torque_pelv_for_ankle(1); // left ankle pitch
+				torque_stance_hip_(5) = -torque_pelv_for_ankle(0); // left ankle roll
+
+				torque_stance_hip_(8) = -torque_pelv_(1) * (1 - swing_pd_switch); // right hip pitch
+				torque_stance_hip_(7) = -torque_pelv_(0) * (1 - swing_pd_switch); // right hip roll
+
+				torque_stance_hip_(10) = -torque_pelv_for_ankle(1) * (1 - swing_pd_switch); // right ankle pitch
+				torque_stance_hip_(11) = -torque_pelv_for_ankle(0) * (1 - swing_pd_switch); // right ankle roll
 			}
 			else
 			{
@@ -1812,11 +1874,17 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(7) = swing_pd_switch;
 				pd_control_mask_(8) = swing_pd_switch;
 
-				torque_stance_hip(2) = -torque_pelv(1) * swing_pd_switch; // left hip pitch
-				torque_stance_hip(1) = -torque_pelv(0) * swing_pd_switch; // left hip roll
+				torque_stance_hip_(2) = -torque_pelv_(1) * swing_pd_switch; // left hip pitch
+				torque_stance_hip_(1) = -torque_pelv_(0) * swing_pd_switch; // left hip roll
 
-				torque_stance_hip(8) = -torque_pelv(1) * (1 - swing_pd_switch); // right hip pitch
-				torque_stance_hip(7) = -torque_pelv(0) * (1 - swing_pd_switch); // right hip roll
+				torque_stance_hip_(4) = -torque_pelv_for_ankle(1) * swing_pd_switch; // left ankle pitch
+				torque_stance_hip_(5) = -torque_pelv_for_ankle(0) * swing_pd_switch; // left ankle roll
+
+				torque_stance_hip_(8) = -torque_pelv_(1) * (1 - swing_pd_switch); // right hip pitch
+				torque_stance_hip_(7) = -torque_pelv_(0) * (1 - swing_pd_switch); // right hip roll
+
+				torque_stance_hip_(10) = -torque_pelv_for_ankle(1) * (1 - swing_pd_switch); // right ankle pitch
+				torque_stance_hip_(11) = -torque_pelv_for_ankle(0) * (1 - swing_pd_switch); // right ankle roll				
 			}
 		}
 	}
@@ -1838,11 +1906,15 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 		//     desired_q_(i) = 0.3*desired_q_leg(i) + 0.7*pre_desired_q_(i); //left ankle
 		//     desired_q_(i+6) = 0.3*desired_q_leg(i+6) + 0.7*pre_desired_q_(i+6); //right ankle
 		// }
-		desired_q_(0) = 0.5 * motion_q_(0) + 0.5 * pre_desired_q_(0);
-		desired_q_(6) = 0.5 * motion_q_(6) + 0.5 * pre_desired_q_(6);
+		desired_q_(0) = 0.5 * 0 + 0.5 * pre_desired_q_(0); // hip yaw
+		desired_q_(6) = 0.5 * 0 + 0.5 * pre_desired_q_(6);
 
-		desired_q_(3) = 0.4 * motion_q_(3) + 0.6 * pre_desired_q_(3); //left knee
-		desired_q_(9) = 0.4 * motion_q_(9) + 0.6 * pre_desired_q_(9); //right knee
+		desired_q_(3) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + switching_phase_duration_ * walking_duration_, init_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
+		desired_q_(9) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + switching_phase_duration_ * walking_duration_, init_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
+		// desired_q_(3) = 0.4 * motion_q_(3) + 0.6 * pre_desired_q_(3); //left knee
+		// desired_q_(9) = 0.4 * motion_q_(9) + 0.6 * pre_desired_q_(9); //right knee
+		// desired_q_(3) =	current_q_(3);
+		// desired_q_(9) =	current_q_(9);
 
 		// desired_q_(4) = 0.3*motion_q_(4) + 0.7*pre_desired_q_(4); //lefft ankle pitch
 		// desired_q_(5) = 0.3*motion_q_(5) + 0.7*pre_desired_q_(5); //lefft ankle roll
@@ -1858,6 +1930,11 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 		desired_q_(5) = desired_q_leg(5);
 		desired_q_(10) = desired_q_leg(10);
 		desired_q_(11) = desired_q_leg(11);
+        
+		// desired_q_(4) = current_q_(4); // test
+		// desired_q_(5) = current_q_(5);
+		// desired_q_(10) = current_q_(10);
+		// desired_q_(11) = current_q_(11);
 
 		for (int i = 1; i < 6; i++)
 		{
@@ -1866,40 +1943,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 		}
 
 		swing_pd_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + switching_phase_duration_ * walking_duration_, 0, 1, 0, 0);
-		if (stop_walking_trigger_ == true)
-		{
-			if (foot_contact_ == 1)
-			{
-				pd_control_mask_(0) = 1 - swing_pd_switch;
-				pd_control_mask_(1) = 1 - swing_pd_switch;
-				pd_control_mask_(2) = 1 - swing_pd_switch;
 
-				pd_control_mask_(6) = 1;
-				pd_control_mask_(7) = 0;
-				pd_control_mask_(8) = 0;
-
-				torque_stance_hip(2) = -torque_pelv(1) * swing_pd_switch; // left hip pitch
-				torque_stance_hip(1) = -torque_pelv(0) * swing_pd_switch; // left hip roll
-				torque_stance_hip(8) = -torque_pelv(1);										// right hip pitch
-				torque_stance_hip(7) = -torque_pelv(0);										// right hip roll
-			}
-			else if (foot_contact_ == -1)
-			{
-				pd_control_mask_(0) = 1;
-				pd_control_mask_(1) = 0;
-				pd_control_mask_(2) = 0;
-
-				pd_control_mask_(6) = 1 - swing_pd_switch;
-				pd_control_mask_(7) = 1 - swing_pd_switch;
-				pd_control_mask_(8) = 1 - swing_pd_switch;
-
-				torque_stance_hip(2) = -torque_pelv(1);										// left hip pitch
-				torque_stance_hip(1) = -torque_pelv(0);										// left hip roll
-				torque_stance_hip(8) = -torque_pelv(1) * swing_pd_switch; // right hip pitch
-				torque_stance_hip(7) = -torque_pelv(0) * swing_pd_switch; // right hip roll
-			}
-		}
-		else if (program_start_time_ == stance_start_time_)
+		if (program_start_time_ == stance_start_time_)
 		{
 			// desired_q_(5) = current_q_(5); //aknle roll free for start motion
 			// desired_q_(11) = current_q_(11); //aknle roll
@@ -1917,19 +1962,83 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			pd_control_mask_(6) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, 0, 1, 0, 0);
 			pd_control_mask_(7) = 0;
 			pd_control_mask_(8) = 0;
+			// pd_control_mask_(9) = 0;
+			// pd_control_mask_(9) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, 0, 1, 0, 0);
 
 			pd_control_mask_(0) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, 0, 1, 0, 0);
 			pd_control_mask_(1) = 0;
 			pd_control_mask_(2) = 0;
+			// pd_control_mask_(3) = 0;
+			// pd_control_mask_(3) = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, 0, 1, 0, 0);
 
 			double hip_control_switch;
 			hip_control_switch = DyrosMath::cubic(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, 0, 1, 0, 0);
-			torque_stance_hip(2) = -torque_pelv(1) * hip_control_switch; // left hip pitch
-			torque_stance_hip(1) = -torque_pelv(0) * hip_control_switch; // left hip roll
-			torque_stance_hip(8) = -torque_pelv(1) * hip_control_switch; // right hip pitch
-			torque_stance_hip(7) = -torque_pelv(0) * hip_control_switch; // right hip roll
+			torque_stance_hip_(2) = -torque_pelv_(1) * hip_control_switch; // left hip pitch
+			torque_stance_hip_(1) = -torque_pelv_(0) * hip_control_switch; // left hip roll
+			torque_stance_hip_(8) = -torque_pelv_(1) * hip_control_switch; // right hip pitch
+			torque_stance_hip_(7) = -torque_pelv_(0) * hip_control_switch; // right hip roll
+
+			torque_stance_hip_(4) = -torque_pelv_for_ankle(1) * hip_control_switch; // left ankle pitch
+			torque_stance_hip_(5) = -torque_pelv_for_ankle(0) * hip_control_switch; // left ankle roll
+			torque_stance_hip_(10) = -torque_pelv_for_ankle(1) * hip_control_switch; // right ankle pitch
+			torque_stance_hip_(11) = -torque_pelv_for_ankle(0) * hip_control_switch; // right ankle roll
 
 			// cout<<"hip_control_switch: "<< hip_control_switch <<endl;
+		}
+		else if (stop_walking_trigger_ == true)
+		{
+			if (foot_contact_ == 1)
+			{
+				pd_control_mask_(0) = 1;
+				pd_control_mask_(1) = 1 - swing_pd_switch;
+				pd_control_mask_(2) = 1 - swing_pd_switch;
+				// pd_control_mask_(3) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(4) = 1 - swing_pd_switch;; //test
+				// pd_control_mask_(5) = 1 - swing_pd_switch;; //test
+
+				pd_control_mask_(6) = 1;
+				pd_control_mask_(7) = 0;
+				pd_control_mask_(8) = 0;
+				// pd_control_mask_(9) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(10) = 1 - swing_pd_switch;; //test
+				// pd_control_mask_(11) = 1 - swing_pd_switch;; //test
+
+				torque_stance_hip_(2) = -torque_pelv_(1)* swing_pd_switch;					// left hip pitch
+				torque_stance_hip_(1) = -torque_pelv_(0)* swing_pd_switch; 					// left hip roll
+				torque_stance_hip_(8) = -torque_pelv_(1);									// right hip pitch
+				torque_stance_hip_(7) = -torque_pelv_(0);									// right hip roll
+
+				torque_stance_hip_(4) = -torque_pelv_for_ankle(1) * swing_pd_switch; 		// left ankle pitch
+				torque_stance_hip_(5) = -torque_pelv_for_ankle(0) * swing_pd_switch; 		// left ankle roll
+				torque_stance_hip_(10) = -torque_pelv_for_ankle(1); 						// right ankle pitc
+				torque_stance_hip_(11) = -torque_pelv_for_ankle(0); 						// right ankle roll
+			}
+			else if (foot_contact_ == -1)
+			{
+				pd_control_mask_(0) = 1;
+				pd_control_mask_(1) = 0;
+				pd_control_mask_(2) = 0;
+				// pd_control_mask_(3) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(4) = 1 - swing_pd_switch; //test
+                // pd_control_mask_(5) = 1 - swing_pd_switch; //test
+
+				pd_control_mask_(6) = 1;
+				pd_control_mask_(7) = 1 - swing_pd_switch;
+				pd_control_mask_(8) = 1 - swing_pd_switch;
+				// pd_control_mask_(9) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(10) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(11) = 1 - swing_pd_switch; //test
+
+				torque_stance_hip_(2) = -torque_pelv_(1);										// left hip pitch
+				torque_stance_hip_(1) = -torque_pelv_(0);										// left hip roll
+				torque_stance_hip_(8) = -torque_pelv_(1) * swing_pd_switch; 					// right hip pitch
+				torque_stance_hip_(7) = -torque_pelv_(0) * swing_pd_switch; 					// right hip roll
+
+				torque_stance_hip_(4) = -torque_pelv_for_ankle(1); 								// left ankle pitch
+				torque_stance_hip_(5) = -torque_pelv_for_ankle(0); 								// left ankle roll
+				torque_stance_hip_(10) = -torque_pelv_for_ankle(1) * swing_pd_switch; 			// right ankle pitc
+				torque_stance_hip_(11) = -torque_pelv_for_ankle(0) * swing_pd_switch; 			// right ankle roll
+			}
 		}
 	}
 	
@@ -1947,10 +2056,11 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 
 	/////////////////////////////////WAIST DESIRED JOINT ANGLES//////////////////////////////
 	Vector3d phi_trunk;
-	phi_trunk = -DyrosMath::getPhi(rd_.link_[Upper_Body].Rotm, pelv_yaw_rot_current_from_global_);
+	Matrix3d upper_body_rotaion_matrix = DyrosMath::rotateWithZ(motion_q_(12));
+	phi_trunk = -DyrosMath::getPhi(pelv_yaw_rot_current_from_global_.transpose()* rd_.link_[Upper_Body].Rotm, upper_body_rotaion_matrix);
 	// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-	desired_q_dot_(12) = 30 * phi_trunk(2);	 //waist yaw
+	desired_q_dot_(12) = 50 * phi_trunk(2);	 //waist yaw
 	desired_q_dot_(13) = 30 * phi_trunk(1);	 //waist pitch
 	desired_q_dot_(14) = -30 * phi_trunk(0); //waist roll
 
@@ -1958,7 +2068,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 
 	//////////////////////////////////////////////////////////////////////////////////////////
 
-	///////////////////////////////HEAD///////////////////////////////////////////////
+	///////////////////////////////ARM & HEAD///////////////////////////////////////////////
 	for (int i = 15; i < MODEL_DOF; i++)
 	{
 		desired_q_(i) = motion_q_(i);
@@ -1981,12 +2091,12 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	////////////////////////////////SWING FOOT ASSIST TORQUE///////////////////////////
 	for (int i = 0; i < 12; i++)
 	{
-		torque(i) += torque_swing_assist(i) * pd_control_mask_(i);
+		torque(i) += torque_swing_assist_(i) * pd_control_mask_(i);
 	}
 	//////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////PELVIS ORIENTATION CONTROL TORQUE/////////////////
-	torque += torque_stance_hip;
+	torque += torque_stance_hip_;
 	// cout<<"torque_stance_hip: \n"<<torque_stance_hip<<endl;
 	//////////////////////////////////////////////////////////////////////////////////
 	
@@ -2105,11 +2215,11 @@ Eigen::VectorQd CustomController::jointComTrackingTuning()
 	desired_q_tune.setZero();
 
 	//ankle
-	double kp_ank_sag = 0.2;	//x direction ankle pitch gain for com position error
-	double kv_ank_sag = 0.25; //x direction ankle pitch gain for com velocity error
+	double kp_ank_sag = 0.1;	//x direction ankle pitch gain for com position error
+	double kv_ank_sag = 0.10; //x direction ankle pitch gain for com velocity error
 
-	double kp_ank_cor = 0.3;	//y direction ankle pitch gain for com position error
-	double kv_ank_cor = 0.35; //y direction ankle pitch gain for com velocity error
+	double kp_ank_cor = 0.1;	//y direction ankle pitch gain for com position error
+	double kv_ank_cor = 0.1; //y direction ankle pitch gain for com velocity error
 
 	//hip
 	double kp_hip_sag = 0; //0.01; //x direction ankle pitch gain for com position error
@@ -2386,6 +2496,7 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 	Eigen::Vector2d diff_zmp_both;
 	Eigen::Vector3d diff_btw_both_foot;
 	Eigen::Vector2d foot_size;
+
 	double safe_region_ratio = 0.8;
 	double edge_region_ratio = 0.95;
 	double left_ankle_pitch_tune = 1;
@@ -2396,6 +2507,10 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 	foot_size(0) = 0.15;
 	foot_size(1) = 0.085;
 
+	Vector3d phi_support_ankle;
+	Vector3d angvel_support_ankle;
+
+
 	if (foot_swing_trigger_ == true)
 	{
 		if (foot_contact_ == 1)
@@ -2404,11 +2519,15 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 			// left_ankle_pitch_tune = DyrosMath::cubic(zmp_local_lfoot_(0)/foot_size(0) , safe_region_ratio, edge_region_ratio, 1, 0, 0, 0);
 			// left_ankle_roll_tune = DyrosMath::cubic(zmp_local_lfoot_(1)/foot_size(1) , safe_region_ratio, edge_region_ratio, 1, 0, 0, 0);
 
-			Vector3d phi_support_ankle;
+			
 			phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
 			left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0, 0, 0);
 			left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0, 0, 0);
 
+			// angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global.segment(3,3);
+			// left_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
+			// left_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
+			
 			left_ankle_pitch_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
 			left_ankle_roll_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
 
@@ -2423,11 +2542,14 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 			// right_ankle_pitch_tune = DyrosMath::cubic(zmp_local_rfoot_(0)/foot_size(0) , safe_region_ratio, edge_region_ratio, 1, 0, 0, 0);
 			// right_ankle_roll_tune = DyrosMath::cubic(zmp_local_rfoot_(1)/foot_size(1) , safe_region_ratio, edge_region_ratio, 1, 0, 0, 0);
 
-			Vector3d phi_support_ankle;
 			phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
 			right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0, 0, 0);
 			right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0, 0, 0);
 
+			// angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global.segment(3,3);
+			// right_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
+			// right_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
+			
 			right_ankle_pitch_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
 			right_ankle_roll_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
 
@@ -2437,7 +2559,6 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 	}
 	else
 	{
-		middle_of_both_foot_ = (lfoot_transform_current_from_global_.translation() + lfoot_transform_current_from_global_.translation()) / 2;
 		diff_btw_both_foot = lfoot_transform_current_from_global_.translation() - rfoot_transform_current_from_global_.translation();
 		diff_zmp_both(0) = abs(zmp_measured_(0) - middle_of_both_foot_(0));
 		diff_zmp_both(1) = abs(zmp_measured_(1) - middle_of_both_foot_(1));
@@ -2450,24 +2571,33 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 
 		// if(l_ft_(2) < rd_.com_.mass*GRAVITY/5)
 		{
-			left_ankle_pitch_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 10, -rd_.com_.mass * GRAVITY / 20, 1, 0.01, 0, 0);
-			left_ankle_roll_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 10, -rd_.com_.mass * GRAVITY / 20, 1, 0.01, 0, 0);
+			left_ankle_pitch_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
+			left_ankle_roll_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
 		}
 
 		// if(r_ft_(2) < rd_.com_.mass*GRAVITY/2)
 		{
-			right_ankle_pitch_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 10, -rd_.com_.mass * GRAVITY / 20, 1, 0.01, 0, 0);
-			right_ankle_roll_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 10, -rd_.com_.mass * GRAVITY / 20, 1, 0.01, 0, 0);
+			right_ankle_pitch_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
+			right_ankle_roll_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
 		}
 
-		Vector3d phi_support_ankle;
+
 		phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
-		left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.01, 0.05, 1, 0.0, 0, 0);
-		left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.01, 0.05, 1, 0.0, 0, 0);
+		left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
+		left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
+
+		// angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global.segment(3,3);
+		// left_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.005, 0.1, 1, 0.0, 0, 0);
+		// left_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.005, 0.1, 1, 0.0, 0, 0);
 
 		phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
-		right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.01, 0.05, 1, 0.0, 0, 0);
-		right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.01, 0.05, 1, 0.0, 0, 0);
+		right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
+		right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
+
+		// angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global.segment(3,3);
+		// right_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.005, 0.1, 1, 0.0, 0, 0);
+		// right_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.005, 0.1, 1, 0.0, 0, 0);
+
 
 		task_torque(4) = task_torque(4) * left_ankle_pitch_tune;
 		task_torque(5) = task_torque(5) * left_ankle_roll_tune;
@@ -2478,18 +2608,55 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 
 	if ((left_ankle_pitch_tune * left_ankle_roll_tune * right_ankle_pitch_tune * right_ankle_roll_tune) <= 0.8)
 	{
-		if (true)
+		if ( int(current_time_*2000)%100 == 0)
 		{
-			// cout<<"############### ankle torque tuning! ###############"<<endl;
-			// cout<<"########left_ankle_pitch_tune:"<<left_ankle_pitch_tune<< "############"<<endl;
-			// cout<<"########left_ankle_roll_tune:"<<left_ankle_roll_tune<< "############"<<endl;
-			// cout<<"########right_ankle_pitch_tune:"<<right_ankle_pitch_tune<< "############"<<endl;
-			// cout<<"########right_ankle_roll_tune:"<<right_ankle_roll_tune<< "############"<<endl;
-			// cout<<"############### ankle torque tuning! ###############"<<endl;
+			cout<<"############### ankle torque tuning! ###############"<<endl;
+			cout<<"########right angvel_support_ankle:"<<angvel_support_ankle<< "############"<<endl;
+
+			cout<<"########left_ankle_pitch_tune:"<<left_ankle_pitch_tune<< "############"<<endl;
+			cout<<"########left_ankle_roll_tune:"<<left_ankle_roll_tune<< "############"<<endl;
+			cout<<"########right_ankle_pitch_tune:"<<right_ankle_pitch_tune<< "############"<<endl;
+			cout<<"########right_ankle_roll_tune:"<<right_ankle_roll_tune<< "############"<<endl;
+			cout<<"############### ankle torque tuning! ###############"<<endl;
 		}
 	}
 
 	return task_torque;
+}
+
+void CustomController::jointLimit(Eigen::VectorQd &task_torque)
+{
+	////////////////////////Knee//////////////////////////
+	double limit_torque_gain = 0;
+
+	double knee_angle_max = 10*M_PI/180;
+	double knee_angle_min = 3*M_PI/180;
+
+
+	if( (current_q_(3)<knee_angle_min) || (current_q_(9)<knee_angle_min) )
+	{
+		double left_knee_gradient_torque;
+		double right_knee_gradient_torque;
+
+		double left_knee_weight = DyrosMath::cubic(current_q_(3), knee_angle_min, knee_angle_max, 0, 1, 0, 0);
+		double right_knee_weight = DyrosMath::cubic(current_q_(9), knee_angle_min, knee_angle_max, 0, 1, 0, 0);
+		
+		double left_knee_angle = current_q_(3);
+		double right_knee_angle = current_q_(9);
+
+		left_knee_angle = DyrosMath::minmax_cut(left_knee_angle, knee_angle_min, knee_angle_max);
+		right_knee_angle = DyrosMath::minmax_cut(right_knee_angle, knee_angle_min, knee_angle_max);
+
+		left_knee_gradient_torque = -log(left_knee_angle/knee_angle_min)*limit_torque_gain;
+		right_knee_gradient_torque = -log(right_knee_angle/knee_angle_min)*limit_torque_gain;
+
+		task_torque(3) *= left_knee_weight;
+		task_torque(9) *= right_knee_weight;
+
+		task_torque(3) += left_knee_gradient_torque;
+		task_torque(9) += right_knee_gradient_torque;
+	}
+	//////////////////////////////////////////////////////
 }
 
 void CustomController::savePreData()
@@ -2501,37 +2668,519 @@ void CustomController::savePreData()
 	zmp_measured_pre_ = zmp_measured_;
 	com_pos_desired_pre_ = com_pos_desired_;
 	com_vel_desired_pre_ = com_vel_desired_;
+	com_acc_desired_pre_ = com_acc_desired_;
+	
 	f_star_xy_pre_ = f_star_xy_;
 	f_star_6d_pre_ = f_star_6d_;
 	torque_task_pre_ = torque_task_;
 	torque_grav_pre_ = torque_grav_;
 
+	foot_contact_pre_ = foot_contact_;
+
 	zmp_desired_pre_ = zmp_desired_from_global_;
 	zmp_local_lfoot_pre_ = zmp_local_lfoot_;
 	zmp_local_rfoot_pre_ = zmp_local_rfoot_;
+
+	swing_foot_transform_pre_ = swing_foot_transform_current_;
+	support_foot_transform_pre_ = support_foot_transform_current_;
+
+	com_pos_desired_preview_pre_ = com_pos_desired_preview_;
+	com_vel_desired_preview_pre_ = com_vel_desired_preview_;
+	com_acc_desired_preview_pre_ = com_acc_desired_preview_;
 }
 
 void CustomController::WalkingSpeedCommandCallback(const std_msgs::Float32 &msg)
 {
 	walking_speed_ = msg.data;
+	walking_speed_ = DyrosMath::minmax_cut(walking_speed_, -0.5, 1.0);
 }
 
 void CustomController::WalkingDurationCommandCallback(const std_msgs::Float32 &msg)
 {
 	walking_duration_ = msg.data;
+	walking_duration_ = DyrosMath::minmax_cut(walking_duration_, 0.2, 1.0);
+	turning_duration_ = walking_duration_*0.8;
 }
 
 void CustomController::WalkingAngVelCommandCallback(const std_msgs::Float32 &msg)
 {
 	yaw_angular_vel_ = msg.data;
+	yaw_angular_vel_ = DyrosMath::minmax_cut(yaw_angular_vel_, -1.0, 1.0);
 }
 
 void CustomController::KneeTargetAngleCommandCallback(const std_msgs::Float32 &msg)
 {
 	knee_target_angle_ = msg.data;
+	knee_target_angle_ = DyrosMath::minmax_cut(knee_target_angle_, 0.0, M_PI/2);
 }
 
 void CustomController::FootHeightCommandCallback(const std_msgs::Float32 &msg)
 {
 	swing_foot_height_ = msg.data;
+	swing_foot_height_ = DyrosMath::minmax_cut(swing_foot_height_, 0.005, 0.10);
+}
+
+
+/////////////////////////////////////PREVIEW CONTROL RELATED FUNCTION////////////////////////////////////
+void CustomController::getComTrajectory_Preview()
+{ 
+	// on-line preview 
+	xs_(0) = com_pos_current_(0); ys_(0) = com_pos_current_(1);
+	// xs_(1) = com_vel_current_(0); ys_(1) = com_vel_current_(1);
+	//   xs_(2) = com_acc_current_(0); ys_(2) = com_acc_current_(1);
+
+	// if(foot_contact_ == foot_contact_pre_)
+	// {
+	// 	xs_(0) = support_foot_transform_current_.translation()(0) + (xd_(0) - support_foot_transform_pre_.translation()(0));
+	// 	ys_(0) = support_foot_transform_current_.translation()(1) + (yd_(0) - support_foot_transform_pre_.translation()(1));
+	// 	// xs_(1) = com_vel_desired_preview_pre_(0);
+	// 	// ys_(1) = com_vel_desired_preview_pre_(1);
+	// 	// xs_(2) = com_acc_desired_preview_pre_(0);
+	// 	// ys_(2) = com_acc_desired_preview_pre_(1);
+	// }
+	// else
+	// {				
+	// 	xs_(0) = support_foot_transform_current_.translation()(0) + (xd_(0) - swing_foot_transform_pre_.translation()(0));
+	// 	ys_(0) = support_foot_transform_current_.translation()(1) + (yd_(0) - swing_foot_transform_pre_.translation()(1));
+	// 	// xs_(1) = com_vel_desired_preview_pre_(0);
+	// 	// ys_(1) = com_vel_desired_preview_pre_(1);
+	// 	// xs_(2) = com_acc_desired_preview_pre_(0);
+	// 	// ys_(2) = com_acc_desired_preview_pre_(1);
+	// }
+
+
+	modifiedPreviewControl_MJ();
+
+
+	// com_pos_desired_preview_(0) = DyrosMath::QuinticSpline(current_time_, preview_update_time_, preview_update_time_+1/preview_hz_, xd_b(0), xd_b(1), xd_b(2), xd_(0), xd_(1), xd_(2))(0);
+	// com_vel_desired_preview_(0) = DyrosMath::QuinticSpline(current_time_, preview_update_time_, preview_update_time_+1/preview_hz_, xd_b(0), xd_b(1), xd_b(2), xd_(0), xd_(1), xd_(2))(1);
+	// com_acc_desired_preview_(0) = DyrosMath::QuinticSpline(current_time_, preview_update_time_, preview_update_time_+1/preview_hz_, xd_b(0), xd_b(1), xd_b(2), xd_(0), xd_(1), xd_(2))(2);
+
+	// com_pos_desired_preview_(1) = DyrosMath::QuinticSpline(current_time_, preview_update_time_, preview_update_time_+1/preview_hz_, yd_b(0), yd_b(1), yd_b(2), yd_(0), yd_(1), yd_(2))(0);
+	// com_vel_desired_preview_(1) = DyrosMath::QuinticSpline(current_time_, preview_update_time_, preview_update_time_+1/preview_hz_, yd_b(0), yd_b(1), yd_b(2), yd_(0), yd_(1), yd_(2))(1);
+	// com_acc_desired_preview_(1) = DyrosMath::QuinticSpline(current_time_, preview_update_time_, preview_update_time_+1/preview_hz_, yd_b(0), yd_b(1), yd_b(2), yd_(0), yd_(1), yd_(2))(2);
+
+	// off-line preview
+	// xs_(0) = xd_(0); ys_(0) = yd_(0);
+	// // On,off-line preview 
+	xs_(1) = xd_(1); ys_(1) = yd_(1); // 여기서부터
+	xs_(2) = xd_(2); ys_(2) = yd_(2);
+
+
+
+	// com_pos_desired_preview_(0) = xd_(0);
+	// com_pos_desired_preview_(1) = yd_(0);
+	// com_vel_desired_preview_(0) = xd_(1);
+	// com_vel_desired_preview_(1) = yd_(1);
+	// com_acc_desired_preview_(0) = xd_(2);
+	// com_acc_desired_preview_(1) = yd_(2);
+
+	
+	// if( int(current_time_*2000)%200 == 17 )
+	// {
+		// std::cout<<"yd_(0) :"<<yd_(0) <<std::endl;
+		// std::cout<<"yd_(1) :"<<yd_(1) <<std::endl;
+		// std::cout<<"yd_(2) :"<<yd_(2) <<std::endl;
+
+		// std::cout<<"yd_b(0) :"<<yd_b(0) <<std::endl;
+		// std::cout<<"yd_b(1) :"<<yd_b(1) <<std::endl;
+		// std::cout<<"yd_b(2) :"<<yd_b(2) <<std::endl;
+
+		// std::cout<<"current_time_ :"<<current_time_ <<std::endl;
+		// std::cout<<"preview_update_time_ :"<<preview_update_time_ <<std::endl;
+
+		// std::cout<<"com_pos_desired_preview_(1) :"<<com_pos_desired_preview_(1) <<std::endl;
+		// std::cout<<"com_vel_desired_preview_(1) :"<<com_vel_desired_preview_(1) <<std::endl;
+		// std::cout<<"com_acc_desired_preview_(1) :"<<com_acc_desired_preview_(1) <<std::endl;
+	// }
+}
+
+void CustomController::modifiedPreviewControl_MJ()
+{
+  /////reference: http://www.tandfonline.com/doi/pdf/10.1080/0020718508961156?needAccess=true/////////////
+
+	if( int((current_time_-program_start_time_)*1e9)%int(2e7) == 0 ) //50hz update
+	{
+		previewParam_MJ(1/preview_hz_, zmp_size_, zc_, K_act_ , Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
+		//previewParam_MJ_CPM(1.0/hz_, 16*hz_/10, K_ ,com_support_init_, Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
+	}
+
+
+	if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // 200hz update
+	{
+		xd_b = xd_; //save previous com desired trajectory
+		yd_b = yd_;
+
+		preview_MJ(1/preview_hz_, zmp_size_, xi_, yi_, xs_, ys_, UX_, UY_, Gi_, Gd_, Gx_, A_, B_, xd_, yd_);
+		preview_update_time_ = current_time_;
+	}
+	
+}   
+
+void CustomController::previewParam_MJ(double dt, int NL, double zc, Eigen::Matrix4d& K, Eigen::MatrixXd& Gi, Eigen::VectorXd& Gd, Eigen::MatrixXd& Gx, 
+  Eigen::MatrixXd& A, Eigen::VectorXd& B, Eigen::MatrixXd& C, Eigen::MatrixXd& D, Eigen::MatrixXd& A_bar, Eigen::VectorXd& B_bar)
+{ 
+  A.resize(3,3);
+  A(0,0) = 1.0;
+  A(0,1) = dt;
+  A(0,2) = dt*dt*0.5;
+  A(1,0) = 0;
+  A(1,1) = 1.0;
+  A(1,2) = dt;
+  A(2,0) = 0;
+  A(2,1) = 0;
+  A(2,2) = 1;
+  
+  B.resize(3);
+  B(0) = dt*dt*dt/6;
+  B(1) = dt*dt/2;
+  B(2) = dt;
+  
+  C.resize(1,3);
+  C(0,0) = 1;
+  C(0,1) = 0;
+  C(0,2) = -zc_/GRAVITY;
+
+  B_bar.resize(4);    
+  B_bar.segment(0,1) = C*B; 
+  B_bar.segment(1,3) = B;
+  
+  Eigen::Matrix1x4d B_bar_tran;
+  B_bar_tran = B_bar.transpose();
+  
+  Eigen::MatrixXd I_bar;
+  Eigen::MatrixXd F_bar;
+  A_bar.resize(4,4);
+  I_bar.resize(4,1);
+  F_bar.resize(4,3);
+  F_bar.setZero();
+
+  F_bar.block<1,3>(0,0) = C*A;
+  F_bar.block<3,3>(1,0) = A;
+  
+  I_bar.setZero();
+  I_bar(0,0) = 1.0;
+
+  A_bar.block<4,1>(0,0) = I_bar;
+  A_bar.block<4,3>(0,1) = F_bar;
+  
+  Eigen::MatrixXd Qe;
+  Qe.resize(1,1);
+  Qe(0,0) = 1.0;
+
+  Eigen::MatrixXd R;
+  R.resize(1,1);
+  R(0,0) = 0.000001;
+
+  Eigen::MatrixXd Qx;
+  Qx.setZero(3,3);
+
+
+  Eigen::MatrixXd Q_bar;
+  Q_bar.setZero(4,4);
+  Q_bar(0,0) = Qe(0,0);
+
+  K=discreteRiccatiEquationPrev(A_bar, B_bar, R, Q_bar);
+
+  Eigen::MatrixXd Temp_mat;
+  Eigen::MatrixXd Temp_mat_inv;
+  Eigen::MatrixXd Ac_bar;
+  Temp_mat.setZero(1,1);
+  Temp_mat_inv.setZero(1,1);
+  Ac_bar.setZero(4,4);
+
+  Temp_mat = R + B_bar_tran * K * B_bar;
+  Temp_mat_inv = Temp_mat.inverse();
+  
+  Ac_bar = A_bar - B_bar * Temp_mat_inv * B_bar_tran * K * A_bar;
+  
+  Eigen::MatrixXd Ac_bar_tran(4,4);
+  Ac_bar_tran = Ac_bar.transpose();
+  
+  Gi.resize(1,1); Gx.resize(1,3);
+  Gi = Temp_mat_inv * B_bar_tran * K * I_bar ;
+  Gx = Temp_mat_inv * B_bar_tran * K * F_bar ;   
+  
+  Eigen::MatrixXd X_bar;
+  Eigen::Vector4d X_bar_col;
+  X_bar.setZero(4, NL); 
+  X_bar_col.setZero();
+  X_bar_col = - Ac_bar_tran * K * I_bar;
+
+  for(int i = 0; i < NL; i++)
+  {
+    X_bar.block<4,1>(0,i) = X_bar_col;
+    X_bar_col = Ac_bar_tran*X_bar_col;
+  }           
+
+  Gd.resize(NL);
+  Eigen::VectorXd Gd_col(1);
+  Gd_col(0) = -Gi(0,0);
+  
+  for(int i = 0; i < NL; i++)
+  {
+    Gd.segment(i,1) = Gd_col;
+    Gd_col = Temp_mat_inv * B_bar_tran * X_bar.col(i) ;
+  }
+    
+}
+
+void CustomController::preview_MJ(double dt, int NL, double x_i, double y_i, Eigen::Vector3d xs, Eigen::Vector3d ys, double& UX, double& UY, 
+       Eigen::MatrixXd Gi, Eigen::VectorXd Gd, Eigen::MatrixXd Gx, Eigen::MatrixXd A, Eigen::VectorXd B, Eigen::Vector3d &XD, Eigen::Vector3d &YD)
+{
+  
+	Eigen::VectorXd px_ref, py_ref;
+	px_ref.resize(zmp_size_);
+	py_ref.resize(zmp_size_);
+
+	for(int i = 0; i < zmp_size_; i++)
+	{
+		px_ref(i) = ref_zmp_(i,0);
+		py_ref(i) = ref_zmp_(i,1);
+	}
+
+	Eigen::Matrix1x3d C;
+	C(0,0) = 1; C(0,1) = 0; C(0,2) = -zc_/GRAVITY;
+
+	Eigen::VectorXd px, py;
+	px.resize(1); py.resize(1);
+
+	if(current_time_ == program_start_time_)
+	{ 	
+		preview_x_b.setZero();
+		preview_y_b.setZero();
+		preview_x.setZero();
+		preview_y.setZero();
+
+		preview_x_b(0) = x_i; // 이때 before 값이 없으면 첫 tick에서 deltaC x의 에러가 갑작스럽게 생겨서 발산
+		preview_y_b(0) = y_i;
+		preview_x(0) = x_i;
+		preview_y(0) = y_i;
+	}
+	else
+	{ 
+		preview_x_b = preview_x;
+		preview_y_b = preview_y;
+				
+		preview_x = xs; 
+		preview_y = ys;
+		
+		preview_x_b(0) = preview_x(0) - preview_x(1)/preview_hz_;
+		preview_y_b(0) = preview_y(0) - preview_y(1)/preview_hz_;
+	}      
+
+	px = C*preview_x;
+	py = C*preview_y; 
+	// px(0) = zmp_measured_(0);
+	// py(0) = zmp_measured_(1);
+		
+	double sum_Gd_px_ref = 0, sum_Gd_py_ref = 0;
+
+	for(int i = 0; i < NL-1; i++) // Preview Step 개수만큼 더함.
+	{
+		sum_Gd_px_ref = sum_Gd_px_ref + Gd(i)*(px_ref(i+1) - px_ref(i));
+		sum_Gd_py_ref = sum_Gd_py_ref + Gd(i)*(py_ref(i+1) - py_ref(i));
+	}
+	Eigen::MatrixXd del_ux(1,1);
+	Eigen::MatrixXd del_uy(1,1);
+	del_ux.setZero();
+	del_uy.setZero();
+
+	Eigen::VectorXd GX_X(1); 
+	GX_X = Gx * (preview_x - preview_x_b);
+	Eigen::VectorXd GX_Y(1); 
+	GX_Y = Gx * (preview_y - preview_y_b);
+
+	del_ux(0,0) = -(px(0) - px_ref(0))*Gi(0,0) - GX_X(0) - sum_Gd_px_ref;
+	del_uy(0,0) = -(py(0) - py_ref(0))*Gi(0,0) - GX_Y(0) - sum_Gd_py_ref;
+
+	UX = UX + del_ux(0,0);
+	UY = UY + del_uy(0,0);
+
+	XD = A*preview_x + B*UX;
+	YD = A*preview_y + B*UY;  
+}
+
+Eigen::MatrixXd CustomController::discreteRiccatiEquationPrev(Eigen::MatrixXd a, Eigen::MatrixXd b, Eigen::MatrixXd r, Eigen::MatrixXd q)
+{
+	int n=a.rows(); //number of rows
+	int m=b.cols(); //number of columns
+
+	Eigen::MatrixXd z11(n, n), z12(n, n), z21(n, n), z22(n, n);
+
+	z11 = a.inverse();
+	z12 = a.inverse()*b*r.inverse()*b.transpose();
+	z21 = q*a.inverse();
+	z22 = a.transpose() + q*a.inverse()*b*r.inverse()*b.transpose();
+		
+	Eigen::MatrixXd z; 
+	z.setZero(2*n, 2*n);
+	z.topLeftCorner(n,n) = z11;
+	z.topRightCorner(n,n) = z12;
+	z.bottomLeftCorner(n,n) = z21;
+	z.bottomRightCorner(n,n) = z22;
+
+
+	std::vector<Eigen::VectorXd> eigVec_real(2*n);
+	std::vector<Eigen::VectorXd> eigVec_img(2*n);
+
+	for(int i=0; i<8; i++)
+	{
+		eigVec_real[i].setZero(2*n);
+		eigVec_img[i].setZero(2*n);
+	}
+
+	Eigen::VectorXd deigVal_real(2*n);
+	Eigen::VectorXd deigVal_img(2*n);
+	deigVal_real.setZero();
+	deigVal_img.setZero();
+	Eigen::MatrixXd deigVec_real(2*n,2*n);
+	Eigen::MatrixXd deigVec_img(2*n,2*n);
+	deigVec_real.setZero();
+	deigVec_img.setZero();
+
+	deigVal_real = z.eigenvalues().real();
+	deigVal_img = z.eigenvalues().imag();
+	Eigen::EigenSolver<Eigen::MatrixXd> ev(z);
+
+	for(int i=0;i<2*n; i++)
+	{
+		for(int j=0; j<2*n; j++)
+		{
+		deigVec_real(j,i) = ev.eigenvectors().col(i)(j).real();
+		deigVec_img(j,i) = ev.eigenvectors().col(i)(j).imag();
+		}
+	}
+
+	//Order the eigenvectors
+	//move e-vectors correspnding to e-value outside the unite circle to the left
+
+	Eigen::MatrixXd tempZ_real(2*n, n), tempZ_img(2*n, n);
+	tempZ_real.setZero();
+	tempZ_img.setZero();
+	int c=0;
+
+	for (int i=0;i<2*n;i++)
+	{
+		if ((deigVal_real(i)*deigVal_real(i)+deigVal_img(i)*deigVal_img(i))>1.0) //outside the unit cycle
+		{
+		for(int j=0; j<2*n; j++)
+		{
+			tempZ_real(j,c) = deigVec_real(j,i);
+			tempZ_img(j,c) = deigVec_img(j,i);
+		}
+		c++;
+		}
+	}
+
+	Eigen::MatrixXcd tempZ_comp(2*n, n);
+	for(int i=0;i<2*n;i++)
+	{
+		for(int j=0;j<n;j++)
+		{
+		tempZ_comp.real()(i,j) = tempZ_real(i,j);
+		tempZ_comp.imag()(i,j) = tempZ_img(i,j);
+		}
+	}
+	Eigen::MatrixXcd U11(n, n), U21(n, n), X(n, n);
+	for(int i=0;i<n;i++)
+	{
+		for(int j=0;j<n;j++)
+		{
+		U11(i,j) = tempZ_comp(i,j);
+		U21(i,j) = tempZ_comp(i+n,j);
+		}
+	}
+	X = U21*(U11.inverse());
+
+	Eigen::MatrixXd X_sol(n, n);
+	for(int i=0;i<n;i++)
+	{
+		for(int j=0;j<n;j++)
+		{
+		X_sol(i,j) = X.real()(i,j);
+		}
+	}
+
+	return X_sol;
+}
+
+void CustomController::getZmpTrajectory()
+{
+
+	if(stop_walking_trigger_ == true)
+	{
+		for(int i =0; i<zmp_size_ ; i++)
+		{
+			ref_zmp_(i, 0)= middle_of_both_foot_(0);
+			ref_zmp_(i, 1)= middle_of_both_foot_(1);
+			
+		}
+	}
+	else
+	{
+		int one_step_ticks = walking_duration_*preview_hz_;
+
+		if(start_walking_trigger_ == true)
+		{			
+			for(int i = 0; i<zmp_size_; i++)
+			{
+				int num_of_step = i/one_step_ticks ; //start from 0   
+				int step_side = (num_of_step%2); //0: planning support foot side zmp, 1: planning swing foot side zmp
+
+				ref_zmp_(i, 0) = support_foot_transform_current_.translation()(0);
+				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1);
+				ref_zmp_(i, 1) = ref_zmp_(i, 1) - step_width_*foot_contact_*step_side; 			// Y direction step_width planning
+			}
+		}
+		else if(walking_speed_ == 0)
+		{
+			int first_step_residual_tick = int((1-walking_phase_)*walking_duration_*preview_hz_);
+
+			for(int i = 0; i<first_step_residual_tick; i++)
+			{
+
+				
+				ref_zmp_(i, 0) = support_foot_transform_current_.translation()(0);
+				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1);			
+			}
+
+			for(int j = first_step_residual_tick; j<zmp_size_; j++)
+			{
+
+				ref_zmp_(j, 0)= middle_of_both_foot_(0);
+				ref_zmp_(j, 1)= middle_of_both_foot_(1);
+			}
+		}
+		else
+		{
+			int first_step_residual_tick = int((1-walking_phase_)*walking_duration_*preview_hz_);
+
+			for(int i = 0; i<first_step_residual_tick; i++)
+			{
+
+				
+				ref_zmp_(i, 0) = support_foot_transform_current_.translation()(0);
+				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1);			
+			}
+
+			for(int j = first_step_residual_tick; j<zmp_size_; j++)
+			{
+				int num_of_step = (j- first_step_residual_tick)/one_step_ticks +1; //start from 1 
+
+				int step_side = (num_of_step%2); //0: planning support foot side zmp, 1: planning swing foot side zmp
+
+
+
+				ref_zmp_(j, 0) = support_foot_transform_current_.translation()(0);
+				ref_zmp_(j, 1) = support_foot_transform_current_.translation()(1);
+				ref_zmp_(j, 1) = ref_zmp_(j, 1) - step_width_*foot_contact_*step_side; 			// Y direction step_width planning
+			}
+		}
+	}
+
+	// if( int(current_time_*2000)%200 == 0 )
+	// {
+	// 	// std::cout<<"ref_zmp_(0, 1) :"<<ref_zmp_(0, 1) <<std::endl;
+	// }
 }

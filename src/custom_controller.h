@@ -37,8 +37,18 @@ public:
     Eigen::VectorQd tuneTorqueForZMPSafety(Eigen::VectorQd task_torque); // check where the zmp is
     Eigen::VectorQd zmpAnkleControl();
     Eigen::VectorQd jointComTrackingTuning();
+    void jointLimit (Eigen::VectorQd &task_torque); //limit 
+
   
-    void computeZmp();
+    void getComTrajectory_Preview();
+    void modifiedPreviewControl_MJ();
+    void previewParam_MJ(double dt, int NL, double zc, Eigen::Matrix4d& K, Eigen::MatrixXd& Gi, Eigen::VectorXd& Gd, Eigen::MatrixXd& Gx, Eigen::MatrixXd& A, Eigen::VectorXd& B, Eigen::MatrixXd& C, Eigen::MatrixXd& D, Eigen::MatrixXd& A_bar, Eigen::VectorXd& B_bar);
+    void preview_MJ(double dt, int NL, double x_i, double y_i, Eigen::Vector3d xs, Eigen::Vector3d ys, double& UX, double& UY, Eigen::MatrixXd Gi, Eigen::VectorXd Gd, Eigen::MatrixXd Gx, Eigen::MatrixXd A, Eigen::VectorXd B, Eigen::Vector3d &XD, Eigen::Vector3d &YD);
+    Eigen::MatrixXd discreteRiccatiEquationPrev(Eigen::MatrixXd a, Eigen::MatrixXd b, Eigen::MatrixXd r, Eigen::MatrixXd q);
+
+
+    void getZmpTrajectory();
+
     void savePreData();
     
     ros::Subscriber walking_speed_command;
@@ -59,6 +69,7 @@ public:
     double stop_vel_threshold_;                             // acceptable capture point deviation from support foot
 
     int foot_contact_;                                      // 1:left,   -1:right,   0:double
+    int foot_contact_pre_;
     bool foot_swing_trigger_;                               // trigger swing if the robot needs to balance.
     bool first_step_trigger_;                               // ture if this is first swing foot. turn on at the start of the swing.
     bool start_walking_trigger_;                            // true when the walking_speed_ is not zero and swint do not start.
@@ -68,6 +79,7 @@ public:
 
     double walking_duration_;
     double walking_phase_;
+    double turning_duration_;
     double turning_phase_;
     double switching_phase_duration_;
     
@@ -122,6 +134,12 @@ public:
     Eigen::Vector3d pelv_rpy_init_;
     Eigen::Matrix3d pelv_rot_init_yaw_aline_;
 
+	Vector3d phi_pelv_;
+	Vector3d ang_vel_pelv_;
+	Vector3d torque_pelv_;
+	VectorQd torque_stance_hip_;
+	VectorQd torque_swing_assist_;
+
     // Joint related variables
     Eigen::VectorQd current_q_;
     Eigen::VectorQd current_q_dot_;
@@ -150,6 +168,9 @@ public:
 
     Eigen::Isometry3d swing_foot_transform_current_;
     Eigen::Isometry3d support_foot_transform_current_;
+
+    Eigen::Isometry3d swing_foot_transform_pre_;
+    Eigen::Isometry3d support_foot_transform_pre_;
 
     Eigen::Vector6d swing_foot_vel_current_;
     Eigen::Vector6d swing_foot_vel_init_;
@@ -215,6 +236,62 @@ public:
     Eigen::VectorQd torque_grav_;
     Eigen::VectorQd torque_task_pre_;
     Eigen::VectorQd torque_grav_pre_;
+    Eigen::VectorQd torque_qp_;
+
+    //getComTrajectory() variables
+    double xi_;
+    double yi_;
+    Eigen::Vector3d xs_;
+    Eigen::Vector3d ys_;
+    Eigen::Vector3d xd_;
+    Eigen::Vector3d yd_;
+    Eigen::Vector3d xd_b;
+    Eigen::Vector3d yd_b;
+
+    //Preview Control
+    double preview_horizon_;
+    double preview_hz_;
+    double preview_update_time_;
+
+    Eigen::Vector3d preview_x, preview_y, preview_x_b, preview_y_b, preview_x_b2, preview_y_b2;
+    double ux_, uy_, ux_1_, uy_1_;
+    double zc_;
+    double gi_;
+    double zmp_start_time_; //원래 코드에서는 start_time, zmp_ref 시작되는 time같음
+    Eigen::Matrix4d k_;
+    Eigen::Matrix4d K_act_;
+    Eigen::VectorXd gp_l_;
+    Eigen::Matrix1x3d gx_;
+    Eigen::Matrix3d a_;
+    Eigen::Vector3d b_;
+    Eigen::Matrix1x3d c_;
+
+    //Preview CPM
+    Eigen::MatrixXd A_;
+    Eigen::VectorXd B_;
+    Eigen::MatrixXd C_;
+    Eigen::MatrixXd D_;
+    Eigen::Matrix3d K_;
+    Eigen::MatrixXd Gi_;
+    Eigen::MatrixXd Gx_;
+    Eigen::VectorXd Gd_;
+    Eigen::MatrixXd A_bar_;
+    Eigen::VectorXd B_bar_;
+    Eigen::Vector2d Preview_X, Preview_Y, Preview_X_b, Preview_Y_b;
+    Eigen::VectorXd X_bar_p_, Y_bar_p_;
+    Eigen::Vector2d XD_;
+    Eigen::Vector2d YD_;
+    double UX_, UY_;
+
+    int zmp_size_;
+    Eigen::MatrixXd ref_zmp_;
+    Eigen::Vector3d com_pos_desired_preview_;
+    Eigen::Vector3d com_vel_desired_preview_;
+    Eigen::Vector3d com_acc_desired_preview_;
+
+    Eigen::Vector3d com_pos_desired_preview_pre_;
+    Eigen::Vector3d com_vel_desired_preview_pre_;
+    Eigen::Vector3d com_acc_desired_preview_pre_;
 private:
     Eigen::VectorQd ControlVal_;
     void initWalkingParameter();
