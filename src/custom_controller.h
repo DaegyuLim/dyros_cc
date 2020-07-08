@@ -78,6 +78,7 @@ public:
     double program_start_time_;
 
     double walking_duration_;
+    double walking_duration_cmd_;
     double walking_phase_;
     double turning_duration_;
     double turning_phase_;
@@ -89,6 +90,7 @@ public:
     double dt_;
 
     double walking_speed_;
+    double walking_speed_side_;
     double yaw_angular_vel_;
     double knee_target_angle_;
 
@@ -113,6 +115,9 @@ public:
     Eigen::Vector3d com_vel_desired_pre_;
     Eigen::Vector3d com_acc_desired_pre_;
 
+    Eigen::Vector3d com_pos_error_;
+    Eigen::Vector3d com_vel_error_;
+    
     Eigen::Vector3d com_pos_current_pelvis_;
     Eigen::Vector3d com_vel_current_pelvis_; 
     Eigen::Vector3d com_pos_init_pelvis_;

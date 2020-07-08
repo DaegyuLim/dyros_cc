@@ -152,7 +152,7 @@ void CustomController::computeSlow()
 
 		savePreData();
 
-		////////////////////////////////TORQUE LIMIT//////////////////////////////
+		////////////////////////////////TORQUE LIMIT//////// //////////////////////
 		for (int i = 0; i < MODEL_DOF; i++)
 		{
 			torque_task_(i) = DyrosMath::minmax_cut(torque_task_(i), -300, 300);
@@ -165,8 +165,9 @@ void CustomController::computeSlow()
  
 		if (int(current_time_ * 2000) % 400 == 0)
 		{
+			cout << "walking_duration_: " << walking_duration_ << endl;
 			cout << "walking_phase_: " << walking_phase_ << endl;
-			cout << "foot_contact_: " << foot_contact_ << endl;
+			// cout << "foot_contact_: " << foot_contact_ << endl;
 			
 			// cout << "foot_swing_trigger_: " << foot_swing_trigger_ << endl;
 			// cout << "stop_walking_trigger_: " << stop_walking_trigger_ << endl;
@@ -176,11 +177,10 @@ void CustomController::computeSlow()
 			// cout << "pelv_rot_current_yaw_aline_: \n" << DyrosMath::rot2Euler(pelv_rot_current_yaw_aline_) << endl;
 			// cout << "rfoot_transform_current_from_global_.linear(): \n" << DyrosMath::rot2Euler(rfoot_transform_current_from_global_.linear()) << endl;
 			// cout << "rd_.link_[Right_Foot].Rotm: \n" << rd_.link_[Right_Foot].Rotm << endl;
-			cout << "com_pos_desired_: \n" << com_pos_desired_ << endl;
-			cout << "desired_q_: \n" << desired_q_.segment(0, 12) << endl;
-			cout << "ControlVal_: \n" << ControlVal_ << endl;
+			// cout << "com_pos_desired_: \n" << com_pos_desired_ << endl;
+			// cout << "desired_q_: \n" << desired_q_.segment(0, 12) << endl;
+			// cout << "ControlVal_: \n" << ControlVal_ << endl;
 		}
-
 	}
 }
 
@@ -217,13 +217,14 @@ void CustomController::initWalkingParameter()
 {
 	walking_mode_on_ = true;
 	stop_vel_threshold_ = 0.20;
-	walking_duration_ = 0.6;
-	turning_duration_ = walking_duration_*0.8;
+	walking_duration_cmd_ = 0.6;
+	turning_duration_ = walking_duration_cmd_*0.8;
 	walking_phase_ = 0;
 	turning_phase_ = 0;
 	walking_speed_ = 0.0;
+	walking_speed_side_ = 0.0;
 	// step_width_ = 0.0915;  						//for linear velocity
-	step_width_ = 0.22;  						//for preview control
+	step_width_ = 0.24;  						//for preview control
 	knee_target_angle_ = 0.1; //
 	// knee_target_angle_ = M_PI/40;                               //4.5degree
 	yaw_angular_vel_ = 0; //   rad/s
@@ -238,18 +239,21 @@ void CustomController::initWalkingParameter()
 
 	preview_horizon_ = 1.6; //seconds
 	preview_hz_ = 200;
-	zmp_size_ = preview_horizon_*preview_hz_; // 보행 중 720개 (240 * 3)
+	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
 
 	jac_rhand_.setZero(6, MODEL_DOF_VIRTUAL);
 	jac_lhand_.setZero(6, MODEL_DOF_VIRTUAL);
 	jac_rfoot_.setZero(6, MODEL_DOF_VIRTUAL);
 	jac_lfoot_.setZero(6, MODEL_DOF_VIRTUAL);
+
+	com_pos_error_.setZero();
+	com_vel_error_.setZero();
 	//set init pre data
 	com_pos_desired_pre_ = dc_.link_[COM_id].xpos;
 	com_vel_desired_pre_.setZero();
 	com_acc_desired_pre_.setZero();
-
+	
 	pre_time_ = rd_.control_time_;
 	pre_desired_q_ = rd_.q_;
 
@@ -361,6 +365,16 @@ void CustomController::walkingStateManager()
 						start_walking_trigger_ = false;
 						stop_walking_trigger_ = false;
 						start_time_ = current_time_;
+
+						if(com_vel_current_(1) >=0)
+						{
+							foot_contact_ = -1;
+						}
+						else
+						{
+							foot_contact_ = 1;
+						}
+						
 						// foot_contact_ = -foot_contact_;  //support foot change
 						std::cout << " ################################ Balancing Control ON! ################################" << std::endl;
 					}
@@ -381,7 +395,7 @@ void CustomController::walkingStateManager()
 			if (foot_swing_trigger_ == false)
 			{
 				// if( checkZMPinWhichFoot(zmp_measured_) == true )
-				if ((com_pos_current_(0) - support_foot_transform_current_.translation()(0)) / (walking_speed_ * walking_duration_) > 0.4 || (com_vel_current_(0) / (walking_speed_ + 1e-3) > 0.5))
+				if ((com_pos_current_(0) - support_foot_transform_current_.translation()(0)) / (walking_speed_ * walking_duration_) > 0.1 || (com_vel_current_(0) / (walking_speed_ + 1e-3) > 0.2))
 				{
 					first_step_trigger_ = true;
 					foot_swing_trigger_ = true;
@@ -466,8 +480,15 @@ void CustomController::walkingStateManager()
 		}
 		start_time_ = current_time_;
 	}
+	walking_duration_ = 0.6;
 
-	// walking_duration_ = 1;
+	// walking_duration_ = walking_duration_cmd_  - 1.0*(abs(com_pos_error_(1)) + abs(com_vel_error_(1))*0.3) - 1.0*(abs(com_pos_error_(0)) + abs(com_vel_error_(0))*0.3);
+	walking_duration_ = walking_duration_cmd_;
+	walking_duration_ = DyrosMath::minmax_cut(walking_duration_, 0.2, 1);
+
+	turning_duration_ = walking_duration_*0.8;
+	turning_duration_ = DyrosMath::minmax_cut(turning_duration_, 0.2, 0.8);
+
 	walking_phase_ = (current_time_ - start_time_) / walking_duration_;
 	walking_phase_ = DyrosMath::minmax_cut(walking_phase_, 0, 1);
 	turning_phase_ = (walking_phase_-0.1)/0.8;
@@ -968,6 +989,7 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 	double d_temp_y;
 	double alpha_x = 0.05;
 	double alpha_y = 0.0;
+	double ipm_calc_end_phsse = 0.98;
 
 	if(walking_speed_ == 0)
 	{
@@ -981,7 +1003,8 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 		// x axis
 		d_temp_x = (com_pos_current(2) - support_foot_transform_current_.translation()(2)) / GRAVITY + (com_vel_current(0) / (2 * GRAVITY)) * (com_vel_current(0) / (2 * GRAVITY));
 
-		// if (d_temp<0) d_temp = 0;
+		if (d_temp_x<0) d_temp_x = 0;
+
 		d_temp_x = sqrt(d_temp_x);
 
 		d(0) = com_vel_current(0) * d_temp_x;
@@ -989,7 +1012,8 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 		// y axis
 		d_temp_y = (com_pos_current(2) - support_foot_transform_current_.translation()(2)) / GRAVITY + (com_vel_current(1) / (2 * GRAVITY)) * (com_vel_current(1) / (2 * GRAVITY));
 
-		// if (d_temp<0) d_temp = 0;
+		if (d_temp_y<0) d_temp_y = 0;
+		
 		d_temp_y = sqrt(d_temp_y);
 
 		d(1) = com_vel_current(1) * d_temp_y;
@@ -1004,7 +1028,7 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 		d_prime(1) = d(1) - alpha_y * com_vel_desired(1) * foot_contact_;
 
 
-		if (walking_phase_ < 0.95) // during the last 0.05phase, the swing foot only lands on the ground in z direction.
+		if (walking_phase_ < ipm_calc_end_phsse) // during the last 0.05phase, the swing foot only lands on the ground in z direction.
 		{
 			target_foot_landing_from_pelv_ = com_pos_current.segment<2>(0) + d_prime; 
 		}
@@ -1018,15 +1042,15 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 			// swing_foot_rot_trajectory_from_global_ = swing_foot_transform_init_.linear();
 			swing_foot_rot_trajectory_from_global_.setIdentity();
 		}
-		else if (walking_phase_ < 0.95)
+		else if (walking_phase_ < ipm_calc_end_phsse)
 		{
-			double ssp = (phase - dsp_coeff * switching_phase_duration_) / (0.95 - dsp_coeff * switching_phase_duration_);
+			double ssp = (phase - dsp_coeff * switching_phase_duration_) / (ipm_calc_end_phsse - dsp_coeff * switching_phase_duration_);
 
 			swing_foot_pos_trajectory_from_global_.segment(0, 2) = support_foot_transform_current_.translation().segment<2>(0) + 
 			(1 - ssp) * (swing_foot_transform_init_.translation().segment<2>(0) - support_foot_transform_init_.translation().segment<2>(0)) +
 			(ssp) * (target_foot_landing_from_pelv_ - support_foot_transform_current_.translation().segment<2>(0));
 
-			swing_foot_vel_trajectory_from_global_.segment(0, 2) = (target_foot_landing_from_pelv_ - swing_foot_transform_init_.translation().segment<2>(0)) / (walking_duration_*0.95 - dsp_coeff * switching_phase_duration_);
+			swing_foot_vel_trajectory_from_global_.segment(0, 2) = (target_foot_landing_from_pelv_ - swing_foot_transform_init_.translation().segment<2>(0)) / (walking_duration_*ipm_calc_end_phsse - dsp_coeff * switching_phase_duration_);
 			swing_foot_rot_trajectory_from_global_.setIdentity(); 
 		}
 		else
@@ -1124,9 +1148,12 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 
 	// com_pos_desired_(1) = com_pos_init_(0) + sin(2*M_PI/8*current_time_-tc.command_time);
 	// com_vel_desired_(1) = M_PI/2*cos(2*M_PI/8*current_time_-tc.command_time);
-	f_star(0) = kv * (com_vel_desired_(0) - (com_vel_current_)(0)) + kp * (com_pos_desired_(0) - com_pos_current_(0)) + com_acc_desired_(0);		//X axis PD control
-	f_star(1) = kv * (com_vel_desired_(1) - (com_vel_current_)(1)) + kp * (com_pos_desired_(1) - com_pos_current_(1)) + com_acc_desired_(1);		//Y axis PD control
-	f_star(2) = kv * (com_vel_desired_(2) - (com_vel_current_)(2)) + kp * (com_pos_desired_(2) - com_pos_current_(2)) + com_acc_desired_(2);
+	com_pos_error_ = com_pos_desired_ - com_pos_current_;
+	com_vel_error_ = com_vel_desired_ - com_vel_current_;
+
+	f_star(0) = kv * (com_vel_error_(0)) + kp * (com_pos_error_(0)) + com_acc_desired_(0);		//X axis PD control
+	f_star(1) = kv * (com_vel_error_(1)) + kp * (com_pos_error_(1)) + com_acc_desired_(1);		//Y axis PD control
+	f_star(2) = kv * (com_vel_error_(2)) + kp * (com_pos_error_(2)) + com_acc_desired_(2);
 
 	f_star(0) *= rd_.com_.mass;				//cancle out mass effect
 	f_star(1) *= rd_.com_.mass;
@@ -1160,8 +1187,6 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	lfoot_to_com_jac_from_global.block(0, 31, 6, 8).setZero();		// 	right arm
 	
 	lfoot_to_com_jac_from_global.block(3, 9, 3, 3).setZero();		// 	left leg roation component: knee pitch, ankle pitch, ankle roll
-	lfoot_to_com_jac_from_global.block(3, 18, 3, 3).setZero();		// 	waist roation component
-	lfoot_to_com_jac_from_global.block(3, 29, 3, 2).setZero();		// 	head roation component
 
 	adjoint_pelv_to_ankle.block(0, 0, 3, 3) = -Eigen::Matrix3d::Identity();
 	adjoint_pelv_to_ankle.block(0, 3, 3, 3) = DyrosMath::skm(com_pos_current_ - rfoot_transform_current_from_global_.translation());
@@ -1175,9 +1200,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	rfoot_to_com_jac_from_global.block(0, 31, 6, 8).setZero();		//	right arm
 
 	rfoot_to_com_jac_from_global.block(3, 15, 3, 3).setZero();		// 	right leg roation component: knee pitch, ankle pitch, ankle roll
-	rfoot_to_com_jac_from_global.block(3, 18, 3, 3).setZero();		// 	waist roation component
-	rfoot_to_com_jac_from_global.block(3, 29, 3, 2).setZero();		// 	head roation component
-
+	
+	std::cout<<"rfoot_to_com_jac_from_global.block(3, 18, 3, 3): \n"<<rfoot_to_com_jac_from_global.block(3, 18, 3, 3)<<std::endl;
 	Eigen::Vector6d f_internal_left;
 	Eigen::Vector6d f_internal_right;
 
@@ -2697,9 +2721,8 @@ void CustomController::WalkingSpeedCommandCallback(const std_msgs::Float32 &msg)
 
 void CustomController::WalkingDurationCommandCallback(const std_msgs::Float32 &msg)
 {
-	walking_duration_ = msg.data;
-	walking_duration_ = DyrosMath::minmax_cut(walking_duration_, 0.2, 1.0);
-	turning_duration_ = walking_duration_*0.8;
+	walking_duration_cmd_ = msg.data;
+	walking_duration_cmd_ = DyrosMath::minmax_cut(walking_duration_cmd_, 0.2, 1.0);
 }
 
 void CustomController::WalkingAngVelCommandCallback(const std_msgs::Float32 &msg)
