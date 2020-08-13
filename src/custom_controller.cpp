@@ -1201,7 +1201,7 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 
 	rfoot_to_com_jac_from_global.block(3, 15, 3, 3).setZero();		// 	right leg roation component: knee pitch, ankle pitch, ankle roll
 	
-	std::cout<<"rfoot_to_com_jac_from_global.block(3, 18, 3, 3): \n"<<rfoot_to_com_jac_from_global.block(3, 18, 3, 3)<<std::endl;
+	// std::cout<<"rfoot_to_com_jac_from_global.block(3, 18, 3, 3): \n"<<rfoot_to_com_jac_from_global.block(3, 18, 3, 3)<<std::endl;
 	Eigen::Vector6d f_internal_left;
 	Eigen::Vector6d f_internal_right;
 
