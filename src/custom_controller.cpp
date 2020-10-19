@@ -8,6 +8,11 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
 	walking_angvel_command = dc.nh.subscribe("/tocabi/walkingangvelcommand", 100, &CustomController::WalkingAngVelCommandCallback, this);
 	knee_target_angle_command = dc.nh.subscribe("/tocabi/kneetargetanglecommand", 100, &CustomController::KneeTargetAngleCommandCallback, this);
 	foot_height_command = dc.nh.subscribe("/tocabi/footheightcommand", 100, &CustomController::FootHeightCommandCallback, this);
+	
+	for(int i = 0; i<FILE_CNT; i++)
+    {
+        file[i].open(FILE_NAMES[i]); 
+    }
 }
 
 Eigen::VectorQd CustomController::getControl()
@@ -123,7 +128,7 @@ void CustomController::computeSlow()
 	}
 	else if (tc.mode == 13)
 	{
-		//////////Generalized Biped Walking Controller/////////////////////
+		////////////////////Generalized Biped Walking Controller/////////////////////
 
 		torque_task_.setZero();
 		if (tc.task_init == true)
@@ -136,18 +141,53 @@ void CustomController::computeSlow()
 		walkingStateManager();
 		getProcessedRobotData(wbc_);	
 
+
+		// if (int(current_time_ * 2000) % 400 == 0)
+		// {
+		// 	//8.14 데이터 프린팅하고 matlab에서 확인해야함
+		// 	cout << "walking_duration_: " << walking_duration_ << endl;
+		// 	cout << "walking_phase_: " << walking_phase_ << endl;
+		// 	cout << "foot_contact_: " << foot_contact_ << endl;
+			
+		// 	cout << "com_vel_desired_: " << com_vel_desired_ << endl;
+		// 	cout << "com_vel_current_: " << com_vel_current_ << endl;
+		// 	cout << "pelv_angvel_current_: " << pelv_angvel_current_ << endl;
+
+		// 	if(foot_contact_ == 1)
+		// 	{
+		// 		cout << "jqdot: " << lfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ << endl;
+		// 		cout << "r X w_f: " << DyrosMath::skm(lfoot_transform_current_from_global_.translation())*(support_foot_vel_current_.segment(3, 3)) << endl;
+		// 		cout << "v_p - jqdot: " << com_vel_current_ - lfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ << endl;				
+		// 		cout << "support_foot_vel_current_.segment(3, 3): \n" << support_foot_vel_current_.segment(3, 3) << endl;
+		// 	}
+		// 	else if(foot_contact_ == -1)
+		// 	{
+		// 		cout << "jqdot: " << rfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ << endl;
+		// 		cout << "r X w_f: " << DyrosMath::skm(rfoot_transform_current_from_global_.translation())*(support_foot_vel_current_.segment(3, 3)) << endl;
+		// 		cout << "v_p - jqdot: " << com_vel_current_ - rfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ << endl;
+		// 		cout << "support_foot_vel_current_.segment(3, 3): \n" << support_foot_vel_current_.segment(3, 3) << endl;
+		// 	}
+			
+
+		// 	// cout << "first_step_trigger_: " << first_step_trigger_ << endl;
+			
+		// 	// cout << "pelv_rpy_current_: \n" << pelv_rpy_current_<< endl;
+		// 	// cout << "pelv_rot_current_yaw_aline_: \n" << DyrosMath::rot2Euler(pelv_rot_current_yaw_aline_) << endl;
+		// 	// cout << "rfoot_transform_current_from_global_.linear(): \n" << DyrosMath::rot2Euler(rfoot_transform_current_from_global_.linear()) << endl;
+		// 	// cout << "rd_.link_[Right_Foot].Rotm: \n" << rd_.link_[Right_Foot].Rotm << endl;
+		// 	// cout << "com_pos_desired_: \n" << com_pos_desired_ << endl;
+		// 	// cout << "desired_q_: \n" << desired_q_.segment(0, 12) << endl;
+		// 	// cout << "ControlVal_: \n" << ControlVal_ << endl;
+		// }
+
 		motionGenerator();
 		getZmpTrajectory();
 		getComTrajectory_Preview();
 		getCOMTrajectory();
 		getSwingFootXYTrajectory(walking_phase_, com_pos_current_, com_vel_current_, com_vel_desired_);
 
-		// torque_task_ += comVelocityControlCompute(wbc_);             //support control for COM velocity control
 		torque_task_ += comVelocityControlCompute(wbc_); //support control for COM velocity control
-		// if (int(current_time_ * 2000) % 400 == 0)
-		// 	cout<<"torque_task_com_vel: \n" << torque_task_<<endl;
-		// cout<<"walking_speed: \n" << walking_speed_<<endl;
-		// first_torque_supplier_ = 1;
+
 		torque_task_ += jointTrajectoryPDControlCompute(wbc_) * first_torque_supplier_; //upper body motion + swing foot control + knee angle control
 
 		savePreData();
@@ -163,24 +203,7 @@ void CustomController::computeSlow()
 
 		ControlVal_ = torque_task_;
  
-		if (int(current_time_ * 2000) % 400 == 0)
-		{
-			cout << "walking_duration_: " << walking_duration_ << endl;
-			cout << "walking_phase_: " << walking_phase_ << endl;
-			// cout << "foot_contact_: " << foot_contact_ << endl;
-			
-			// cout << "foot_swing_trigger_: " << foot_swing_trigger_ << endl;
-			// cout << "stop_walking_trigger_: " << stop_walking_trigger_ << endl;
-			// cout << "first_step_trigger_: " << first_step_trigger_ << endl;
-			
-			// cout << "pelv_rpy_current_: \n" << pelv_rpy_current_<< endl;
-			// cout << "pelv_rot_current_yaw_aline_: \n" << DyrosMath::rot2Euler(pelv_rot_current_yaw_aline_) << endl;
-			// cout << "rfoot_transform_current_from_global_.linear(): \n" << DyrosMath::rot2Euler(rfoot_transform_current_from_global_.linear()) << endl;
-			// cout << "rd_.link_[Right_Foot].Rotm: \n" << rd_.link_[Right_Foot].Rotm << endl;
-			// cout << "com_pos_desired_: \n" << com_pos_desired_ << endl;
-			// cout << "desired_q_: \n" << desired_q_.segment(0, 12) << endl;
-			// cout << "ControlVal_: \n" << ControlVal_ << endl;
-		}
+		printOutTextFile();
 	}
 }
 
@@ -289,6 +312,8 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	pelv_yaw_rot_current_from_global_ = DyrosMath::rotateWithZ(pelv_rpy_current_(2));
 	pelv_rot_current_yaw_aline_ = pelv_yaw_rot_current_from_global_.transpose() * pelv_rot_current_;
 
+	pelv_angvel_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Pelvis].w;
+
 	com_pos_current_ = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[COM_id].xpos - pelv_pos_current_);
 	com_vel_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[COM_id].v;
 	// com_acc_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[COM_id].a;
@@ -318,7 +343,23 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	jac_rfoot_ = R_R * rd_.link_[Right_Foot].Jac;
 	jac_lfoot_ = R_R * rd_.link_[Left_Foot].Jac;
 
-	rd_.link_[Left_Foot].v;
+	lfoot_to_com_jac_from_global_.setZero(6, MODEL_DOF_VIRTUAL);
+	rfoot_to_com_jac_from_global_.setZero(6, MODEL_DOF_VIRTUAL);
+	Matrix6d adjoint_pelv_to_ankle;
+	adjoint_pelv_to_ankle.block(0, 0, 3, 3) = -Eigen::Matrix3d::Identity();
+	adjoint_pelv_to_ankle.block(0, 3, 3, 3) = DyrosMath::skm(com_pos_current_ - lfoot_transform_current_from_global_.translation());
+	adjoint_pelv_to_ankle.block(3, 3, 3, 3) = -Eigen::Matrix3d::Identity();
+
+	lfoot_to_com_jac_from_global_.block(0, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_lfoot_).block(0, 0, 3, MODEL_DOF_VIRTUAL) + jac_com_pos_;
+	lfoot_to_com_jac_from_global_.block(3, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_lfoot_).block(3, 0, 3, MODEL_DOF_VIRTUAL);
+
+
+	adjoint_pelv_to_ankle.block(0, 0, 3, 3) = -Eigen::Matrix3d::Identity();
+	adjoint_pelv_to_ankle.block(0, 3, 3, 3) = DyrosMath::skm(com_pos_current_ - rfoot_transform_current_from_global_.translation());
+	adjoint_pelv_to_ankle.block(3, 3, 3, 3) = -Eigen::Matrix3d::Identity();
+
+	rfoot_to_com_jac_from_global_.block(0, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(0, 0, 3, MODEL_DOF_VIRTUAL) + jac_com_pos_;
+	rfoot_to_com_jac_from_global_.block(3, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(3, 0, 3, MODEL_DOF_VIRTUAL);
 
 	Eigen::Vector3d zmp_local_both_foot;
 	// rd_.ZMP_ft = wc_.GetZMPpos(rd_);
@@ -662,16 +703,27 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		swing_foot_transform_current_ = rfoot_transform_current_from_global_;
 		support_foot_transform_current_ = lfoot_transform_current_from_global_;
 		swing_foot_vel_current_ = rfoot_vel_current_from_global;
+		support_foot_vel_current_.setZero();
+		support_foot_vel_current_.segment(3, 3) = pelv_angvel_current_ - lfoot_to_com_jac_from_global_.block(3, 6, 3, MODEL_DOF)*current_q_dot_;
+
+		com_vel_est1_ = lfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ ;
+		com_vel_est2_ = lfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ + DyrosMath::skm(lfoot_transform_current_from_global_.translation())*(support_foot_vel_current_.segment(3, 3));
 	}
 	else if (foot_contact_ == -1) //right support foot
 	{
 		swing_foot_transform_current_ = lfoot_transform_current_from_global_;
 		support_foot_transform_current_ = rfoot_transform_current_from_global_;
 		swing_foot_vel_current_ = lfoot_vel_current_from_global;
+		support_foot_vel_current_.setZero();
+		support_foot_vel_current_.segment(3, 3) = pelv_angvel_current_ - rfoot_to_com_jac_from_global_.block(3, 6, 3, MODEL_DOF)*current_q_dot_;
+
+		com_vel_est1_ = rfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ ;
+		com_vel_est2_ = rfoot_to_com_jac_from_global_.block(0, 6, 3, MODEL_DOF)*current_q_dot_ + DyrosMath::skm(rfoot_transform_current_from_global_.translation())*(support_foot_vel_current_.segment(3, 3));
 	}
 	else if (foot_swing_trigger_ == false)
 	{
 	}
+
 
 	zmp_measured_local_ = wbc.GetZMPpos_fromFT(rd_, true);
 
@@ -960,15 +1012,15 @@ void CustomController::getCOMTrajectory()
 			// 	com_vel_desired_(1) = DyrosMath::cubicDot(current_time_, stance_start_time_+traj_duraiton, stance_start_time_+2*traj_duraiton, com_pos_init_(1), (support_foot_transform_current_)(1), com_vel_init_(1), 0, 0);
 			// }
 
-			if (int(current_time_ * 2000) % 400 == 0)
-			{
-				std::cout << " WALKING STOPPED " << std::endl;
-				std::cout << " foot_contact_: " <<foot_contact_ << std::endl;
-				std::cout << " com_pos_desired_: " << com_pos_desired_<<std::endl;
-				std::cout << " com_vel_desired_: " << com_vel_desired_<<std::endl;
-				std::cout << " support_foot_transform_init_.translation()(1): " << support_foot_transform_init_.translation()(1)<<std::endl;
-				std::cout << " desired_step_position_in_y: " << desired_step_position_in_y <<std::endl;
-			}	
+			// if (int(current_time_ * 2000) % 400 == 0)
+			// {
+			// 	std::cout << " WALKING STOPPED " << std::endl;
+			// 	std::cout << " foot_contact_: " <<foot_contact_ << std::endl;
+			// 	std::cout << " com_pos_desired_: " << com_pos_desired_<<std::endl;
+			// 	std::cout << " com_vel_desired_: " << com_vel_desired_<<std::endl;
+			// 	std::cout << " support_foot_transform_init_.translation()(1): " << support_foot_transform_init_.translation()(1)<<std::endl;
+			// 	std::cout << " desired_step_position_in_y: " << desired_step_position_in_y <<std::endl;
+			// }	
 		}
 	}
 
@@ -1160,48 +1212,30 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	f_star(2) *= rd_.com_.mass;
 	
 	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
-	ang_vel_pelv_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Pelvis].w;
 	double kpa_pelv = 4900; //angle error gain
 	double kva_pelv = 140;	//angular velocity gain
-	torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * ang_vel_pelv_;
+	torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * pelv_angvel_current_;
 	torque_pelv_(2) = 0;
-	f_star.segment(3,3) = torque_pelv_*2;
+	f_star.segment(3,3) = torque_pelv_*3;
 	/////////////////////////////////////////////
 
 	/////////////////////JACOBIAN///////////////////////////////////////
-
-	MatrixXd lfoot_to_com_jac_from_global;
-	MatrixXd rfoot_to_com_jac_from_global;
-	lfoot_to_com_jac_from_global.setZero(task_dof, MODEL_DOF_VIRTUAL);
-	rfoot_to_com_jac_from_global.setZero(task_dof, MODEL_DOF_VIRTUAL);
-	Matrix6d adjoint_pelv_to_ankle;
-	adjoint_pelv_to_ankle.block(0, 0, 3, 3) = -Eigen::Matrix3d::Identity();
-	adjoint_pelv_to_ankle.block(0, 3, 3, 3) = DyrosMath::skm(com_pos_current_ - lfoot_transform_current_from_global_.translation());
-	adjoint_pelv_to_ankle.block(3, 3, 3, 3) = -Eigen::Matrix3d::Identity();
-
-	lfoot_to_com_jac_from_global.block(0, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_lfoot_).block(0, 0, 3, MODEL_DOF_VIRTUAL) + jac_com_pos_;
-	lfoot_to_com_jac_from_global.block(3, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_lfoot_).block(3, 0, 3, MODEL_DOF_VIRTUAL);
-	lfoot_to_com_jac_from_global.block(0, 6, 6, 1).setZero(); 		// 	left yaw
-	lfoot_to_com_jac_from_global.block(0, 12, 6, 6).setZero(); 		//	right leg
-	lfoot_to_com_jac_from_global.block(0, 21, 6, 8).setZero();		//	left arm
-	lfoot_to_com_jac_from_global.block(0, 31, 6, 8).setZero();		// 	right arm
+	lfoot_to_com_jac_from_global_.block(0, 6, 6, 1).setZero(); 		// 	left yaw
+	lfoot_to_com_jac_from_global_.block(0, 12, 6, 6).setZero(); 		//	right leg
+	lfoot_to_com_jac_from_global_.block(0, 21, 6, 8).setZero();		//	left arm
+	lfoot_to_com_jac_from_global_.block(0, 31, 6, 8).setZero();		// 	right arm
 	
-	lfoot_to_com_jac_from_global.block(3, 9, 3, 3).setZero();		// 	left leg roation component: knee pitch, ankle pitch, ankle roll
-
-	adjoint_pelv_to_ankle.block(0, 0, 3, 3) = -Eigen::Matrix3d::Identity();
-	adjoint_pelv_to_ankle.block(0, 3, 3, 3) = DyrosMath::skm(com_pos_current_ - rfoot_transform_current_from_global_.translation());
-	adjoint_pelv_to_ankle.block(3, 3, 3, 3) = -Eigen::Matrix3d::Identity();
-
-	rfoot_to_com_jac_from_global.block(0, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(0, 0, 3, MODEL_DOF_VIRTUAL) + jac_com_pos_;
-	rfoot_to_com_jac_from_global.block(3, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(3, 0, 3, MODEL_DOF_VIRTUAL);
-	rfoot_to_com_jac_from_global.block(0, 6, 6, 6).setZero();		//	left leg
-	rfoot_to_com_jac_from_global.block(0, 12, 6, 1).setZero(); 		// 	right yaw
-	rfoot_to_com_jac_from_global.block(0, 21, 6, 8).setZero();		//	left arm
-	rfoot_to_com_jac_from_global.block(0, 31, 6, 8).setZero();		//	right arm
-
-	rfoot_to_com_jac_from_global.block(3, 15, 3, 3).setZero();		// 	right leg roation component: knee pitch, ankle pitch, ankle roll
+	lfoot_to_com_jac_from_global_.block(3, 9, 3, 3).setZero();		// 	left leg roation component: knee pitch, ankle pitch, ankle roll
 	
-	// std::cout<<"rfoot_to_com_jac_from_global.block(3, 18, 3, 3): \n"<<rfoot_to_com_jac_from_global.block(3, 18, 3, 3)<<std::endl;
+
+	rfoot_to_com_jac_from_global_.block(0, 6, 6, 6).setZero();		//	left leg
+	rfoot_to_com_jac_from_global_.block(0, 12, 6, 1).setZero(); 		// 	right yaw
+	rfoot_to_com_jac_from_global_.block(0, 21, 6, 8).setZero();		//	left arm
+	rfoot_to_com_jac_from_global_.block(0, 31, 6, 8).setZero();		//	right arm
+
+	rfoot_to_com_jac_from_global_.block(3, 15, 3, 3).setZero();		// 	right leg roation component: knee pitch, ankle pitch, ankle roll
+
+	// std::cout<<"rfoot_to_com_jac_from_global_.block(3, 18, 3, 3): \n"<<rfoot_to_com_jac_from_global_.block(3, 18, 3, 3)<<std::endl;
 	Eigen::Vector6d f_internal_left;
 	Eigen::Vector6d f_internal_right;
 
@@ -1215,8 +1249,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	
 	
 
-	torque_l_vel_tun = (lfoot_to_com_jac_from_global.transpose() * (f_star + f_internal_left)).segment(6, MODEL_DOF);
-	torque_r_vel_tun = (rfoot_to_com_jac_from_global.transpose() * (f_star + f_internal_right)).segment(6, MODEL_DOF);
+	torque_l_vel_tun = (lfoot_to_com_jac_from_global_.transpose() * (f_star + f_internal_left)).segment(6, MODEL_DOF);
+	torque_r_vel_tun = (rfoot_to_com_jac_from_global_.transpose() * (f_star + f_internal_right)).segment(6, MODEL_DOF);
 
 	// jointLimit(torque_l_vel_tun);
 	// jointLimit(torque_r_vel_tun);
@@ -1225,8 +1259,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	// cout<<"rd_.link_[COM_id].Jac_COM_p: "<< rd_.link_[COM_id].Jac_COM_p<<endl;
 	// if( int(current_time_*2000)%400 == 0)
 	// {
-	// 	cout<<"lfoot_to_com_jac_from_global: \n"<< lfoot_to_com_jac_from_global<<endl;
-	// 	cout<<"rfoot_to_com_jac_from_global: \n"<< rfoot_to_com_jac_from_global<<endl;
+	// 	cout<<"lfoot_to_com_jac_from_global_: \n"<< lfoot_to_com_jac_from_global_<<endl;
+	// 	cout<<"rfoot_to_com_jac_from_global_: \n"<< rfoot_to_com_jac_from_global_<<endl;
 	// }
 	// J_task = jac_com_pos_;
 	/////////////////////////////////////////////////////////////////////////////
@@ -1410,7 +1444,7 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 		// cout<<"rfoot_task_torque_switch: \n"<<rfoot_task_torque_switch<<endl;
 		// cout<<"torque_l_vel_tun: \n"<<torque_l_vel_tun<<endl;
 		// cout<<"torque_r_vel_tun: \n"<<torque_r_vel_tun<<endl;
-		// cout<<"lfoot_to_com_jac_from_global: \n"<<lfoot_to_com_jac_from_global<<endl;
+		// cout<<"lfoot_to_com_jac_from_global_: \n"<<lfoot_to_com_jac_from_global_<<endl;
 		// cout<<"test_com_jac: \n"<<test_com_jac<<endl;
 	}
 
@@ -1462,11 +1496,10 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	torque_swing_assist_.setZero();
 
 	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
-	ang_vel_pelv_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Pelvis].w;
 	double kpa_pelv = 6400; //angle error gain
 	double kva_pelv = 160;	//angular velocity gain
-	// torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * ang_vel_pelv_;
-	// torque_pelv_for_ankle = 100*phi_pelv_ - 20*ang_vel_pelv_;
+	// torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * pelv_angvel_current_;
+	// torque_pelv_for_ankle = 100*phi_pelv_ - 20*pelv_angvel_current_;
 
 	Vector3d axis;
 	double angle;
@@ -1479,7 +1512,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 
 	// if(foot_swing_trigger_ == false)
 	// {
-	// 	torque_pelv_(0) = 2500 * phi_pelv_(0) - 100 * ang_vel_pelv_(0);
+	// 	torque_pelv_(0) = 2500 * phi_pelv_(0) - 100 * pelv_angvel_current_(0);
 	// }
 
 	// if( walking_phase_>0.1 )
@@ -3206,4 +3239,35 @@ void CustomController::getZmpTrajectory()
 	// {
 	// 	// std::cout<<"ref_zmp_(0, 1) :"<<ref_zmp_(0, 1) <<std::endl;
 	// }
+}
+
+void CustomController::printOutTextFile()
+{
+	if (int( (current_time_ - program_start_time_) * 2000) % 1 == 0) // 2000 hz 
+	{
+		file[0]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"
+		<<foot_swing_trigger_<<"\t"<<first_step_trigger_<<"\t"<<start_walking_trigger_<<"\t"
+		<<stop_walking_trigger_<<"\t"<<stance_start_time_<<"\t"<<walking_duration_<<"\t"
+		<<turning_duration_<<"\t"<<turning_phase_<<"\t"<<knee_target_angle_<<endl;
+
+		file[1]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"
+		<<com_pos_current_(0)<<"\t"<<com_pos_current_(1)<<"\t"<<com_pos_current_(2)<<"\t"
+		<<com_vel_current_(0)<<"\t"<<com_vel_current_(1)<<"\t"<<com_vel_current_(2)<<"\t"
+		<<com_acc_current_(0)<<"\t"<<com_acc_current_(1)<<"\t"<<com_acc_current_(2)<<"\t"
+		<<com_pos_desired_(0)<<"\t"<<com_pos_desired_(1)<<"\t"<<com_pos_desired_(2)<<"\t"
+		<<com_vel_desired_(0)<<"\t"<<com_vel_desired_(1)<<"\t"<<com_vel_desired_(2)<<"\t"
+		<<com_acc_desired_(0)<<"\t"<<com_acc_desired_(1)<<"\t"<<com_acc_desired_(2)<<"\t"
+		<<com_vel_est1_(0)<<"\t"<<com_vel_est1_(1)<<"\t"<<com_vel_est1_(2)<<"\t"
+		<<com_vel_est2_(0)<<"\t"<<com_vel_est2_(1)<<"\t"<<com_vel_est2_(2)<<endl;
+
+
+		file[2]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"
+		<<lfoot_transform_current_from_global_.translation()(0)<<"\t"<<lfoot_transform_current_from_global_.translation()(1)<<"\t"<<lfoot_transform_current_from_global_.translation()(2)<<"\t"
+		<<rfoot_transform_current_from_global_.translation()(0)<<"\t"<<rfoot_transform_current_from_global_.translation()(1)<<"\t"<<rfoot_transform_current_from_global_.translation()(2)<<"\t"
+		<<lfoot_vel_current_from_global(0)<<"\t"<<lfoot_vel_current_from_global(1)<<"\t"<<lfoot_vel_current_from_global(2)<<"\t"
+		<<lfoot_vel_current_from_global(3)<<"\t"<<lfoot_vel_current_from_global(4)<<"\t"<<lfoot_vel_current_from_global(5)<<"\t"
+		<<rfoot_vel_current_from_global(0)<<"\t"<<rfoot_vel_current_from_global(1)<<"\t"<<rfoot_vel_current_from_global(2)<<"\t"
+		<<rfoot_vel_current_from_global(3)<<"\t"<<rfoot_vel_current_from_global(4)<<"\t"<<rfoot_vel_current_from_global(5)<<"\t"
+		<<support_foot_vel_current_(3)<<"\t"<<support_foot_vel_current_(4)<<"\t"<<support_foot_vel_current_(5)<<endl;
+	}
 }

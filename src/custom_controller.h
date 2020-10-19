@@ -2,9 +2,21 @@
 #include <tocabi_controller/link.h>
 #include "math_type_define.h"
 
+const int FILE_CNT = 3;
+
+const std::string FILE_NAMES[FILE_CNT] =
+{
+  ///change this directory when you use this code on the other computer///
+    "/home/dg/data/tocabi_cc/0_flag_.txt",
+    "/home/dg/data/tocabi_cc/1_com_.txt",
+    "/home/dg/data/tocabi_cc/2_foot_.txt"
+};
+
 class CustomController
 {
 public:
+    std::ofstream file[FILE_CNT];
+
     CustomController(DataContainer &dc,RobotData &rd);
     Eigen::VectorQd getControl();
 
@@ -39,7 +51,7 @@ public:
     Eigen::VectorQd jointComTrackingTuning();
     void jointLimit (Eigen::VectorQd &task_torque); //limit 
 
-  
+    //preview related functions
     void getComTrajectory_Preview();
     void modifiedPreviewControl_MJ();
     void previewParam_MJ(double dt, int NL, double zc, Eigen::Matrix4d& K, Eigen::MatrixXd& Gi, Eigen::VectorXd& Gd, Eigen::MatrixXd& Gx, Eigen::MatrixXd& A, Eigen::VectorXd& B, Eigen::MatrixXd& C, Eigen::MatrixXd& D, Eigen::MatrixXd& A_bar, Eigen::VectorXd& B_bar);
@@ -48,9 +60,9 @@ public:
 
 
     void getZmpTrajectory();
-
     void savePreData();
-    
+    void printOutTextFile();
+
     ros::Subscriber walking_speed_command;
     ros::Subscriber walking_duration_command;
     ros::Subscriber walking_angvel_command;
@@ -62,7 +74,7 @@ public:
     void WalkingAngVelCommandCallback(const std_msgs::Float32 &msg);
     void KneeTargetAngleCommandCallback(const std_msgs::Float32 &msg);
     void FootHeightCommandCallback(const std_msgs::Float32 &msg);
-
+    
 
 
     bool walking_mode_on_;                                  // turns on when the walking control command is received and truns off after saving start time
@@ -117,6 +129,9 @@ public:
 
     Eigen::Vector3d com_pos_error_;
     Eigen::Vector3d com_vel_error_;
+
+    Eigen::Vector3d com_vel_est1_;  // Jv*q_dot
+    Eigen::Vector3d com_vel_est2_;  // Jv*q_dot + r X w_f
     
     Eigen::Vector3d com_pos_current_pelvis_;
     Eigen::Vector3d com_vel_current_pelvis_; 
@@ -127,6 +142,7 @@ public:
     // Pevlis related variables
     Eigen::Vector3d pelv_pos_current_;
     Eigen::Vector3d pelv_vel_current_;
+    Eigen::Vector3d pelv_angvel_current_;
     Eigen::Matrix3d pelv_rot_current_;
     Eigen::Vector3d pelv_rpy_current_;
     Eigen::Matrix3d pelv_rot_current_yaw_aline_;
@@ -139,11 +155,10 @@ public:
     Eigen::Vector3d pelv_rpy_init_;
     Eigen::Matrix3d pelv_rot_init_yaw_aline_;
 
-	Vector3d phi_pelv_;
-	Vector3d ang_vel_pelv_;
-	Vector3d torque_pelv_;
-	VectorQd torque_stance_hip_;
-	VectorQd torque_swing_assist_;
+	Eigen::Vector3d phi_pelv_;
+	Eigen::Vector3d torque_pelv_;
+	Eigen::VectorQd torque_stance_hip_;
+	Eigen::VectorQd torque_swing_assist_;
 
     // Joint related variables
     Eigen::VectorQd current_q_;
@@ -180,6 +195,7 @@ public:
     Eigen::Vector6d swing_foot_vel_current_;
     Eigen::Vector6d swing_foot_vel_init_;
 
+    Eigen::Vector6d support_foot_vel_current_;
 
     Eigen::MatrixXd jac_com_;
     Eigen::MatrixXd jac_com_pos_;
@@ -188,20 +204,16 @@ public:
     Eigen::MatrixXd jac_rfoot_;
     Eigen::MatrixXd jac_lfoot_;
 
+    Eigen::MatrixXd lfoot_to_com_jac_from_global_;
+	Eigen::MatrixXd rfoot_to_com_jac_from_global_;
 
     Eigen::Isometry3d lfoot_transform_init_from_global_;
     Eigen::Isometry3d rfoot_transform_init_from_global_;
-    Eigen::Isometry3d lfoot_transform_init_from_pelvis_;
-    Eigen::Isometry3d rfoot_transform_init_from_pelvis_;
-    Eigen::Isometry3d lfoot_transform_init_from_sup_;
-    Eigen::Isometry3d rfoot_transform_init_from_sup_;
+
 
     Eigen::Isometry3d lfoot_transform_current_from_global_;
     Eigen::Isometry3d rfoot_transform_current_from_global_;
-    Eigen::Isometry3d lfoot_transform_current_from_pelvis_;
-    Eigen::Isometry3d rfoot_transform_current_from_pelvis_;
-    Eigen::Isometry3d lfoot_transform_current_from_sup_;
-    Eigen::Isometry3d rfoot_transform_current_from_sup_;
+
 
     Eigen::Vector6d lfoot_vel_current_from_global;
     Eigen::Vector6d rfoot_vel_current_from_global;
