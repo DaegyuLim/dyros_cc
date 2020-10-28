@@ -31,7 +31,7 @@ public:
     WholebodyController &wbc_;
     TaskCommand tc;
 
-    //////////dg custom controller variables////////
+    //////////dg custom controller functions////////
     void setWalkingParameter(double walking_duration, double walking_speed, double step_width, double knee_target_angle);
 
     void getRobotData(WholebodyController &wbc);
@@ -50,6 +50,10 @@ public:
     Eigen::VectorQd zmpAnkleControl();
     Eigen::VectorQd jointComTrackingTuning();
     void jointLimit (Eigen::VectorQd &task_torque); //limit 
+
+    //motion control
+    void motionRetargetting();
+    void motionRetargetting2();
 
     //preview related functions
     void getComTrajectory_Preview();
@@ -75,8 +79,16 @@ public:
     void KneeTargetAngleCommandCallback(const std_msgs::Float32 &msg);
     void FootHeightCommandCallback(const std_msgs::Float32 &msg);
     
+    RigidBodyDynamics::Model model_d_;
 
+    ////////////////dg custom controller variables/////////////
+    /////
+    ///// global: variables represented from the gravity alined frame which is attatched at the pelvis frame
+    ///// local: variables represented from its link frame
+    /////
+    ///////////////////////////////////////////////////////////
 
+    unsigned int upper_body_mode_;                          // 0: static pose,  1: motion capture play, 2: motion retarggeting
     bool walking_mode_on_;                                  // turns on when the walking control command is received and truns off after saving start time
     double stop_vel_threshold_;                             // acceptable capture point deviation from support foot
 
@@ -91,6 +103,7 @@ public:
 
     double walking_duration_;
     double walking_duration_cmd_;
+    double walking_duration_start_delay_;
     double walking_phase_;
     double turning_duration_;
     double turning_phase_;
@@ -139,6 +152,7 @@ public:
     Eigen::Vector3d com_vel_init_pelvis_;
     Eigen::Vector3d com_pos_desired_pre_pelvis_; 
     Eigen::Vector3d com_vel_desired_pre_pelvis_;
+
     // Pevlis related variables
     Eigen::Vector3d pelv_pos_current_;
     Eigen::Vector3d pelv_vel_current_;
@@ -172,8 +186,12 @@ public:
 
     Eigen::VectorQd motion_q_;
     Eigen::VectorQd motion_q_dot_;
+    Eigen::VectorQd motion_q_pre_;
+    Eigen::VectorQd motion_q_dot_pre_;
     Eigen::VectorQd init_q_;
 
+
+    // walking controller variables
     Eigen::VectorQd pd_control_mask_; //1 for joint ik pd control
 
     Eigen::Vector2d target_foot_landing_from_pelv_;
@@ -209,14 +227,18 @@ public:
 
     Eigen::Isometry3d lfoot_transform_init_from_global_;
     Eigen::Isometry3d rfoot_transform_init_from_global_;
-
+    Eigen::Isometry3d lhand_transform_init_from_global_;
+    Eigen::Isometry3d rhand_transform_init_from_global_;
 
     Eigen::Isometry3d lfoot_transform_current_from_global_;
     Eigen::Isometry3d rfoot_transform_current_from_global_;
-
+    Eigen::Isometry3d lhand_transform_current_from_global_;
+    Eigen::Isometry3d rhand_transform_current_from_global_;
 
     Eigen::Vector6d lfoot_vel_current_from_global;
     Eigen::Vector6d rfoot_vel_current_from_global;
+    Eigen::Vector6d lhand_vel_current_from_global;
+    Eigen::Vector6d rhand_vel_current_from_global;
 
     Eigen::Vector3d middle_of_both_foot_;
 
@@ -309,6 +331,16 @@ public:
     Eigen::Vector3d com_pos_desired_preview_pre_;
     Eigen::Vector3d com_vel_desired_preview_pre_;
     Eigen::Vector3d com_acc_desired_preview_pre_;
+
+    //MotionRetargetting variables
+    Eigen::Isometry3d master_lhand_pose_;
+    Eigen::Isometry3d master_rhand_pose_;
+    Eigen::Vector6d master_lhand_vel_;
+    Eigen::Vector6d master_rhand_vel_;
+
+    Eigen::Vector3d master_head_orientation_rpy_;
+    Eigen::Matrix3d master_head_orientation_mat_;
+
 private:
     Eigen::VectorQd ControlVal_;
     void initWalkingParameter();
