@@ -242,6 +242,12 @@ public:
 
     Eigen::Vector3d middle_of_both_foot_;
 
+    Eigen::Vector6d contact_force_lfoot_;
+    Eigen::Vector6d contact_force_rfoot_;
+    
+    Eigen::Vector6d contact_force_lfoot_local_;
+    Eigen::Vector6d contact_force_rfoot_local_;
+
     Eigen::Vector3d zmp_measured_;
     Eigen::Vector3d zmp_measured_pre_;
     Eigen::Vector3d zmp_measured_ppre_;

@@ -220,7 +220,7 @@ void CustomController::setWalkingParameter(double walking_duration, double walki
 void CustomController::initWalkingParameter()
 {
 	walking_mode_on_ = true;
-	upper_body_mode_ = 2;
+	upper_body_mode_ = 3;
 	stop_vel_threshold_ = 0.20;
 	walking_duration_cmd_ = 0.6;
 	walking_duration_start_delay_ = 0.3;
@@ -272,6 +272,16 @@ void CustomController::initWalkingParameter()
 
 	motion_q_pre_ = init_q_;
 	motion_q_dot_pre_.setZero();
+
+	contact_force_lfoot_.setZero();
+	contact_force_rfoot_.setZero();
+	contact_force_lfoot_local_.setZero();
+	contact_force_rfoot_local_.setZero();
+
+	zmp_local_lfoot_.setZero();
+	zmp_local_rfoot_.setZero();
+	zmp_measured_.setZero();
+	zmp_dot_measured_.setZero();
 }
 
 void CustomController::getRobotData(WholebodyController &wbc)
@@ -366,11 +376,26 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	// rd_.ZMP_ft = wc_.GetZMPpos(rd_);
 
 	// zmp_local_both_foot = wc.GetZMPpos_fromFT(rd_).segment(0, 2);  //get zmp using f/t sensors on both foot
+	
+	contact_force_lfoot_ = rd_.ContactForce_FT.segment(0, 6);
+	contact_force_rfoot_ = rd_.ContactForce_FT.segment(6, 6);
 
-	zmp_local_lfoot_(0) = -rd_.ContactForce_FT(4) / rd_.ContactForce_FT(2);
-	zmp_local_lfoot_(1) = -rd_.ContactForce_FT(3) / rd_.ContactForce_FT(2);
-	zmp_local_rfoot_(0) = -rd_.ContactForce_FT(10) / rd_.ContactForce_FT(8);
-	zmp_local_rfoot_(1) = -rd_.ContactForce_FT(9) / rd_.ContactForce_FT(8);
+	Matrix6d adt;
+	adt.setZero();
+	adt.block(0,0,3,3) = lfoot_transform_current_from_global_.linear();
+	adt.block(3,3,3,3) = lfoot_transform_current_from_global_.linear();
+
+	contact_force_lfoot_local_ = adt.inverse()*contact_force_lfoot_;
+	
+	adt.block(0,0,3,3) = rfoot_transform_current_from_global_.linear();
+	adt.block(3,3,3,3) = rfoot_transform_current_from_global_.linear();
+
+	contact_force_rfoot_local_ = adt.inverse()*contact_force_rfoot_;
+	
+	zmp_local_lfoot_(0) = -contact_force_lfoot_local_(4) / contact_force_lfoot_local_(2);
+	zmp_local_lfoot_(1) = contact_force_lfoot_local_(3) / contact_force_lfoot_local_(2);
+	zmp_local_rfoot_(0) = -contact_force_rfoot_local_(4) / contact_force_rfoot_local_(2);
+	zmp_local_rfoot_(1) = contact_force_rfoot_local_(3) / contact_force_rfoot_local_(2);
 
 	zmp_dot_local_lfoot_ = (zmp_local_lfoot_ - zmp_local_lfoot_pre_) / dt_;
 	zmp_dot_local_rfoot_ = (zmp_local_rfoot_ - zmp_local_rfoot_pre_) / dt_;
@@ -382,8 +407,8 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	zmp_measured_ = (zmp_measured_lfoot_ * rd_.ContactForce_FT(2) + zmp_measured_rfoot_ * rd_.ContactForce_FT(8)) / (rd_.ContactForce_FT(2) + rd_.ContactForce_FT(8)); //from global
 	zmp_dot_measured_ = (zmp_measured_ - zmp_measured_pre_) / dt_;
 
-	l_ft_ = rd_.ContactForce_FT.segment(0, 6);
-	r_ft_ = rd_.ContactForce_FT.segment(6, 6);
+	l_ft_ = rd_.ContactForce_FT_raw.segment(0, 6);
+	r_ft_ = rd_.ContactForce_FT_raw.segment(6, 6);
 
 	first_torque_supplier_ = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ + walking_duration_*0.5, 0, 1, 0, 0);
 }
@@ -702,7 +727,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 			support_foot_transform_init_ = rfoot_transform_current_from_global_;
 			swing_foot_vel_init_ = rfoot_vel_current_from_global;
 		}
-
+		init_q_ = current_q_;
 	}
 
 	if (foot_contact_ == 1) // left support foot
@@ -997,7 +1022,11 @@ void CustomController::motionRetargetting2()
 		pd_control_mask_(15+i) = 0;
 		pd_control_mask_(25+i) = 0;
 	}
-
+	motion_q_(15) = 0;
+	motion_q_(25) = 0;
+	pd_control_mask_(15) = 1;
+	pd_control_mask_(25) = 1;
+	
 	VectorQd torque_d_larm;
 	VectorQd torque_d_rarm;
 
@@ -1041,22 +1070,42 @@ void CustomController::motionRetargetting2()
 
 	master_lhand_pose_ = lhand_transform_init_from_global_;
 	master_lhand_vel_.setZero();
+
 	master_lhand_pose_.translation()(2) += 0.1*sin(current_time_*2*M_PI/2); 
 	master_lhand_vel_(2) = 0.1*cos(current_time_*2*M_PI/2)*2*M_PI/2;
 
+	master_lhand_pose_.linear() = DyrosMath::rotateWithZ(M_PI/4*sin(current_time_*M_PI))*lhand_transform_init_from_global_.linear();
+	master_lhand_vel_(5) = M_PI*M_PI/4*cos(current_time_*M_PI);
+
 	master_rhand_pose_ = rhand_transform_init_from_global_;
 	master_rhand_vel_.setZero();
+
 	master_rhand_pose_.translation()(2) += -0.1*sin(current_time_*2*M_PI/2); 
 	master_rhand_vel_(2) = -0.1*cos(current_time_*2*M_PI/2)*2*M_PI/2;
 
+	master_rhand_pose_.linear() = DyrosMath::rotateWithZ(M_PI/4*sin(current_time_*M_PI))*rhand_transform_init_from_global_.linear();
+	master_rhand_vel_(5) = M_PI*M_PI/4*cos(current_time_*M_PI);
+
+	// hand position
 	f_d_lhand.segment(0, 3) = kp_pos_lhand*(master_lhand_pose_.translation()-lhand_transform_current_from_global_.translation()) + kd_pos_lhand*(master_lhand_vel_.segment(0,3) - lhand_vel_current_from_global.segment(0,3));
 	f_d_rhand.segment(0, 3) = kp_pos_rhand*(master_rhand_pose_.translation()-rhand_transform_current_from_global_.translation()) + kd_pos_rhand*(master_rhand_vel_.segment(0,3) - rhand_vel_current_from_global.segment(0,3));
 
+	// hand orientation
+	Vector3d phi_lhand;
+	Vector3d phi_rhand;
+	phi_lhand = -DyrosMath::getPhi(lhand_transform_current_from_global_.linear(), master_lhand_pose_.linear());
+	phi_rhand = -DyrosMath::getPhi(rhand_transform_current_from_global_.linear(), master_rhand_pose_.linear());
 
+	double kpa_hand = 100; //angle error gain
+	double kva_hand = 20;	//angular velocity gain
+
+	f_d_lhand.segment(3, 3) = kpa_hand * phi_lhand + kva_hand * (master_lhand_vel_.segment(3,3) - lhand_vel_current_from_global.segment(3,3));
+	f_d_rhand.segment(3, 3) = kpa_hand * phi_rhand + kva_hand * (master_rhand_vel_.segment(3,3) - rhand_vel_current_from_global.segment(3,3));
+	
 	torque_d_larm = (jac_lhand_.transpose()*f_d_lhand).segment(6, MODEL_DOF);
 	torque_d_rarm = (jac_rhand_.transpose()*f_d_rhand).segment(6, MODEL_DOF);
 	
-	torque_d_larm.segment(12, 3).setZero();
+	torque_d_larm.segment(12, 3).setZero(); // penalize pelvi torques
 	torque_d_rarm.segment(12, 3).setZero();
 	
 	torque_task_ += (torque_d_larm + torque_d_rarm);
@@ -1244,13 +1293,13 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 	double d_temp_x;
 	double d_temp_y;
 	double alpha_x = 0.05;
-	double alpha_y = -0.05;
+	double alpha_y = 0.05;
 	double ipm_calc_end_phsse = 0.98;
 
 	if(walking_speed_ == 0)
 	{
 		alpha_x = 0.0;
-		alpha_y = -0.05;
+		alpha_y = 0.05;
 	}
 
 
@@ -1280,8 +1329,8 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 		}
 
 		d_prime(0) = d(0) - alpha_x * com_vel_desired(0);
-		// d_prime(1) = d(1) - 0.06*step_width_/walking_duration_*foot_contact_;
-		d_prime(1) = d(1) - alpha_y * com_vel_desired(1) * foot_contact_;
+		d_prime(1) = d(1) - alpha_y*step_width_/walking_duration_*foot_contact_;
+		// d_prime(1) = d(1) - alpha_y * com_vel_desired(1) * foot_contact_;
 
 
 		if (walking_phase_ < ipm_calc_end_phsse) // during the last 0.05phase, the swing foot only lands on the ground in z direction.
@@ -2787,17 +2836,21 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 	Eigen::Vector2d diff_zmp_rfoot;
 	Eigen::Vector2d diff_zmp_both;
 	Eigen::Vector3d diff_btw_both_foot;
-	Eigen::Vector2d foot_size;
+	double foot_size_x_front;
+	double foot_size_x_rear;
+	double foot_size_y;
 
-	double safe_region_ratio = 0.8;
-	double edge_region_ratio = 0.95;
+	double safe_region_ratio = 0.75;
+	double edge_region_ratio = 0.90;
 	double left_ankle_pitch_tune = 1;
 	double left_ankle_roll_tune = 1;
 	double right_ankle_pitch_tune = 1;
 	double right_ankle_roll_tune = 1;
 
-	foot_size(0) = 0.15;
-	foot_size(1) = 0.085;
+	foot_size_x_front = 0.18;
+	foot_size_x_rear = 0.12;
+
+	foot_size_y = 0.085;
 
 	Vector3d phi_support_ankle;
 	Vector3d angvel_support_ankle;
@@ -2816,12 +2869,25 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 			left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0, 0, 0);
 			left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0, 0, 0);
 
-			// angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global.segment(3,3);
+			angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global.segment(3,3);
 			// left_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
 			// left_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
 			
 			left_ankle_pitch_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
 			left_ankle_roll_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
+
+			diff_zmp_lfoot(0) = (zmp_local_lfoot_(0) - middle_of_both_foot_(0));
+			diff_zmp_lfoot(1) = (zmp_local_lfoot_(1) - middle_of_both_foot_(1));
+
+			// if(diff_zmp_lfoot(0) > 0)
+			// {
+			// 	left_ankle_pitch_tune *= DyrosMath::cubic(diff_zmp_lfoot(0) , safe_region_ratio*foot_size_x_front, edge_region_ratio*foot_size_x_front, 1, 0, 0, 0);
+			// }
+			// else
+			// {
+			// 	left_ankle_pitch_tune *= DyrosMath::cubic( -diff_zmp_lfoot(0) , safe_region_ratio*foot_size_x_rear, edge_region_ratio*foot_size_x_rear, 1, 0, 0, 0);
+			// }
+			// left_ankle_roll_tune *= DyrosMath::cubic( abs(diff_zmp_lfoot(1)) , safe_region_ratio*foot_size_y, edge_region_ratio*foot_size_y, 1, 0, 0, 0);
 
 			task_torque(4) = task_torque(4) * left_ankle_pitch_tune;
 			task_torque(5) = task_torque(5) * left_ankle_roll_tune;
@@ -2838,12 +2904,25 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 			right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0, 0, 0);
 			right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0, 0, 0);
 
-			// angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global.segment(3,3);
+			angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global.segment(3,3);
 			// right_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
 			// right_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
 			
 			right_ankle_pitch_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
 			right_ankle_roll_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 5, -rd_.com_.mass * GRAVITY / 10, 1, 0, 0, 0);
+
+			diff_zmp_rfoot(0) = (zmp_local_rfoot_(0) - middle_of_both_foot_(0));
+			diff_zmp_rfoot(1) = (zmp_local_rfoot_(1) - middle_of_both_foot_(1));
+
+			// if(diff_zmp_rfoot(0) > 0)
+			// {
+			// 	right_ankle_pitch_tune *= DyrosMath::cubic(diff_zmp_rfoot(0) , safe_region_ratio*foot_size_x_front, edge_region_ratio*foot_size_x_front, 1, 0, 0, 0);
+			// }
+			// else
+			// {
+			// 	right_ankle_pitch_tune *= DyrosMath::cubic( -diff_zmp_rfoot(0) , safe_region_ratio*foot_size_x_rear, edge_region_ratio*foot_size_x_rear, 1, 0, 0, 0);
+			// }
+			// right_ankle_roll_tune *= DyrosMath::cubic( abs(diff_zmp_rfoot(1)) , safe_region_ratio*foot_size_y, edge_region_ratio*foot_size_y, 1, 0, 0, 0);
 
 			task_torque(10) = task_torque(10) * right_ankle_pitch_tune;
 			task_torque(11) = task_torque(11) * right_ankle_roll_tune;
@@ -2861,30 +2940,30 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 		// left_ankle_roll_tune = DyrosMath::cubic(diff_zmp_both(1) , diff_btw_both_foot(1) + safe_region_ratio*foot_size(1), diff_btw_both_foot(1) + edge_region_ratio*foot_size(1), 1, 0, 0, 0);
 		// right_ankle_roll_tune = left_ankle_roll_tune;
 
-		// if(l_ft_(2) < rd_.com_.mass*GRAVITY/5)
+		if(l_ft_(2) < rd_.com_.mass*GRAVITY/5)
 		{
-			left_ankle_pitch_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
-			left_ankle_roll_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
+			left_ankle_pitch_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.00, 0, 0);
+			left_ankle_roll_tune *= DyrosMath::cubic(l_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.00, 0, 0);
 		}
 
-		// if(r_ft_(2) < rd_.com_.mass*GRAVITY/2)
+		if(r_ft_(2) < rd_.com_.mass*GRAVITY/2)
 		{
-			right_ankle_pitch_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
-			right_ankle_roll_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.01, 0, 0);
+			right_ankle_pitch_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.00, 0, 0);
+			right_ankle_roll_tune *= DyrosMath::cubic(r_ft_(2), -rd_.com_.mass * GRAVITY / 3, -rd_.com_.mass * GRAVITY / 100, 1, 0.00, 0, 0);
 		}
 
 
 		phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
-		left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
-		left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
+		left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0.0, 0, 0);
+		left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0.0, 0, 0);
 
 		// angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global.segment(3,3);
 		// left_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.005, 0.1, 1, 0.0, 0, 0);
 		// left_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.005, 0.1, 1, 0.0, 0, 0);
 
 		phi_support_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
-		right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
-		right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
+		right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0.0, 0, 0);
+		right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0.0, 0, 0);
 
 		// angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global.segment(3,3);
 		// right_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.005, 0.1, 1, 0.0, 0, 0);
@@ -2898,17 +2977,24 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 		task_torque(11) = task_torque(11) * right_ankle_roll_tune;
 	}
 
+	// task_torque(4) = DyrosMath::minmax_cut(task_torque(4), -(-l_ft_(2))*foot_size_x_rear, (-l_ft_(2))*foot_size_x_front );
+	// task_torque(5) = DyrosMath::minmax_cut(task_torque(5), -(-l_ft_(2))*foot_size_y, (-l_ft_(2))*foot_size_y );
+	// task_torque(10) = DyrosMath::minmax_cut(task_torque(10), -(-r_ft_(2))*foot_size_x_rear, (-r_ft_(2))*foot_size_x_front );
+	// task_torque(11) = DyrosMath::minmax_cut(task_torque(11), -(-r_ft_(2))*foot_size_y, (-r_ft_(2))*foot_size_y );
+
 	if ((left_ankle_pitch_tune * left_ankle_roll_tune * right_ankle_pitch_tune * right_ankle_roll_tune) <= 0.8)
 	{
 		if ( int(current_time_*2000)%100 == 0)
 		{
 			cout<<"############### ankle torque tuning! ###############"<<endl;
 			cout<<"########right angvel_support_ankle:"<<angvel_support_ankle<< "############"<<endl;
-
 			cout<<"########left_ankle_pitch_tune:"<<left_ankle_pitch_tune<< "############"<<endl;
 			cout<<"########left_ankle_roll_tune:"<<left_ankle_roll_tune<< "############"<<endl;
 			cout<<"########right_ankle_pitch_tune:"<<right_ankle_pitch_tune<< "############"<<endl;
 			cout<<"########right_ankle_roll_tune:"<<right_ankle_roll_tune<< "############"<<endl;
+
+			cout<<"########diff_zmp_lfoot:"<<diff_zmp_lfoot<< "############"<<endl;
+			cout<<"########diff_zmp_rfoot:"<<diff_zmp_rfoot<< "############"<<endl;
 			cout<<"############### ankle torque tuning! ###############"<<endl;
 		}
 	}
