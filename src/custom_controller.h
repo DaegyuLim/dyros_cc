@@ -2,14 +2,16 @@
 #include <tocabi_controller/link.h>
 #include "math_type_define.h"
 
-const int FILE_CNT = 3;
+const int FILE_CNT = 5;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
   ///change this directory when you use this code on the other computer///
     "/home/dg/data/tocabi_cc/0_flag_.txt",
     "/home/dg/data/tocabi_cc/1_com_.txt",
-    "/home/dg/data/tocabi_cc/2_foot_.txt"
+    "/home/dg/data/tocabi_cc/2_foot_.txt",
+    "/home/dg/data/tocabi_cc/3_torque_.txt",
+    "/home/dg/data/tocabi_cc/4_joint_.txt"
 };
 
 class CustomController
@@ -50,6 +52,7 @@ public:
     Eigen::VectorQd zmpAnkleControl();
     Eigen::VectorQd jointComTrackingTuning();
     void jointLimit (Eigen::VectorQd &task_torque); //limit 
+    void fallDetection();
 
     //motion control
     void motionRetargetting();
@@ -98,6 +101,8 @@ public:
     bool first_step_trigger_;                               // ture if this is first swing foot. turn on at the start of the swing.
     bool start_walking_trigger_;                            // true when the walking_speed_ is not zero and swint do not start.
     bool stop_walking_trigger_;                             // turns on when the robot's speed become zero and lands last foot step
+    bool falling_detection_flag_;                           // turns on when the robot is falling and is considered that it can not recover balance.
+
     double stance_start_time_;
     double program_start_time_;
 
@@ -189,8 +194,13 @@ public:
     Eigen::VectorQd motion_q_pre_;
     Eigen::VectorQd motion_q_dot_pre_;
     Eigen::VectorQd init_q_;
+    Eigen::VectorQd zero_q_;
 
+    Eigen::MatrixVVd A_mat_;
+    Eigen::MatrixVVd A_inv_mat_;
 
+    Eigen::MatrixVVd motor_inertia_mat_;
+    Eigen::MatrixVVd motor_inertia_inv_mat_;
     // walking controller variables
     Eigen::VectorQd pd_control_mask_; //1 for joint ik pd control
 
@@ -234,6 +244,9 @@ public:
     Eigen::Isometry3d rfoot_transform_current_from_global_;
     Eigen::Isometry3d lhand_transform_current_from_global_;
     Eigen::Isometry3d rhand_transform_current_from_global_;
+
+    Eigen::Isometry3d lknee_transform_current_from_global_;
+    Eigen::Isometry3d rknee_transform_current_from_global_;
 
     Eigen::Vector6d lfoot_vel_current_from_global;
     Eigen::Vector6d rfoot_vel_current_from_global;
@@ -282,6 +295,7 @@ public:
     Eigen::VectorQd torque_task_pre_;
     Eigen::VectorQd torque_grav_pre_;
     Eigen::VectorQd torque_qp_;
+    Eigen::VectorQd torque_g_;
 
     //getComTrajectory() variables
     double xi_;
@@ -346,6 +360,11 @@ public:
 
     Eigen::Vector3d master_head_orientation_rpy_;
     Eigen::Matrix3d master_head_orientation_mat_;
+
+    //fallDetection variables
+    Eigen::VectorQd fall_init_q_;
+    double fall_start_time_;
+    int foot_lift_count_;
 
 private:
     Eigen::VectorQd ControlVal_;
