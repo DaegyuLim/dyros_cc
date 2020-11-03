@@ -189,6 +189,12 @@ void CustomController::computeSlow()
 
 		printOutTextFile();
 	}
+	else if (tc.mode == 14) //arm control test in the air 
+	{
+		getRobotData(wbc_);
+		
+		motionRetargetting2();
+	}
 }
 
 void CustomController::computeFast()
@@ -952,8 +958,10 @@ void CustomController::motionGenerator()
 	{
 		motionRetargetting2();
 	}
+
+
 	/////////////////FOOT HEIGHT/////////////////////////
-	double default_stance_foot_z_from_pelv = -0.349 * (cos(0.02) + cos(0.12)) - 0.1225;
+	double default_stance_foot_z_from_pelv = -0.349 * (cos(0.02) + cos(0.12)) - 0.1025;
 
 	if (foot_swing_trigger_ == true)
 	{
@@ -1092,6 +1100,7 @@ void CustomController::motionRetargetting2()
 		pd_control_mask_(15+i) = 0;
 		pd_control_mask_(25+i) = 0;
 	}
+
 	motion_q_(15) = 0.3;
 	motion_q_(25) = -0.3;
 	pd_control_mask_(15) = 1;
@@ -1547,8 +1556,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	torque_g_ = wbc.gravity_compensation_torque(rd_, true);
 
 	////////////// Set f_start  ////////////////
-	double kp = 196; // 2500(reference paper)
-	double kv = 28;	 // 100(reference paper)
+	double kp = 196; // 2500(reference paper) (tune)
+	double kv = 28;	 // 100(reference paper) (tune)
 
 	// com_pos_desired_(1) = com_pos_init_(0) + sin(2*M_PI/8*current_time_-tc.command_time);
 	// com_vel_desired_(1) = M_PI/2*cos(2*M_PI/8*current_time_-tc.command_time);
@@ -1564,8 +1573,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	f_star(2) *= rd_.com_.mass;
 	
 	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
-	double kpa_pelv = 4900; //angle error gain
-	double kva_pelv = 140;	//angular velocity gain
+	double kpa_pelv = 4900; //angle error gain (tune)
+	double kva_pelv = 140;	//angular velocity gain (tune)
 	torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * pelv_angvel_current_;
 	torque_pelv_(2) = 0;
 	f_star.segment(3,3) = torque_pelv_*3;
@@ -1844,7 +1853,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	Eigen::Matrix3d pevl_target_rot;
 	Eigen::Vector3d torque_pelv_for_ankle;
  
-	double default_stance_foot_z_from_pelv = -0.349 * (cos(0.02) + cos(0.12)) - 0.1225;
+	double default_stance_foot_z_from_pelv = -0.349 * (cos(0.02) + cos(0.12)) - 0.1025;
 	// lleg_transform_target.translation()(0) = -0.015;
 	// lleg_transform_target.translation()(1) = 0.1025;
 	// lleg_transform_target.translation()(2) = default_stance_foot_z_from_pelv;
@@ -1873,40 +1882,6 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	torque_stance_hip_.setZero();
 	torque_swing_assist_.setZero();
 
-	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
-	double kpa_pelv = 6400; //angle error gain
-	double kva_pelv = 160;	//angular velocity gain
-	// torque_pelv_ = kpa_pelv * phi_pelv_ - kva_pelv * pelv_angvel_current_;
-	// torque_pelv_for_ankle = 100*phi_pelv_ - 20*pelv_angvel_current_;
-
-	Vector3d axis;
-	double angle;
-	// angle = (phi_pelv_.norm())*dt_ ;
-	// axis = phi_pelv_.normalized();
-
-	Eigen::AngleAxisd aa(pelv_rot_current_yaw_aline_.transpose());
-	angle = aa.angle();
-	axis = aa.axis();
-
-	// if(foot_swing_trigger_ == false)
-	// {
-	// 	torque_pelv_(0) = 2500 * phi_pelv_(0) - 100 * pelv_angvel_current_(0);
-	// }
-
-	// if( walking_phase_>0.1 )
-	// {
-	// cout <<"phi_pelv: \n"<<phi_pelv<<endl;
-	// cout <<"torque_pelv: \n"<<torque_pelv<<endl;
-
-	//     // cout <<"axis: \n"<<axis<<endl;
-	// }
-
-	// Matrix3d pelv_rot;
-	// pelv_rot = pelv_yaw_rot_current_from_global_.transpose()*pelv_rot_current_*Eigen::AngleAxisd(angle*100*dt_, axis);
-	// pelv_transform_from_global.linear() = pelv_rot;
-
-	// desired_q_.segment(12, 3) = current_q_.segment(12, 3) + desired_q_dot_.segment(12, 3)*dt_;
-
 	//////////////////////////////////////////////////////////////////////////////////////////
 
 	Eigen::MatrixXd kp_joint(MODEL_DOF, 1);
@@ -1919,8 +1894,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	double swing_pd_switch;
 	for (int i = 0; i < MODEL_DOF; i++)
 	{
-		kp_joint(i) = 100;
-		kv_joint(i) = 20;
+		kp_joint(i) = 100; 		//(tune)
+		kv_joint(i) = 20;		//(tune)
 	}
 
 	// for(int i = 0; i<12; i++)      //Leg
@@ -1956,7 +1931,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	// 	kv_joint(23 + i) = 16;
 	// }
 
-	//stiff
+	//stiff	//(tune)
 	kp_stiff_joint(0) = 2500; //R hip yaw joint gain
 	kv_stiff_joint(0) = 100;
 	kp_stiff_joint(1) = 2500; //L hip roll joint gain
@@ -1987,7 +1962,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	kp_stiff_joint(11) = 900; //R ankle roll joint gain
 	kv_stiff_joint(11) = 60;
 
-	//soft
+	//soft	//(tune)
 	kp_soft_joint(0) = 2500; //L hip yaw joint gain
 	kv_soft_joint(0) = 100;
 	kp_soft_joint(1) = 400; //L hip roll joint gain
@@ -2067,8 +2042,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_swing_ankle = -DyrosMath::getPhi(lfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
 			// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-			desired_q_dot_(4) = 200 * phi_swing_ankle(1); //swing ankle pitch
-			desired_q_dot_(5) = 200 * phi_swing_ankle(0); //swing ankle roll
+			desired_q_dot_(4) = 200 * phi_swing_ankle(1); //swing ankle pitch	//(tune)
+			desired_q_dot_(5) = 200 * phi_swing_ankle(0); //swing ankle roll	//(tune)
 			desired_q_(4) = current_q_(4) + desired_q_dot_(4) * dt_;
 			desired_q_(5) = current_q_(5) + desired_q_dot_(5) * dt_;
 
@@ -2077,15 +2052,15 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_support_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), DyrosMath::rotateWithZ(current_q_(6)));
 
 
-			desired_q_dot_(10) = 200 * phi_support_ankle(1);
-			desired_q_dot_(11) = 200 * phi_support_ankle(0);
+			desired_q_dot_(10) = 200 * phi_support_ankle(1);	//(tune)
+			desired_q_dot_(11) = 200 * phi_support_ankle(0);	//(tune)
 			desired_q_(10) = current_q_(10) + desired_q_dot_(10) * dt_;
 			desired_q_(11) = current_q_(11) + desired_q_dot_(11) * dt_;
 
 			// low pass filter for suppport foot target position
 			// desired_q_(6) = 0.5 * motion_q_(6) + 0.5 * pre_desired_q_(6); //right support foot hip yaw
 			desired_q_(6) = DyrosMath::QuinticSpline(turning_phase_, 0, 1, init_q_(6), 0, 0, motion_q_(6), 0, 0)(0); 
-			desired_q_(9) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, init_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
+			desired_q_(9) = DyrosMath::QuinticSpline(walking_phase_, 0.0, 0.5, init_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
 			// desired_q_(9) = 0.5*motion_q_(9) + 0.5*pre_desired_q_(9); //right support foot
 			// desired_q_(9) = desired_q_leg(9); //right support foot knee
 			// desired_q_(10) = 0.5*desired_q_leg(10) + 0.5*pre_desired_q_(10); //right support foot ankle pitch
@@ -2140,6 +2115,9 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(7) = 0;
 				pd_control_mask_(8) = 0;
 
+				// pd_control_mask_(10) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(11) = 1 - swing_pd_switch;
+
 				torque_stance_hip_(2) = -torque_pelv_(1) * (1 - swing_pd_switch); // left hip pitch
 				torque_stance_hip_(1) = -torque_pelv_(0) * (1 - swing_pd_switch); // left hip roll
 
@@ -2161,6 +2139,9 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(6) = 1;
 				pd_control_mask_(7) = 1 - swing_pd_switch;
 				pd_control_mask_(8) = 1 - swing_pd_switch;
+				
+				// pd_control_mask_(10) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(11) = 1 - swing_pd_switch;
 
 				torque_stance_hip_(2) = -torque_pelv_(1) * (1 - swing_pd_switch); // left hip pitch
 				torque_stance_hip_(1) = -torque_pelv_(0) * (1 - swing_pd_switch); // left hip roll
@@ -2233,7 +2214,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 
 			// desired_q_(0) = 0.5 * motion_q_(0) + 0.5 * pre_desired_q_(0); //left support foot hip yaw
 			desired_q_(0) = DyrosMath::QuinticSpline(turning_phase_, 0, 1, init_q_(0), 0, 0, motion_q_(0), 0, 0)(0);  //left support foot hip yaw
-			desired_q_(3) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, init_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
+			desired_q_(3) = DyrosMath::QuinticSpline(walking_phase_, 0.0, 0.5, init_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
 			// desired_q_(3) = 0.5*motion_q_(3) + 0.5*pre_desired_q_(3); //left support foot knee
 			// desired_q_(3) = desired_q_leg(3); //left support foot knee
 			// desired_q_(4) = 0.5*desired_q_leg(4) + 0.5*pre_desired_q_(4); //left support foot ankle pitch
@@ -2285,6 +2266,9 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(1) = 0;
 				pd_control_mask_(2) = 0;
 
+				// pd_control_mask_(4) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(5) = 1 - swing_pd_switch;
+
 				pd_control_mask_(6) = 1;
 				pd_control_mask_(7) = swing_pd_switch;
 				pd_control_mask_(8) = swing_pd_switch;
@@ -2306,6 +2290,9 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 				pd_control_mask_(0) = 1;
 				pd_control_mask_(1) = 1 - swing_pd_switch;
 				pd_control_mask_(2) = 1 - swing_pd_switch;
+
+				// pd_control_mask_(4) = 1 - swing_pd_switch; //test
+				// pd_control_mask_(5) = 1 - swing_pd_switch;
 
 				pd_control_mask_(6) = 1;
 				pd_control_mask_(7) = swing_pd_switch;
@@ -2346,8 +2333,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 		desired_q_(0) = 0.5 * 0 + 0.5 * pre_desired_q_(0); // hip yaw
 		desired_q_(6) = 0.5 * 0 + 0.5 * pre_desired_q_(6);
 
-		desired_q_(3) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + switching_phase_duration_ * walking_duration_, init_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
-		desired_q_(9) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + switching_phase_duration_ * walking_duration_, init_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
+		desired_q_(3) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, init_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
+		desired_q_(9) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, init_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
 		// desired_q_(3) = 0.4 * motion_q_(3) + 0.6 * pre_desired_q_(3); //left knee
 		// desired_q_(9) = 0.4 * motion_q_(9) + 0.6 * pre_desired_q_(9); //right knee
 		// desired_q_(3) =	current_q_(3);
@@ -2497,7 +2484,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	phi_trunk = -DyrosMath::getPhi(pelv_yaw_rot_current_from_global_.transpose()* rd_.link_[Upper_Body].Rotm, upper_body_rotaion_matrix);
 	// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-	desired_q_dot_(12) = 50 * phi_trunk(2);	 //waist yaw
+	desired_q_dot_(12) = 50 * phi_trunk(2);	 //waist yaw //(tune)
 	desired_q_dot_(13) = 30 * phi_trunk(1);	 //waist pitch
 	desired_q_dot_(14) = -30 * phi_trunk(0); //waist roll
 
