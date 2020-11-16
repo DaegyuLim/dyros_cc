@@ -1,6 +1,7 @@
 #include <tocabi_controller/data_container.h>
 #include <tocabi_controller/link.h>
 #include "math_type_define.h"
+#include <std_msgs/Float32MultiArray.h>
 
 const int FILE_CNT = 5;
 
@@ -33,6 +34,9 @@ public:
     WholebodyController &wbc_;
     TaskCommand tc;
 
+    CQuadraticProgram QP_qdot;
+
+    void setGains();
     //////////dg custom controller functions////////
     void setWalkingParameter(double walking_duration, double walking_speed, double step_width, double knee_target_angle);
 
@@ -43,15 +47,18 @@ public:
     void getCOMTrajectory();
     void getSwingFootXYTrajectory(double phase, Eigen::Vector3d com_pos_current, Eigen::Vector3d com_vel_current, Eigen::Vector3d com_vel_desired);
     void computeIk(Eigen::Isometry3d float_trunk_transform, Eigen::Isometry3d float_lleg_transform, Eigen::Isometry3d float_rleg_transform, Eigen::Vector12d& q_des);
+
     Eigen::VectorQd comVelocityControlCompute(WholebodyController &wbc);
-    Eigen::VectorQd comVelocityControlCompute2(WholebodyController &wbc);
+    Eigen::VectorQd swingFootControlCompute(WholebodyController &wbc);
     Eigen::VectorQd jointTrajectoryPDControlCompute(WholebodyController &wbc);
+    Eigen::VectorQd dampingControlCompute(WholebodyController &wbc);
+    Eigen::VectorQd jointLimit(); 
+
     bool balanceTrigger(Eigen::Vector2d com_pos_2d, Eigen::Vector2d com_vel_2d);
     int checkZMPinWhichFoot(Eigen::Vector2d zmp_measured); // check where the zmp is
     Eigen::VectorQd tuneTorqueForZMPSafety(Eigen::VectorQd task_torque); // check where the zmp is
     Eigen::VectorQd zmpAnkleControl();
     Eigen::VectorQd jointComTrackingTuning();
-    void jointLimit (Eigen::VectorQd &task_torque); //limit 
     void fallDetection();
 
     //motion control
@@ -70,18 +77,46 @@ public:
     void savePreData();
     void printOutTextFile();
 
-    ros::Subscriber walking_speed_command;
-    ros::Subscriber walking_duration_command;
-    ros::Subscriber walking_angvel_command;
-    ros::Subscriber knee_target_angle_command;
-    ros::Subscriber foot_height_command;
+    double bandBlock(double value, double max, double min);
 
-    void WalkingSpeedCommandCallback(const std_msgs::Float32 &msg);
-    void WalkingDurationCommandCallback(const std_msgs::Float32 &msg);
-    void WalkingAngVelCommandCallback(const std_msgs::Float32 &msg);
-    void KneeTargetAngleCommandCallback(const std_msgs::Float32 &msg);
-    void FootHeightCommandCallback(const std_msgs::Float32 &msg);
+    ros::Subscriber walking_slider_command;
+
+    ros::Subscriber upperbodymode_sub;
+    ros::Subscriber nextswingleg_sub;
+
+    ros::Subscriber com_walking_pd_gain_sub;
+    ros::Subscriber pelv_ori_pd_gain_sub;
+    ros::Subscriber support_foot_damping_gain_sub;
+    ros::Subscriber dg_leg_pd_gain_sub;
+    ros::Subscriber alpha_x_sub;
+    ros::Subscriber alpha_y_sub;
+    ros::Subscriber step_width_sub;
+
+    ros::Subscriber test1_sub;
+    ros::Subscriber test2_sub;
+
+    ros::Subscriber arm_pd_gain_sub;
+    ros::Subscriber waist_pd_gain_sub;
+
+    void WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg);
+
+    void UpperbodyModeCallback(const std_msgs::Float32 &msg);
+    void NextSwinglegCallback(const std_msgs::Float32 &msg);
+
+    void ComPosGainCallback(const std_msgs::Float32MultiArray &msg);
+    void PelvOriGainCallback(const std_msgs::Float32MultiArray &msg);
+    void SupportFootDampingGainCallback(const std_msgs::Float32MultiArray &msg);
+    void LegJointGainCallback(const std_msgs::Float32MultiArray &msg);
+    void AlphaXCallback(const std_msgs::Float32 &msg);
+    void AlphaYCallback(const std_msgs::Float32 &msg);
+    void StepWidthCommandCallback(const std_msgs::Float32 &msg);
     
+    void Test1CommandCallback(const std_msgs::Float32 &msg);
+    void Test2CommandCallback(const std_msgs::Float32 &msg);
+
+    void ArmJointGainCallback(const std_msgs::Float32MultiArray &msg);
+    void WaistJointGainCallback(const std_msgs::Float32MultiArray &msg);
+
     RigidBodyDynamics::Model model_d_;
 
     ////////////////dg custom controller variables/////////////
@@ -91,7 +126,7 @@ public:
     /////
     ///////////////////////////////////////////////////////////
 
-    unsigned int upper_body_mode_;                          // 0: static pose,  1: motion capture play, 2: motion retarggeting
+    unsigned int upper_body_mode_;                          // 1: init pose,  2: zero pose, 3: swing arm 4: motion retarggeting
     bool walking_mode_on_;                                  // turns on when the walking control command is received and truns off after saving start time
     double stop_vel_threshold_;                             // acceptable capture point deviation from support foot
 
@@ -130,7 +165,8 @@ public:
     double swing_foot_height_;
     
     double first_torque_supplier_;
-
+    double swingfoot_force_control_converter_;
+    double swingfoot_highest_time_;
     // CoM variables
     Eigen::Vector3d com_pos_desired_; 
     Eigen::Vector3d com_vel_desired_;
@@ -158,6 +194,9 @@ public:
     Eigen::Vector3d com_pos_desired_pre_pelvis_; 
     Eigen::Vector3d com_vel_desired_pre_pelvis_;
 
+    Eigen::Matrix3d kp_compos_; // 196(sim) (tune)
+	Eigen::Matrix3d kd_compos_;	 // 28(sim) (tune)
+
     // Pevlis related variables
     Eigen::Vector3d pelv_pos_current_;
     Eigen::Vector3d pelv_vel_current_;
@@ -179,6 +218,8 @@ public:
 	Eigen::VectorQd torque_stance_hip_;
 	Eigen::VectorQd torque_swing_assist_;
 
+    Eigen::Matrix3d kp_pelv_ori_; // 196(sim) (tune)
+	Eigen::Matrix3d kd_pelv_ori_;	 // 28(sim) (tune)
     // Joint related variables
     Eigen::VectorQd current_q_;
     Eigen::VectorQd current_q_dot_;
@@ -188,6 +229,7 @@ public:
     Eigen::VectorQd desired_q_ddot_;
     Eigen::VectorQd pre_q_;
     Eigen::VectorQd pre_desired_q_;
+    Eigen::VectorQd last_desired_q_;
 
     Eigen::VectorQd motion_q_;
     Eigen::VectorQd motion_q_dot_;
@@ -201,7 +243,19 @@ public:
 
     Eigen::MatrixVVd motor_inertia_mat_;
     Eigen::MatrixVVd motor_inertia_inv_mat_;
+
+    Eigen::VectorQd kp_joint_;
+	Eigen::VectorQd kv_joint_;
+
+	Eigen::VectorQd kp_stiff_joint_;
+	Eigen::VectorQd kv_stiff_joint_;
+	Eigen::VectorQd kp_soft_joint_;
+	Eigen::VectorQd kv_soft_joint_;
     // walking controller variables
+    double alpha_x_;
+	double alpha_y_;
+    double alpha_x_command_;    
+    double alpha_y_command_;
     Eigen::VectorQd pd_control_mask_; //1 for joint ik pd control
 
     Eigen::Vector2d target_foot_landing_from_pelv_;
@@ -289,6 +343,10 @@ public:
     Eigen::Vector2d f_star_xy_pre_;
     Eigen::Vector6d f_star_6d_;
     Eigen::Vector6d f_star_6d_pre_;
+	Eigen::Vector6d f_star_l_;   
+	Eigen::Vector6d f_star_r_;
+	Eigen::Vector6d f_star_l_pre_;   
+	Eigen::Vector6d f_star_r_pre_;
 
     Eigen::VectorQd torque_task_;
     Eigen::VectorQd torque_grav_;
@@ -297,6 +355,8 @@ public:
     Eigen::VectorQd torque_qp_;
     Eigen::VectorQd torque_g_;
 
+    Eigen::VectorQd torque_task_min_;
+    Eigen::VectorQd torque_task_max_;
     //getComTrajectory() variables
     double xi_;
     double yi_;
@@ -352,6 +412,19 @@ public:
     Eigen::Vector3d com_vel_desired_preview_pre_;
     Eigen::Vector3d com_acc_desired_preview_pre_;
 
+    //siwngFootControlCompute
+    Vector3d swingfoot_f_star_l_;
+    Vector3d swingfoot_f_star_r_;
+    Vector3d swingfoot_f_star_l_pre_;
+    Vector3d swingfoot_f_star_r_pre_;
+
+    //dampingControlCompute
+    Vector3d f_lfoot_damping_;
+	Vector3d f_rfoot_damping_;	
+    Vector3d f_lfoot_damping_pre_;
+	Vector3d f_rfoot_damping_pre_;	
+    Matrix3d support_foot_damping_gain_;
+
     //MotionRetargetting variables
     Eigen::Isometry3d master_lhand_pose_;
     Eigen::Isometry3d master_rhand_pose_;
@@ -365,8 +438,23 @@ public:
     Eigen::VectorQd fall_init_q_;
     double fall_start_time_;
     int foot_lift_count_;
+    int foot_landing_count_;
 
 private:
     Eigen::VectorQd ControlVal_;
     void initWalkingParameter();
+
+    //Arm controller
+    Eigen::VectorXd joint_limit_l_;
+    Eigen::VectorXd joint_limit_h_;
+    Eigen::VectorXd joint_vel_limit_l_;
+    Eigen::VectorXd joint_vel_limit_h_;
+
+    Eigen::Vector3d left_x_traj_pre_;
+    Eigen::Vector3d right_x_traj_pre_;
+    Eigen::Matrix3d left_rotm_pre_;
+    Eigen::Matrix3d right_rotm_pre_;
+
+    Eigen::VectorQVQd q_virtual_clik_;
+    bool first_loop_;
 };
