@@ -165,7 +165,7 @@ void CustomController::setGains()
 
 	//////////Joint PD Gain/////////
 	///For Simulation
-		for (int i = 0; i < MODEL_DOF; i++)
+	for (int i = 0; i < MODEL_DOF; i++)
 	{
 		kp_joint_(i) = 100; 		//(tune)
 		kv_joint_(i) = 20;		//(tune)
@@ -527,12 +527,16 @@ void CustomController::computeSlow()
         
         if (first_loop_)
         {
-            rd_.q_desired_ = rd_.q_;
+			rd_.control_time_pre_ = rd_.control_time_;
+            q_virtual_clik_.setZero();
+			q_virtual_clik_.segment<MODEL_DOF>(6) = rd_.q_;
             left_x_traj_pre_ = rd_.link_[Left_Hand].x_traj;
             right_x_traj_pre_ = rd_.link_[Right_Hand].x_traj;
             left_rotm_pre_ = rd_.link_[Left_Hand].r_traj;
             right_rotm_pre_ = rd_.link_[Right_Hand].r_traj;
+			QP_qdot.InitializeProblemSize(variable_size, constraint_size);
             first_loop_ = false;
+			integral.setZero();
         }
         error_v.segment<3>(0) = rd_.link_[Left_Hand].x_traj -  left_x_traj_pre_;
         error_v.segment<3>(3) = rd_.link_[Right_Hand].x_traj -  right_x_traj_pre_;
@@ -573,7 +577,7 @@ void CustomController::computeSlow()
             ub(i) = min(speed_reduce_rate*(joint_limit_h_(i) - rd_.q_(i+15)), joint_vel_limit_h_(i));
             ub(i+arm_dof) = min(speed_reduce_rate*(joint_limit_h_(i+arm_dof) - rd_.q_(i+25)), joint_vel_limit_h_(i+arm_dof));
         }
-        QP_qdot.InitializeProblemSize(variable_size, constraint_size);
+
 
         QP_qdot.EnableEqualityCondition(0.0001);
         QP_qdot.UpdateMinProblem(Weight_qdot, g);
@@ -597,9 +601,10 @@ void CustomController::computeSlow()
             rd_.q_dot_desired_(15+i) = q_dot_arm(i);
             rd_.q_dot_desired_(25+i) = q_dot_arm(i+arm_dof);
         }
-        
-        rd_.q_desired_.segment<8>(15) = rd_.q_desired_.segment<8>(15) + rd_.q_dot_desired_.segment<8>(15)*(rd_.control_time_ - rd_.control_time_pre_);
-        rd_.q_desired_.segment<8>(25) = rd_.q_desired_.segment<8>(25) + rd_.q_dot_desired_.segment<8>(25)*(rd_.control_time_ - rd_.control_time_pre_);
+
+		integral.segment<8>(0) = integral.segment<8>(0) + rd_.q_dot_desired_.segment<8>(25)*(rd_.control_time_ - rd_.control_time_pre_);
+        q_virtual_clik_.segment<8>(21) = q_virtual_clik_.segment<8>(21) + rd_.q_dot_desired_.segment<8>(15)*(rd_.control_time_ - rd_.control_time_pre_);
+        q_virtual_clik_.segment<8>(31) = q_virtual_clik_.segment<8>(31) + rd_.q_dot_desired_.segment<8>(25)*(rd_.control_time_ - rd_.control_time_pre_);
 
         Eigen::MatrixXd kp(8,1);
         Eigen::MatrixXd kv(8,1);
@@ -610,20 +615,38 @@ void CustomController::computeSlow()
             kv(i) = kv_joint_(15+i);		//6
         }
 
-        for(int i = 0; i<8; i++)
-        {
-            ControlVal_(i+15) += kp(i)*(rd_.q_desired_(i+15) - rd_.q_(i+15)) + kv(i)*(rd_.q_dot_desired_(i+15) - rd_.q_dot_(i+15));
-            ControlVal_(i+25) += kp(i)*(rd_.q_desired_(i+25) - rd_.q_(i+25)) + kv(i)*(rd_.q_dot_desired_(i+25) - rd_.q_dot_(i+25));
-        }           
+		if( int(rd_.control_time_*10000)%10000 == 0)
+		{
+			cout<<"dT" << rd_.control_time_ - rd_.control_time_pre_<<endl;
+			cout<<"right_x_traj_pre_" << right_x_traj_pre_<<endl;
+			cout<<"rd_.link_[Right_Hand].x_traj" << rd_.link_[Right_Hand].x_traj(0)<<endl;
+			cout<<"x_dot_desired(6)" << x_dot_desired(6)<<endl;	
+			cout<<"q_virtual_clik_" << q_virtual_clik_.segment(31, 8)<<endl;
+			cout<<"integral" << integral.segment(0, 8)<<endl;
+
+			cout<<"\n"<<endl;	
+			
+		}
+        // for(int i = 0; i<8; i++)
+        // {
+        //     ControlVal_(i+15) += kp(i)*(rd_.q_desired_(i+15) - rd_.q_(i+15)) + kv(i)*(rd_.q_dot_desired_(i+15) - rd_.q_dot_(i+15));
+        //     ControlVal_(i+25) += kp(i)*(rd_.q_desired_(i+25) - rd_.q_(i+25)) + kv(i)*(rd_.q_dot_desired_(i+25) - rd_.q_dot_(i+25));
+        // }           
         rd_.control_time_pre_ = rd_.control_time_;
 
-        q_virtual_clik_.segment<6>(0) = rd_.q_virtual_.segment(0, 6);
-        q_virtual_clik_.segment<MODEL_DOF>(6) = rd_.q_desired_;
+		// left_x_traj_pre_ =  RigidBodyDynamics::CalcBodyToBaseCoordinates( model_d_, q_virtual_clik_, rd_.link_[Left_Hand].id, Eigen::Vector3d::Zero(), false);
+		// right_x_traj_pre_ =  RigidBodyDynamics::CalcBodyToBaseCoordinates( model_d_, q_virtual_clik_, rd_.link_[Right_Hand].id, Eigen::Vector3d::Zero(), false);
+		// left_rotm_pre_ = (RigidBodyDynamics::CalcBodyWorldOrientation(model_d_, q_virtual_clik_, rd_.link_[Left_Hand].id, false)).transpose();
+        // right_rotm_pre_ = (RigidBodyDynamics::CalcBodyWorldOrientation(model_d_, q_virtual_clik_, rd_.link_[Right_Hand].id, false)).transpose();
+		mtx_rbdl.lock();
+		mtx_dc.lock();
         left_x_traj_pre_ =  RigidBodyDynamics::CalcBodyToBaseCoordinates(*rd_.link_[Left_Hand].model, q_virtual_clik_, rd_.link_[Left_Hand].id, Eigen::Vector3d::Zero(), false);
         right_x_traj_pre_ = RigidBodyDynamics::CalcBodyToBaseCoordinates(*rd_.link_[Right_Hand].model, q_virtual_clik_, rd_.link_[Right_Hand].id, Eigen::Vector3d::Zero(), false);
         left_rotm_pre_ = (RigidBodyDynamics::CalcBodyWorldOrientation(*rd_.link_[Left_Hand].model, q_virtual_clik_, rd_.link_[Left_Hand].id, false)).transpose();
         right_rotm_pre_ = (RigidBodyDynamics::CalcBodyWorldOrientation(*rd_.link_[Right_Hand].model, q_virtual_clik_, rd_.link_[Right_Hand].id, false)).transpose();
-        // cout<<"Joint Left" << rd_.q_desired_(16)<<endl;
+        mtx_rbdl.unlock();
+		mtx_dc.unlock();
+
 	}
 	else if (tc.mode == 13)
 	{

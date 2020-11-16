@@ -4,6 +4,8 @@
 #include <std_msgs/Float32MultiArray.h>
 
 const int FILE_CNT = 5;
+extern std::mutex mtx_rbdl;
+extern std::mutex mtx_dc;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
@@ -456,5 +458,6 @@ private:
     Eigen::Matrix3d right_rotm_pre_;
 
     Eigen::VectorQVQd q_virtual_clik_;
+    Eigen::Vector8d integral;
     bool first_loop_;
 };
