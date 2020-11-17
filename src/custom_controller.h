@@ -3,7 +3,7 @@
 #include "math_type_define.h"
 #include <std_msgs/Float32MultiArray.h>
 
-const int FILE_CNT = 5;
+const int FILE_CNT = 6;
 extern std::mutex mtx_rbdl;
 extern std::mutex mtx_dc;
 
@@ -14,7 +14,8 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/1_com_.txt",
     "/home/dg/data/tocabi_cc/2_foot_.txt",
     "/home/dg/data/tocabi_cc/3_torque_.txt",
-    "/home/dg/data/tocabi_cc/4_joint_.txt"
+    "/home/dg/data/tocabi_cc/4_joint_.txt",
+    "/home/dg/data/tocabi_cc/5_hand_.txt"
 };
 
 class CustomController
@@ -239,6 +240,7 @@ public:
     Eigen::VectorQd motion_q_dot_pre_;
     Eigen::VectorQd init_q_;
     Eigen::VectorQd zero_q_;
+    Eigen::VectorQVQd init_q_virtual_;
 
     Eigen::MatrixVVd A_mat_;
     Eigen::MatrixVVd A_inv_mat_;
@@ -432,6 +434,9 @@ public:
     Eigen::Isometry3d master_rhand_pose_;
     Eigen::Vector6d master_lhand_vel_;
     Eigen::Vector6d master_rhand_vel_;
+
+    Eigen::Vector3d master_lhand_rqy_;
+    Eigen::Vector3d master_rhand_rqy_;
 
     Eigen::Vector3d master_head_orientation_rpy_;
     Eigen::Matrix3d master_head_orientation_mat_;
