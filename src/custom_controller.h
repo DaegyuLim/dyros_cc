@@ -340,6 +340,8 @@ public:
     Eigen::Vector3d zmp_desired_from_global_;
     Eigen::Vector3d zmp_desired_pre_;
 
+    double zmp_y_offset_;
+    
     Eigen::Vector6d l_ft_;
     Eigen::Vector6d r_ft_;
 

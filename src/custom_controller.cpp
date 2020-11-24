@@ -54,21 +54,24 @@ void CustomController::setGains()
 	kp_compos_.setZero(); 		
 	kd_compos_.setZero();	 	
 
-	kp_compos_(0, 0) = 80;
-	kp_compos_(1, 1) = 80;
-	kp_compos_(2, 2) = 80;
+	kp_compos_(0, 0) = 100;
+	kp_compos_(1, 1) = 100;
+	kp_compos_(2, 2) = 100;
 
-	kd_compos_(0, 0) = 18;
-	kd_compos_(1, 1) = 18;
-	kd_compos_(2, 2) = 18;
+	kd_compos_(0, 0) = 20;
+	kd_compos_(1, 1) = 20;
+	kd_compos_(2, 2) = 20;
 
 	kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
+	// kp_pelv_ori_(0, 0) = 0;
+	kp_pelv_ori_(2, 2) = 0;
+
 	kd_pelv_ori_ = 100*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
 
 	support_foot_damping_gain_.setZero();
-	support_foot_damping_gain_(0, 0) = 50;
-	support_foot_damping_gain_(1, 1) = 50;
-	support_foot_damping_gain_(2, 2) = 10;
+	support_foot_damping_gain_(0, 0) = 20;
+	support_foot_damping_gain_(1, 1) = 100;
+	support_foot_damping_gain_(2, 2) = 100;
 
 	////real
 	// kp_compos_.setZero(); 		
@@ -178,30 +181,30 @@ void CustomController::setGains()
 	}
 
 	//stiff	//(tune)
-	kp_stiff_joint_(0) = 2500; //R hip yaw joint gain
-	kv_stiff_joint_(0) = 100;
-	kp_stiff_joint_(1) = 2500; //L hip roll joint gain
-	kv_stiff_joint_(1) = 100;
-	kp_stiff_joint_(2) = 2500; //L hip pitch joint gain
-	kv_stiff_joint_(2) = 100;
+	kp_stiff_joint_(0) = 4900; //R hip yaw joint gain
+	kv_stiff_joint_(0) = 140;
+	kp_stiff_joint_(1) = 4900; //L hip roll joint gain
+	kv_stiff_joint_(1) = 140;
+	kp_stiff_joint_(2) = 4900; //L hip pitch joint gain
+	kv_stiff_joint_(2) = 140;
 
-	kp_stiff_joint_(3) = 2500; //L knee joint gain
-	kv_stiff_joint_(3) = 100;
+	kp_stiff_joint_(3) = 1600; //L knee joint gain
+	kv_stiff_joint_(3) = 80;
 
 	kp_stiff_joint_(4) = 400; //L ankle pitch joint gain
 	kv_stiff_joint_(4) = 40;
 	kp_stiff_joint_(5) = 400; //L ankle roll joint gain
 	kv_stiff_joint_(5) = 40;
 
-	kp_stiff_joint_(6) = 2500; //R hip yaw joint gain
-	kv_stiff_joint_(6) = 100;
-	kp_stiff_joint_(7) = 2500; //R hip roll joint gain
-	kv_stiff_joint_(7) = 100;
-	kp_stiff_joint_(8) = 2500; //R hip pitch joint gain
-	kv_stiff_joint_(8) = 100;
+	kp_stiff_joint_(6) = 4900; //R hip yaw joint gain
+	kv_stiff_joint_(6) = 140;
+	kp_stiff_joint_(7) = 4900; //R hip roll joint gain
+	kv_stiff_joint_(7) = 140;
+	kp_stiff_joint_(8) = 4900; //R hip pitch joint gain
+	kv_stiff_joint_(8) = 140;
 
-	kp_stiff_joint_(9) = 2500; //R knee joint gain
-	kv_stiff_joint_(9) = 100;
+	kp_stiff_joint_(9) = 1600; //R knee joint gain
+	kv_stiff_joint_(9) = 80;
 
 	kp_stiff_joint_(10) = 400; //R ankle pitch joint gain
 	kv_stiff_joint_(10) = 40;
@@ -224,8 +227,8 @@ void CustomController::setGains()
 	kp_soft_joint_(5) = 25; //L ankle roll joint gain
 	kv_soft_joint_(5) = 10;
 
-	kp_soft_joint_(6) = 2500; //R hip yaw joint gain
-	kv_soft_joint_(6) = 100;
+	kp_soft_joint_(6) = 1600; //R hip yaw joint gain
+	kv_soft_joint_(6) = 80;
 	kp_soft_joint_(7) = 400; //R hip roll joint gain
 	kv_soft_joint_(7) = 40;
 	kp_soft_joint_(8) = 400; //R hip pitch joint gain
@@ -772,6 +775,7 @@ void CustomController::initWalkingParameter()
 	preview_hz_ = 200;
 	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
+	zmp_y_offset_ = 0.00;	//outward from com
 
 	jac_rhand_.setZero(6, MODEL_DOF_VIRTUAL);
 	jac_lhand_.setZero(6, MODEL_DOF_VIRTUAL);
@@ -1308,7 +1312,9 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		init_q_ = current_q_;
 		last_desired_q_ = desired_q_;
 		foot_lift_count_ = 0;
-		cout<<"time: "<<current_time_-program_start_time_<<endl;
+
+		swingfoot_f_star_l_pre_.setZero();
+		swingfoot_f_star_r_pre_.setZero();
 	}
 
 	if (foot_contact_ == 1) // left support foot
@@ -1354,7 +1360,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		com_acc_desired_preview_pre_.setZero();
 	}
 
-	swingfoot_force_control_converter_ = DyrosMath::cubic(walking_phase_, 0.7, 0.8, 0, 1, 0, 0);
+	swingfoot_force_control_converter_ = DyrosMath::cubic(walking_phase_, 1, 1.1, 0, 1, 0, 0);
 }
 
 void CustomController::motionGenerator()
@@ -1537,9 +1543,9 @@ void CustomController::motionGenerator()
 		}
 		else
 		{
-			swing_foot_pos_trajectory_from_global_(2) = DyrosMath::QuinticSpline(walking_phase_, swingfoot_highest_time_, 1, support_foot_transform_current_.translation()(2) + swing_foot_height_, 0, 0, support_foot_transform_current_.translation()(2) - 0.005, 0, 0)(0);
-			swing_foot_vel_trajectory_from_global_(2) = DyrosMath::QuinticSpline(walking_phase_, swingfoot_highest_time_, 1, support_foot_transform_current_.translation()(2) + swing_foot_height_, 0, 0, support_foot_transform_current_.translation()(2) - 0.005, 0, 0)(1);
-			swing_foot_acc_trajectory_from_global_(2) = DyrosMath::QuinticSpline(walking_phase_, swingfoot_highest_time_, 1, support_foot_transform_current_.translation()(2) + swing_foot_height_, 0, 0, support_foot_transform_current_.translation()(2) - 0.005, 0, 0)(2);
+			swing_foot_pos_trajectory_from_global_(2) = DyrosMath::QuinticSpline(walking_phase_, swingfoot_highest_time_, 1, support_foot_transform_current_.translation()(2) + swing_foot_height_, 0, 0, support_foot_transform_current_.translation()(2) - 0.001, 0, 0)(0);
+			swing_foot_vel_trajectory_from_global_(2) = DyrosMath::QuinticSpline(walking_phase_, swingfoot_highest_time_, 1, support_foot_transform_current_.translation()(2) + swing_foot_height_, 0, 0, support_foot_transform_current_.translation()(2) - 0.001, 0, 0)(1);
+			swing_foot_acc_trajectory_from_global_(2) = DyrosMath::QuinticSpline(walking_phase_, swingfoot_highest_time_, 1, support_foot_transform_current_.translation()(2) + swing_foot_height_, 0, 0, support_foot_transform_current_.translation()(2) - 0.001, 0, 0)(2);
 		}
 
 	}
@@ -2067,13 +2073,13 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 
 	if (foot_contact_ == 1) //left support
 	{
-		swing_foot_pos_trajectory_from_global_(0) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(0), lfoot_transform_current_from_global_.translation()(0) - 0.5, lfoot_transform_current_from_global_.translation()(0) + 1.0);
-		swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), lfoot_transform_current_from_global_.translation()(1) - 0.7, lfoot_transform_current_from_global_.translation()(1) - 0.20);
+		swing_foot_pos_trajectory_from_global_(0) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(0), -0.5, 1.0);
+		swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), -0.5, lfoot_transform_current_from_global_.translation()(1) - 0.20);
 	}
 	else if (foot_contact_ == -1) // right support
 	{
-		swing_foot_pos_trajectory_from_global_(0) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(0), rfoot_transform_current_from_global_.translation()(0) - 0.5, rfoot_transform_current_from_global_.translation()(0) + 1.0);
-		swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), rfoot_transform_current_from_global_.translation()(1) + 0.20, rfoot_transform_current_from_global_.translation()(1) + 0.7);
+		swing_foot_pos_trajectory_from_global_(0) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(0), - 0.5, 1.0);
+		swing_foot_pos_trajectory_from_global_(1) = DyrosMath::minmax_cut(swing_foot_pos_trajectory_from_global_(1), rfoot_transform_current_from_global_.translation()(1) + 0.20, 0.5);
 	}
 	
 }
@@ -2156,8 +2162,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	
 	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 	torque_pelv_ = kp_pelv_ori_ * phi_pelv_ - kd_pelv_ori_ * pelv_angvel_current_;
-	torque_pelv_(2) = 0;
-	f_star.segment(3,3) = torque_pelv_*5;
+	// torque_pelv_(2) = 0;
+	f_star.segment(3,3) = torque_pelv_*3;
 	/////////////////////////////////////////////
 
 	/////////////////////JACOBIAN///////////////////////////////////////
@@ -2198,8 +2204,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 
 
 			// y axis
-			gamma_l_min = (com_pos_current_(1) - (lfoot_transform_current_from_global_.translation()(1)+0.08))/h_l;
-			gamma_l_max = (com_pos_current_(1) - (lfoot_transform_current_from_global_.translation()(1)-0.08))/h_l;
+			gamma_l_min = (com_pos_current_(1) - (lfoot_transform_current_from_global_.translation()(1)+0.07))/h_l;
+			gamma_l_max = (com_pos_current_(1) - (lfoot_transform_current_from_global_.translation()(1)-0.07))/h_l;
 
 			f_star(1) = DyrosMath::minmax_cut( f_star(1), f_star(2)*gamma_l_min, f_star(2)*gamma_l_max);
 
@@ -2221,8 +2227,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 			f_star(0) = DyrosMath::minmax_cut( f_star(0), f_star(2)*gamma_r_min, f_star(2)*gamma_r_max);
 
 			// y axis
-			gamma_r_min = (com_pos_current_(1) - rfoot_transform_current_from_global_.translation()(1)-0.08)/h_r;
-			gamma_r_max = (com_pos_current_(1) - rfoot_transform_current_from_global_.translation()(1)+0.08)/h_r;
+			gamma_r_min = (com_pos_current_(1) - rfoot_transform_current_from_global_.translation()(1)-0.07)/h_r;
+			gamma_r_max = (com_pos_current_(1) - rfoot_transform_current_from_global_.translation()(1)+0.07)/h_r;
 
 			f_star(1) = DyrosMath::minmax_cut( f_star(1), f_star(2)*gamma_r_min, f_star(2)*gamma_r_max);
 
@@ -2590,7 +2596,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_swing_ankle = -DyrosMath::getPhi(lfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
 			// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-			desired_q_dot_(4) = 200 * bandBlock(phi_swing_ankle(1), 10*DEG2RAD, -10*DEG2RAD); //swing ankle pitch	//(tune)
+			desired_q_dot_(4) = 200 * bandBlock(phi_swing_ankle(1), 20*DEG2RAD, -20*DEG2RAD); //swing ankle pitch	//(tune)
 			desired_q_dot_(5) = 200 * bandBlock(phi_swing_ankle(0), 1*DEG2RAD, -1*DEG2RAD); //swing ankle roll	//(tune)
 			desired_q_(4) = current_q_(4) + desired_q_dot_(4) * dt_;
 			desired_q_(5) = current_q_(5) + desired_q_dot_(5) * dt_;
@@ -2606,8 +2612,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_support_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), DyrosMath::rotateWithZ(current_q_(6)));
 
 
-			desired_q_dot_(10) = 200 * bandBlock(phi_support_ankle(1), 10*DEG2RAD, -10*DEG2RAD);	//(tune)
-			desired_q_dot_(11) = 200 * bandBlock(phi_support_ankle(0), 5*DEG2RAD, -5*DEG2RAD);		//(tune)
+			desired_q_dot_(10) = 200 * bandBlock(phi_support_ankle(1), 20*DEG2RAD, -20*DEG2RAD);	//(tune)
+			desired_q_dot_(11) = 200 * bandBlock(phi_support_ankle(0), 10*DEG2RAD, -10*DEG2RAD);		//(tune)
 			desired_q_(10) = current_q_(10) + desired_q_dot_(10) * dt_;
 			desired_q_(11) = current_q_(11) + desired_q_dot_(11) * dt_;
 			// desired_q_dot_(10) = 0;
@@ -2618,7 +2624,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			// low pass filter for suppport foot target position
 			// desired_q_(6) = 0.5 * motion_q_(6) + 0.5 * pre_desired_q_(6); //right support foot hip yaw
 			desired_q_(6) = DyrosMath::QuinticSpline(turning_phase_, 0, 1, last_desired_q_(6), 0, 0, motion_q_(6), 0, 0)(0); 
-			desired_q_(9) = DyrosMath::QuinticSpline(walking_phase_, 0.0, 0.5, last_desired_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
+			desired_q_(9) = DyrosMath::QuinticSpline(walking_phase_, 0.0, 0.3, last_desired_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
 			// desired_q_(9) = 0.5*motion_q_(9) + 0.5*pre_desired_q_(9); //right support foot
 			// desired_q_(9) = desired_q_leg(9); //right support foot knee
 			// desired_q_(10) = 0.5*desired_q_leg(10) + 0.5*pre_desired_q_(10); //right support foot ankle pitch
@@ -2723,7 +2729,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_swing_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
 			// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-			desired_q_dot_(10) = 200 * bandBlock(phi_swing_ankle(1), 10*DEG2RAD, -10*DEG2RAD); //swing ankle pitch
+			desired_q_dot_(10) = 200 * bandBlock(phi_swing_ankle(1), 20*DEG2RAD, -20*DEG2RAD); //swing ankle pitch
 			desired_q_dot_(11) = 200 * bandBlock(phi_swing_ankle(0), 1*DEG2RAD, -1*DEG2RAD); //swing ankle roll
 			desired_q_(10) = current_q_(10) + desired_q_dot_(10) * dt_;
 			desired_q_(11) = current_q_(11) + desired_q_dot_(11) * dt_;
@@ -2741,8 +2747,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_support_ankle = -DyrosMath::getPhi(lfoot_transform_current_from_global_.linear(), DyrosMath::rotateWithZ(current_q_(0)));
 
 
-			desired_q_dot_(4) = 200 * bandBlock(phi_support_ankle(1), 10*DEG2RAD, -10*DEG2RAD);;
-			desired_q_dot_(5) = 200 * bandBlock(phi_support_ankle(0), 5*DEG2RAD, -5*DEG2RAD);;
+			desired_q_dot_(4) = 200 * bandBlock(phi_support_ankle(1), 20*DEG2RAD, -20*DEG2RAD);;
+			desired_q_dot_(5) = 200 * bandBlock(phi_support_ankle(0), 10*DEG2RAD, -10*DEG2RAD);;
 			desired_q_(4) = current_q_(4) + desired_q_dot_(4) * dt_;
 			desired_q_(5) = current_q_(5) + desired_q_dot_(5) * dt_;
 			// desired_q_dot_(4) = 0;
@@ -2752,7 +2758,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 
 			// desired_q_(0) = 0.5 * motion_q_(0) + 0.5 * pre_desired_q_(0); //left support foot hip yaw
 			desired_q_(0) = DyrosMath::QuinticSpline(turning_phase_, 0, 1, last_desired_q_(0), 0, 0, motion_q_(0), 0, 0)(0);  //left support foot hip yaw
-			desired_q_(3) = DyrosMath::QuinticSpline(walking_phase_, 0.0, 0.5, last_desired_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
+			desired_q_(3) = DyrosMath::QuinticSpline(walking_phase_, 0.0, 0.3, last_desired_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
 			// desired_q_(3) = 0.5*motion_q_(3) + 0.5*pre_desired_q_(3); //left support foot knee
 			// desired_q_(3) = desired_q_leg(3); //left support foot knee
 			// desired_q_(4) = 0.5*desired_q_leg(4) + 0.5*pre_desired_q_(4); //left support foot ankle pitch
@@ -2850,8 +2856,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 		desired_q_(0) = 0.5 * 0 + 0.5 * pre_desired_q_(0); // hip yaw
 		desired_q_(6) = 0.5 * 0 + 0.5 * pre_desired_q_(6);
 
-		desired_q_(3) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, init_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
-		desired_q_(9) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 0.5 * walking_duration_, init_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
+		desired_q_(3) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 0.3 * walking_duration_, last_desired_q_(3), 0, 0, motion_q_(3), 0, 0)(0);
+		desired_q_(9) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_ + 0.3 * walking_duration_, last_desired_q_(9), 0, 0, motion_q_(9), 0, 0)(0);
 		// desired_q_(3) = 0.4 * motion_q_(3) + 0.6 * pre_desired_q_(3); //left knee
 		// desired_q_(9) = 0.4 * motion_q_(9) + 0.6 * pre_desired_q_(9); //right knee
 		// desired_q_(3) =	current_q_(3);
@@ -3060,10 +3066,10 @@ Eigen::VectorQd CustomController::dampingControlCompute(WholebodyController &wbc
 	/////////////////////////////////////////////////////////////////////////////////
 
 	///////////////////joint angle damping///////////////////////////////////////////
-	torque(1) += -10*current_q_dot_(1)*swingfoot_force_control_converter_;		// left hip roll
-	torque(2) += -10*current_q_dot_(2)*swingfoot_force_control_converter_;		// left hip pitch
-	torque(7) += -10*current_q_dot_(7)*swingfoot_force_control_converter_;		// right hip roll
-	torque(8) += -10*current_q_dot_(8)*swingfoot_force_control_converter_;		// right hip pitch
+	torque(1) += -1*current_q_dot_(1)*swingfoot_force_control_converter_;		// left hip roll
+	torque(2) += -1*current_q_dot_(2)*swingfoot_force_control_converter_;		// left hip pitch
+	torque(7) += -1*current_q_dot_(7)*swingfoot_force_control_converter_;		// right hip roll
+	torque(8) += -1*current_q_dot_(8)*swingfoot_force_control_converter_;		// right hip pitch
 
 	// torque(3) += -20*current_q_dot_(3);
 	// torque(9) += -20*current_q_dot_(9);
@@ -3778,7 +3784,7 @@ void CustomController::StepWidthCommandCallback(const std_msgs::Float32 &msg)
 
 void CustomController::Test1CommandCallback(const std_msgs::Float32 &msg)
 {
-	
+	zmp_y_offset_ = msg.data;
 }
 
 void CustomController::Test2CommandCallback(const std_msgs::Float32 &msg)
@@ -4247,7 +4253,7 @@ void CustomController::getZmpTrajectory()
 
 				ref_zmp_(i, 0) = support_foot_transform_current_.translation()(0);
 				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1);
-				ref_zmp_(i, 1) = ref_zmp_(i, 1) - step_width_*foot_contact_*step_side; 			// Y direction step_width planning
+				ref_zmp_(i, 1) = ref_zmp_(i, 1) - step_width_*foot_contact_*step_side - zmp_y_offset_*foot_contact_*(2*step_side - 1); 			// Y direction step_width planning
 			}
 		}
 		else if(walking_speed_ == 0)
@@ -4259,7 +4265,7 @@ void CustomController::getZmpTrajectory()
 
 				
 				ref_zmp_(i, 0) = support_foot_transform_current_.translation()(0);
-				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1);			
+				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1) + zmp_y_offset_*foot_contact_;			
 			}
 
 			for(int j = first_step_residual_tick; j<zmp_size_; j++)
@@ -4278,7 +4284,7 @@ void CustomController::getZmpTrajectory()
 
 				
 				ref_zmp_(i, 0) = support_foot_transform_current_.translation()(0);
-				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1);			
+				ref_zmp_(i, 1) = support_foot_transform_current_.translation()(1) + zmp_y_offset_*foot_contact_;			
 			}
 
 			for(int j = first_step_residual_tick; j<zmp_size_; j++)
@@ -4291,7 +4297,7 @@ void CustomController::getZmpTrajectory()
 
 				ref_zmp_(j, 0) = support_foot_transform_current_.translation()(0);
 				ref_zmp_(j, 1) = support_foot_transform_current_.translation()(1);
-				ref_zmp_(j, 1) = ref_zmp_(j, 1) - step_width_*foot_contact_*step_side; 			// Y direction step_width planning
+				ref_zmp_(j, 1) = ref_zmp_(j, 1) - step_width_*foot_contact_*step_side - zmp_y_offset_*foot_contact_*(2*step_side - 1); 			// Y direction step_width planning
 			}
 		}
 	}
