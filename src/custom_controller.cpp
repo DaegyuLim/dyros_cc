@@ -22,6 +22,8 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
 	arm_pd_gain_sub = dc.nh.subscribe("/tocabi/dg/armpdgain", 100, &CustomController::ArmJointGainCallback, this);
 	waist_pd_gain_sub = dc.nh.subscribe("/tocabi/dg/waistpdgain", 100, &CustomController::WaistJointGainCallback, this);
 
+	// left_controller_posture_sub = dc.nh.subscribe("/LEFTCONTROLLER", 100, &CustomController::LeftControllerCallback, this);
+
 	bool urdfmode;
 	ros::param::get("/tocabi_controller/urdfAnkleRollDamping", urdfmode);
     std::string urdf_path, desc_package_path;
@@ -772,7 +774,7 @@ void CustomController::initWalkingParameter()
 	falling_detection_flag_ = false;
 
 	preview_horizon_ = 1.6; //seconds
-	preview_hz_ = 200;
+	preview_hz_ = 100;
 	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
 	zmp_y_offset_ = 0.00;	//outward from com
@@ -1250,6 +1252,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		program_start_time_ = current_time_;
 
 		init_q_ = current_q_;
+		last_desired_q_ = current_q_;
 
 		com_pos_desired_preview_ = com_pos_current_;
 		com_vel_desired_preview_.setZero();
@@ -1631,11 +1634,11 @@ void CustomController::motionRetargetting()
 	// master_lhand_vel_.segment(0, 3) 	= 	rd_.link_[Left_Hand].v_traj;
 	// master_lhand_vel_.segment(3, 3) 	= 	rd_.link_[Left_Hand].w_traj;
 	
-	master_lhand_pose_.translation() 		= lhand_transform_init_from_global_.translation();
-	master_lhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
-	master_lhand_pose_.linear().Identity();
-	master_lhand_vel_.setZero();
-	master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
+	// master_lhand_pose_.translation() 		= lhand_transform_init_from_global_.translation();
+	// master_lhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
+	// master_lhand_pose_.linear().Identity();
+	// master_lhand_vel_.setZero();
+	// master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
 
 	master_rhand_pose_.translation() 		= rhand_transform_init_from_global_.translation();
 	master_rhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
@@ -3844,6 +3847,62 @@ void CustomController::WaistJointGainCallback(const std_msgs::Float32MultiArray 
 	kv_joint_(14)	= msg.data[5];
 }
 
+void CustomController::LeftControllerCallback(const VR::matrix_3_4 &msg)
+{
+	master_lhand_pose_raw_.linear()(0, 0) = msg.firstRow[0];
+	master_lhand_pose_raw_.linear()(0, 1) = msg.firstRow[1];
+	master_lhand_pose_raw_.linear()(0, 2) = msg.firstRow[2];
+
+	master_lhand_pose_raw_.linear()(1, 0) = msg.secondRow[0];
+	master_lhand_pose_raw_.linear()(1, 1) = msg.secondRow[1];
+	master_lhand_pose_raw_.linear()(1, 2) = msg.secondRow[2];
+
+	master_lhand_pose_raw_.linear()(2, 0) = msg.thirdRow[0];
+	master_lhand_pose_raw_.linear()(2, 1) = msg.thirdRow[1];
+	master_lhand_pose_raw_.linear()(2, 2) = msg.thirdRow[2];
+
+	master_lhand_pose_raw_.translation()(0) = msg.firstRow[2];
+	master_lhand_pose_raw_.translation()(1) = msg.secondRow[2];
+	master_lhand_pose_raw_.translation()(2) = msg.thirdRow[2];
+}
+
+void CustomController::RightControllerCallback(const VR::matrix_3_4 &msg)
+{
+	master_rhand_pose_raw_.linear()(0, 0) = msg.firstRow[0];
+	master_rhand_pose_raw_.linear()(0, 1) = msg.firstRow[1];
+	master_rhand_pose_raw_.linear()(0, 2) = msg.firstRow[2];
+
+	master_rhand_pose_raw_.linear()(1, 0) = msg.secondRow[0];
+	master_rhand_pose_raw_.linear()(1, 1) = msg.secondRow[1];
+	master_rhand_pose_raw_.linear()(1, 2) = msg.secondRow[2];
+
+	master_rhand_pose_raw_.linear()(2, 0) = msg.thirdRow[0];
+	master_rhand_pose_raw_.linear()(2, 1) = msg.thirdRow[1];
+	master_rhand_pose_raw_.linear()(2, 2) = msg.thirdRow[2];
+
+	master_rhand_pose_raw_.translation()(0) = msg.firstRow[2];
+	master_rhand_pose_raw_.translation()(1) = msg.secondRow[2];
+	master_rhand_pose_raw_.translation()(2) = msg.thirdRow[2];
+}
+
+void CustomController::HmdCallback(const VR::matrix_3_4 &msg)
+{
+	master_head_pose_raw_.linear()(0, 0) = msg.firstRow[0];
+	master_head_pose_raw_.linear()(0, 1) = msg.firstRow[1];
+	master_head_pose_raw_.linear()(0, 2) = msg.firstRow[2];
+
+	master_head_pose_raw_.linear()(1, 0) = msg.secondRow[0];
+	master_head_pose_raw_.linear()(1, 1) = msg.secondRow[1];
+	master_head_pose_raw_.linear()(1, 2) = msg.secondRow[2];
+
+	master_head_pose_raw_.linear()(2, 0) = msg.thirdRow[0];
+	master_head_pose_raw_.linear()(2, 1) = msg.thirdRow[1];
+	master_head_pose_raw_.linear()(2, 2) = msg.thirdRow[2];
+
+	master_head_pose_raw_.translation()(0) = msg.firstRow[2];
+	master_head_pose_raw_.translation()(1) = msg.secondRow[2];
+	master_head_pose_raw_.translation()(2) = msg.thirdRow[2];
+}
 /////////////////////////////////////PREVIEW CONTROL RELATED FUNCTION////////////////////////////////////
 void CustomController::getComTrajectory_Preview()
 { 

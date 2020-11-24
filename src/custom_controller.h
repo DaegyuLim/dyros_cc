@@ -2,6 +2,7 @@
 #include <tocabi_controller/link.h>
 #include "math_type_define.h"
 #include <std_msgs/Float32MultiArray.h>
+#include "VR/matrix_3_4.h"
 
 const int FILE_CNT = 6;
 extern std::mutex mtx_rbdl;
@@ -101,6 +102,12 @@ public:
     ros::Subscriber arm_pd_gain_sub;
     ros::Subscriber waist_pd_gain_sub;
 
+    // master sensor
+    ros::Subscriber hmd_posture_sub;
+    ros::Subscriber left_controller_posture_sub;
+    ros::Subscriber right_controller_posture_sub;
+
+
     void WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg);
 
     void UpperbodyModeCallback(const std_msgs::Float32 &msg);
@@ -120,6 +127,9 @@ public:
     void ArmJointGainCallback(const std_msgs::Float32MultiArray &msg);
     void WaistJointGainCallback(const std_msgs::Float32MultiArray &msg);
 
+    void LeftControllerCallback(const VR::matrix_3_4 &msg);
+    void RightControllerCallback(const VR::matrix_3_4 &msg);
+    void HmdCallback(const VR::matrix_3_4 &msg);
     RigidBodyDynamics::Model model_d_;
 
     ////////////////dg custom controller variables/////////////
@@ -432,10 +442,18 @@ public:
     Matrix3d support_foot_damping_gain_;
 
     //MotionRetargetting variables
+    Eigen::Isometry3d master_lhand_pose_raw_;
+    Eigen::Isometry3d master_rhand_pose_raw_;
+    Eigen::Isometry3d master_head_pose_raw_;
+
+
     Eigen::Isometry3d master_lhand_pose_;
     Eigen::Isometry3d master_rhand_pose_;
+    Eigen::Isometry3d master_head_pose_;
+    
     Eigen::Vector6d master_lhand_vel_;
     Eigen::Vector6d master_rhand_vel_;
+    Eigen::Vector6d master_head_vel_;
 
     Eigen::Vector3d master_lhand_rqy_;
     Eigen::Vector3d master_rhand_rqy_;
