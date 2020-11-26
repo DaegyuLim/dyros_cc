@@ -777,7 +777,7 @@ void CustomController::initWalkingParameter()
 	preview_hz_ = 2000;
 	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
-	zmp_y_offset_ = 0.00;	//outward from com
+	zmp_y_offset_ = 0.01;	//outward from com
 
 	jac_rhand_.setZero(6, MODEL_DOF_VIRTUAL);
 	jac_lhand_.setZero(6, MODEL_DOF_VIRTUAL);
