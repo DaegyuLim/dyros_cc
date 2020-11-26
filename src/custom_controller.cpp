@@ -47,6 +47,7 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
 	setGains();
     first_loop_ = true;
 }
+
 void CustomController::setGains()
 {
 	//////////Control Gain///////////////////////////
@@ -62,8 +63,10 @@ void CustomController::setGains()
 	kd_compos_(1, 1) = 20;
 	kd_compos_(2, 2) = 20;
 
-	kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
-	// kp_pelv_ori_(0, 0) = 0;
+	// kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
+	
+	kp_pelv_ori_(0, 0) = 100;
+	kp_pelv_ori_(1, 1) = 1000;
 	kp_pelv_ori_(2, 2) = 0;
 
 	kd_pelv_ori_ = 100*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
@@ -342,7 +345,6 @@ void CustomController::setGains()
     joint_limit_h_ <<  1.54,  3.14159,  1.9199,  3.14159,      2.8,  3.14159,  3.14159,  2.094,  2.09,  3.14159,  1.9199,  3.14159,      2.8,  3.14159,  3.14159,  2.094;
     joint_vel_limit_l_ << -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159;
     joint_vel_limit_h_ <<  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159;
-
 
 }
 
@@ -759,8 +761,8 @@ void CustomController::initWalkingParameter()
 	switching_phase_duration_ = 0.01;
 	foot_contact_ = -1;
 	foot_contact_pre_ = foot_contact_;
-	step_width_ = 0.28;  						//for preview control
-	alpha_x_ = 0.02;
+	step_width_ = 0.21;  						//for preview control
+	alpha_x_ = 0.01;
 	alpha_y_ = 0.18;
 	alpha_x_command_ = alpha_x_;
 	alpha_y_command_ = alpha_y_;
@@ -772,7 +774,7 @@ void CustomController::initWalkingParameter()
 	falling_detection_flag_ = false;
 
 	preview_horizon_ = 1.6; //seconds
-	preview_hz_ = 200;
+	preview_hz_ = 2000;
 	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
 	zmp_y_offset_ = 0.00;	//outward from com
@@ -1250,7 +1252,8 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		program_start_time_ = current_time_;
 
 		init_q_ = current_q_;
-
+		last_desired_q_ = current_q_;
+		
 		com_pos_desired_preview_ = com_pos_current_;
 		com_vel_desired_preview_.setZero();
 		com_acc_desired_preview_.setZero();
@@ -1836,6 +1839,11 @@ void CustomController::motionRetargetting2()
 	// 	torque_task_(25 + i) += torque_d_rarm(i);
 	// }
 	///////////////////////////////////////////////////////////////////////////////////
+}
+
+void CustomController::rawMasterPoseProcessing()
+{
+	
 }
 
 void CustomController::getCOMTrajectory()
@@ -2590,6 +2598,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			}
 
 			desired_q_(0) = 0.5 * 0 + 0.5 * pre_desired_q_(0);
+			desired_q_(3) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, last_desired_q_(3), 0, 0, desired_q_leg(3), 0, 0)(0);
+
 			// desired_q_(0) = motion_q_(0);
 			Vector3d phi_swing_ankle;
 			// phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
@@ -2724,6 +2734,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			}
 
 			desired_q_(6) = 0.5 * 0 + 0.5 * pre_desired_q_(6);
+			desired_q_(9) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, last_desired_q_(9), 0, 0, desired_q_leg(9), 0, 0)(0);
+
 			Vector3d phi_swing_ankle;
 			// phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
 			phi_swing_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
@@ -3922,14 +3934,15 @@ void CustomController::modifiedPreviewControl_MJ()
 {
   /////reference: http://www.tandfonline.com/doi/pdf/10.1080/0020718508961156?needAccess=true/////////////
 
-	if( int((current_time_-program_start_time_)*1e9)%int(2e7) == 0 ) //50hz update
+	if( int((current_time_-program_start_time_)*1e7)%int(2e5) == 0 ) //50hz update
 	{
 		previewParam_MJ(1/preview_hz_, zmp_size_, zc_, K_act_ , Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 		//previewParam_MJ_CPM(1.0/hz_, 16*hz_/10, K_ ,com_support_init_, Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 	}
 
 
-	if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // 200hz update
+	// if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // preview_hz_ update
+	if(true)
 	{
 		xd_b = xd_; //save previous com desired trajectory
 		yd_b = yd_;
@@ -3993,15 +4006,22 @@ void CustomController::previewParam_MJ(double dt, int NL, double zc, Eigen::Matr
 
   Eigen::MatrixXd R;
   R.resize(1,1);
-  R(0,0) = 0.000001;
+  R(0,0) = 0.000001;	//for offline
+
+//   R(0,0) = 0.000000001;		//test
 
   Eigen::MatrixXd Qx;
   Qx.setZero(3,3);
-
+  
+//   Qx(0, 0) = 0.0001;	//test
+//   Qx(1, 1) = 0.02;
+//   Qx(2, 2) = 0;
 
   Eigen::MatrixXd Q_bar;
   Q_bar.setZero(4,4);
   Q_bar(0,0) = Qe(0,0);
+
+//   Q_bar.block(1, 1, 3, 3) = Qx; // test
 
   K=discreteRiccatiEquationPrev(A_bar, B_bar, R, Q_bar);
 
@@ -4365,17 +4385,17 @@ double CustomController::bandBlock(double value, double max, double min)
 
 	if(value <= min)
 	{
-		y = value - min;
+		y = - (value - min)*(value - min);
 	}
 	else if(value >= max)
 	{
-		y = value - max;
+		y = (value - max)*(value - max);
 	}
 	else
 	{
 		y = 0;
 	}
-	
+
 	return y;
 }
 
