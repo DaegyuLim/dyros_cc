@@ -631,14 +631,12 @@ void CustomController::computeSlow()
 			cout<<"integral" << integral.segment(0, 8)<<endl;
 
 			cout<<"\n"<<endl;	
-			
 		}
         for(int i = 0; i<8; i++)
         {
             ControlVal_(i+15) += kp(i)*(q_virtual_clik_(i+21) - rd_.q_(i+15)) + kv(i)*(rd_.q_dot_desired_(i+15) - rd_.q_dot_(i+15));
             ControlVal_(i+25) += kp(i)*(q_virtual_clik_(i+31) - rd_.q_(i+25)) + kv(i)*(rd_.q_dot_desired_(i+25) - rd_.q_dot_(i+25));
         }           
-        rd_.control_time_pre_ = rd_.control_time_;
 
 		left_x_traj_pre_ =  RigidBodyDynamics::CalcBodyToBaseCoordinates( model_d_, q_virtual_clik_, rd_.link_[Left_Hand].id, Eigen::Vector3d::Zero(), true);
 		right_x_traj_pre_ =  RigidBodyDynamics::CalcBodyToBaseCoordinates( model_d_, q_virtual_clik_, rd_.link_[Right_Hand].id, Eigen::Vector3d::Zero(), true);
@@ -652,7 +650,7 @@ void CustomController::computeSlow()
         // right_rotm_pre_ = (RigidBodyDynamics::CalcBodyWorldOrientation(*rd_.link_[Right_Hand].model, q_virtual_clik_, rd_.link_[Right_Hand].id, false)).transpose();
         // mtx_rbdl.unlock();
 		// mtx_dc.unlock();
-
+        rd_.control_time_pre_ = rd_.control_time_;
 	}
 	else if (tc.mode == 13)
 	{
