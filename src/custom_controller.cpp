@@ -22,6 +22,10 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
 	arm_pd_gain_sub = dc.nh.subscribe("/tocabi/dg/armpdgain", 100, &CustomController::ArmJointGainCallback, this);
 	waist_pd_gain_sub = dc.nh.subscribe("/tocabi/dg/waistpdgain", 100, &CustomController::WaistJointGainCallback, this);
 
+	left_controller_posture_sub = dc.nh.subscribe("/LEFTCONTROLLER", 100, &CustomController::LeftControllerCallback, this);
+	right_controller_posture_sub = dc.nh.subscribe("/RIGHTCONTROLLER", 100, &CustomController::RightControllerCallback, this);
+	hmd_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::HmdCallback, this);
+
 	bool urdfmode;
 	ros::param::get("/tocabi_controller/urdfAnkleRollDamping", urdfmode);
     std::string urdf_path, desc_package_path;
@@ -854,7 +858,6 @@ void CustomController::initWalkingParameter()
 	foot_lift_count_ = 0;
 	foot_landing_count_ = 0;
 
-	
 }
 
 void CustomController::getRobotData(WholebodyController &wbc)
@@ -1301,6 +1304,10 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 
 		lhand_transform_init_from_global_ = lhand_transform_current_from_global_;
 		rhand_transform_init_from_global_ = rhand_transform_current_from_global_;
+
+
+		master_lhand_pose_pre_ = lhand_transform_current_from_global_;
+		master_rhand_pose_pre_ = rhand_transform_current_from_global_;
 	}
 
 	bool robot_goes_into_stance_phase = (current_time_ == stance_start_time_);
@@ -1576,6 +1583,8 @@ void CustomController::motionGenerator()
 
 void CustomController::motionRetargetting()
 {
+	rawMasterPoseProcessing();
+
 	///////////////////////WAIST/////////////////////////
 	motion_q_(12) = (1-turning_phase_)*init_q_(12) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1; //yaw
 	motion_q_(13) = 0; //pitch
@@ -1654,17 +1663,17 @@ void CustomController::motionRetargetting()
 	// master_lhand_vel_.segment(0, 3) 	= 	rd_.link_[Left_Hand].v_traj;
 	// master_lhand_vel_.segment(3, 3) 	= 	rd_.link_[Left_Hand].w_traj;
 	
-	master_lhand_pose_.translation() 		= lhand_transform_init_from_global_.translation();
-	master_lhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
-	master_lhand_pose_.linear().Identity();
-	master_lhand_vel_.setZero();
-	master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
+	// master_lhand_pose_.translation() 		= lhand_transform_init_from_global_.translation();
+	// master_lhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
+	// master_lhand_pose_.linear().Identity();
+	// master_lhand_vel_.setZero();
+	// master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
 
-	master_rhand_pose_.translation() 		= rhand_transform_init_from_global_.translation();
-	master_rhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
-	master_rhand_pose_.linear().Identity();
-	master_rhand_vel_.setZero();
-	master_rhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
+	// master_rhand_pose_.translation() 		= rhand_transform_init_from_global_.translation();
+	// master_rhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
+	// master_rhand_pose_.linear().Identity();
+	// master_rhand_vel_.setZero();
+	// master_rhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
 	
 	u_dot_lhand.segment(0, 3) = master_lhand_vel_.segment(0, 3) + kp_pos_lhand*(master_lhand_pose_.translation()-lhand_transform_pre_desired_from.translation());
 	u_dot_rhand.segment(0, 3) = master_rhand_vel_.segment(0, 3) + kp_pos_rhand*(master_rhand_pose_.translation()-rhand_transform_pre_desired_from.translation());
@@ -1863,9 +1872,12 @@ void CustomController::motionRetargetting2()
 
 void CustomController::rawMasterPoseProcessing()
 {
-	master_lhand_pose_ = master_lhand_pose_raw_;
-	master_rhand_pose_ = master_rhand_pose_raw_;
+	master_lhand_pose_.translation() = 0.3*master_lhand_pose_raw_.translation() + 0.7*master_lhand_pose_pre_.translation();
+	master_rhand_pose_.translation() = 0.3*master_rhand_pose_raw_.translation() + 0.7*master_rhand_pose_pre_.translation();
 	
+	master_lhand_pose_.linear() = master_lhand_pose_raw_.linear();
+	master_rhand_pose_.linear() = master_rhand_pose_raw_.linear();
+
 	double arm_len_max = 0.95;
 
 	if( master_lhand_pose_.translation().norm() > arm_len_max)
@@ -1878,6 +1890,11 @@ void CustomController::rawMasterPoseProcessing()
 		master_rhand_pose_.translation() = master_rhand_pose_.translation().normalized() * arm_len_max;
 	}
 
+	master_lhand_vel_.segment(0, 3) = (master_lhand_pose_.translation() - master_lhand_pose_pre_.translation())/dt_;;
+	master_rhand_vel_.segment(0, 3) = (master_rhand_pose_.translation() - master_rhand_pose_pre_.translation())/dt_;;
+
+	master_lhand_vel_.segment(3, 3).setZero();
+	master_rhand_vel_.segment(3, 3).setZero();
 }
 
 void CustomController::getCOMTrajectory()
@@ -4533,6 +4550,7 @@ void CustomController::printOutTextFile()
 		<<current_q_dot_(0)<<"\t"<<current_q_dot_(1)<<"\t"<<current_q_dot_(2)<<"\t"<<current_q_dot_(3)<<"\t"<<current_q_dot_(4)<<"\t"<<current_q_dot_(5)<<"\t"<<current_q_dot_(6)<<"\t"<<current_q_dot_(7)<<"\t"<<current_q_dot_(8)<<"\t"<<current_q_dot_(9)<<"\t"<<current_q_dot_(10)<<"\t"<<current_q_dot_(11)<<"\t"<<current_q_dot_(12)<<"\t"<<current_q_dot_(13)<<"\t"<<current_q_dot_(14)<<"\t"<<current_q_dot_(15)<<"\t"<<current_q_dot_(16)<<"\t"<<current_q_dot_(17)<<"\t"<<current_q_dot_(18)<<"\t"<<current_q_dot_(19)<<"\t"<<current_q_dot_(20)<<"\t"<<current_q_dot_(21)<<"\t"<<current_q_dot_(22)<<"\t"<<current_q_dot_(23)<<"\t"<<current_q_dot_(24)<<"\t"<<current_q_dot_(25)<<"\t"<<current_q_dot_(26)<<"\t"<<current_q_dot_(27)<<"\t"<<current_q_dot_(28)<<"\t"<<current_q_dot_(29)<<"\t"<<current_q_dot_(30)<<"\t"<<current_q_dot_(31)<<"\t"<<current_q_dot_(32)<<endl; 
 
 		file[5]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"
+		<<master_lhand_pose_raw_.translation()(0)<<"\t"<<master_lhand_pose_raw_.translation()(1)<<"\t"<<master_lhand_pose_raw_.translation()(2)<<"\t"<<master_rhand_pose_raw_.translation()(0)<<"\t"<<master_rhand_pose_raw_.translation()(1)<<"\t"<<master_rhand_pose_raw_.translation()(2)<<"\t"
 		<<master_lhand_pose_.translation()(0)<<"\t"<<master_lhand_pose_.translation()(1)<<"\t"<<master_lhand_pose_.translation()(2)<<"\t"<<master_rhand_pose_.translation()(0)<<"\t"<<master_rhand_pose_.translation()(1)<<"\t"<<master_rhand_pose_.translation()(2)<<"\t"
 		<<lhand_transform_current_from_global_.translation()(0)<<"\t"<<lhand_transform_current_from_global_.translation()(1)<<"\t"<<lhand_transform_current_from_global_.translation()(2)<<"\t"<<rhand_transform_current_from_global_.translation()(0)<<"\t"<<rhand_transform_current_from_global_.translation()(1)<<"\t"<<rhand_transform_current_from_global_.translation()(2)<<"\t"
 		<<master_lhand_vel_(0)<<"\t"<<master_lhand_vel_(1)<<"\t"<<master_lhand_vel_(2)<<"\t"<<master_rhand_vel_(0)<<"\t"<<master_rhand_vel_(1)<<"\t"<<master_rhand_vel_(2)<<"\t"

@@ -4,19 +4,20 @@
 #include <std_msgs/Float32MultiArray.h>
 #include "VR/matrix_3_4.h"
 
-const int FILE_CNT = 6;
+const int FILE_CNT = 7;
 extern std::mutex mtx_rbdl;
 extern std::mutex mtx_dc;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
   ///change this directory when you use this code on the other computer///
-    "/home/dg/data/tocabi_cc/0_flag_.txt",
-    "/home/dg/data/tocabi_cc/1_com_.txt",
-    "/home/dg/data/tocabi_cc/2_foot_.txt",
-    "/home/dg/data/tocabi_cc/3_torque_.txt",
-    "/home/dg/data/tocabi_cc/4_joint_.txt",
-    "/home/dg/data/tocabi_cc/5_hand_.txt"
+    "/home/dyros/data/tocabi_cc/0_flag_.txt",
+    "/home/dyros/data/tocabi_cc/1_com_.txt",
+    "/home/dyros/data/tocabi_cc/2_foot_.txt",
+    "/home/dyros/data/tocabi_cc/3_torque_.txt",
+    "/home/dyros/data/tocabi_cc/4_joint_.txt",
+    "/home/dyros/data/tocabi_cc/5_hand_.txt",
+    "/home/dyros/data/tocabi_cc/6_hmd_.txt"
 };
 
 class CustomController
@@ -447,11 +448,14 @@ public:
     Eigen::Isometry3d master_rhand_pose_raw_;
     Eigen::Isometry3d master_head_pose_raw_;
 
-
     Eigen::Isometry3d master_lhand_pose_;
     Eigen::Isometry3d master_rhand_pose_;
     Eigen::Isometry3d master_head_pose_;
-    
+
+    Eigen::Isometry3d master_lhand_pose_pre_;
+    Eigen::Isometry3d master_rhand_pose_pre_;
+    Eigen::Isometry3d master_head_pose_pre_;
+
     Eigen::Vector6d master_lhand_vel_;
     Eigen::Vector6d master_rhand_vel_;
     Eigen::Vector6d master_head_vel_;
