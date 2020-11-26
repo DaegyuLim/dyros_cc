@@ -1865,8 +1865,21 @@ void CustomController::motionRetargetting2()
 
 void CustomController::rawMasterPoseProcessing()
 {
-	 master_lhand_pose_ = master_lhand_pose_raw_;
-	 master_rhand_pose_ = master_rhand_pose_raw_;
+	master_lhand_pose_ = master_lhand_pose_raw_;
+	master_rhand_pose_ = master_rhand_pose_raw_;
+	
+	double arm_len_max = 0.95;
+
+	if( master_lhand_pose_.translation().norm() > arm_len_max)
+	{
+		master_lhand_pose_.translation() = master_lhand_pose_.translation().normalized() * arm_len_max;
+	}
+
+	if( master_rhand_pose_.translation().norm() > arm_len_max)
+	{
+		master_rhand_pose_.translation() = master_rhand_pose_.translation().normalized() * arm_len_max;
+	}
+
 }
 
 void CustomController::getCOMTrajectory()
