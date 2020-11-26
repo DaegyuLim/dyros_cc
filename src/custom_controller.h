@@ -68,7 +68,8 @@ public:
     //motion control
     void motionRetargetting();
     void motionRetargetting2();
-
+    void rawMasterPoseProcessing();
+    
     //preview related functions
     void getComTrajectory_Preview();
     void modifiedPreviewControl_MJ();

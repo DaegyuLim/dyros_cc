@@ -22,8 +22,6 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
 	arm_pd_gain_sub = dc.nh.subscribe("/tocabi/dg/armpdgain", 100, &CustomController::ArmJointGainCallback, this);
 	waist_pd_gain_sub = dc.nh.subscribe("/tocabi/dg/waistpdgain", 100, &CustomController::WaistJointGainCallback, this);
 
-	// left_controller_posture_sub = dc.nh.subscribe("/LEFTCONTROLLER", 100, &CustomController::LeftControllerCallback, this);
-
 	bool urdfmode;
 	ros::param::get("/tocabi_controller/urdfAnkleRollDamping", urdfmode);
     std::string urdf_path, desc_package_path;
@@ -49,6 +47,7 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
 	setGains();
     first_loop_ = true;
 }
+
 void CustomController::setGains()
 {
 	//////////Control Gain///////////////////////////
@@ -64,8 +63,10 @@ void CustomController::setGains()
 	kd_compos_(1, 1) = 20;
 	kd_compos_(2, 2) = 20;
 
-	kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
-	// kp_pelv_ori_(0, 0) = 0;
+	// kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
+	
+	kp_pelv_ori_(0, 0) = 100;
+	kp_pelv_ori_(1, 1) = 1000;
 	kp_pelv_ori_(2, 2) = 0;
 
 	kd_pelv_ori_ = 100*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
@@ -105,33 +106,38 @@ void CustomController::setGains()
 	torque_task_min_(3) 	= -300;
 	torque_task_min_(4) 	= -300;
 	torque_task_min_(5) 	= -300;
+
 	torque_task_min_(6) 	= -300;
 	torque_task_min_(7) 	= -300;
 	torque_task_min_(8) 	= -300;
 	torque_task_min_(9) 	= -300;
 	torque_task_min_(10) 	= -300;
 	torque_task_min_(11) 	= -300;
+
 	torque_task_min_(12) 	= -300;
 	torque_task_min_(13) 	= -300;
 	torque_task_min_(14) 	= -300;
+
 	torque_task_min_(15) 	= -300;
 	torque_task_min_(16) 	= -300;
 	torque_task_min_(17) 	= -300;
 	torque_task_min_(18) 	= -300;
 	torque_task_min_(19) 	= -300;
 	torque_task_min_(20) 	= -300;
-	torque_task_min_(21) 	= -300;
-	torque_task_min_(22) 	= -300;
-	torque_task_min_(23) 	= -300;
-	torque_task_min_(24) 	= -300;
+	torque_task_min_(21) 	= -100;
+	torque_task_min_(22) 	= -100;
+
+	torque_task_min_(23) 	= -100;
+	torque_task_min_(24) 	= -100;
+
 	torque_task_min_(25) 	= -300;
 	torque_task_min_(26) 	= -300;
 	torque_task_min_(27) 	= -300;
 	torque_task_min_(28) 	= -300;
 	torque_task_min_(29) 	= -300;
 	torque_task_min_(30) 	= -300;
-	torque_task_min_(31) 	= -300;
-	torque_task_min_(32) 	= -300;
+	torque_task_min_(31) 	= -100;
+	torque_task_min_(32) 	= -100;
 
 	torque_task_max_(0) 	= 300;
 	torque_task_max_(1) 	= 300;
@@ -139,41 +145,46 @@ void CustomController::setGains()
 	torque_task_max_(3) 	= 300;
 	torque_task_max_(4) 	= 300;
 	torque_task_max_(5) 	= 300;
+
 	torque_task_max_(6) 	= 300;
 	torque_task_max_(7) 	= 300;
 	torque_task_max_(8) 	= 300;
 	torque_task_max_(9) 	= 300;
 	torque_task_max_(10) 	= 300;
 	torque_task_max_(11) 	= 300;
+
 	torque_task_max_(12) 	= 300;
 	torque_task_max_(13) 	= 300;
 	torque_task_max_(14) 	= 300;
+
 	torque_task_max_(15) 	= 300;
 	torque_task_max_(16) 	= 300;
 	torque_task_max_(17) 	= 300;
 	torque_task_max_(18) 	= 300;
 	torque_task_max_(19) 	= 300;
 	torque_task_max_(20) 	= 300;
-	torque_task_max_(21) 	= 300;
-	torque_task_max_(22) 	= 300;
-	torque_task_max_(23) 	= 300;
-	torque_task_max_(24) 	= 300;
+	torque_task_max_(21) 	= 100;
+	torque_task_max_(22) 	= 100;
+
+	torque_task_max_(23) 	= 100;
+	torque_task_max_(24) 	= 100;
+
 	torque_task_max_(25) 	= 300;
 	torque_task_max_(26) 	= 300;
 	torque_task_max_(27) 	= 300;
 	torque_task_max_(28) 	= 300;
 	torque_task_max_(29) 	= 300;
 	torque_task_max_(30) 	= 300;
-	torque_task_max_(31) 	= 300;
-	torque_task_max_(32) 	= 300;
+	torque_task_max_(31) 	= 100;
+	torque_task_max_(32) 	= 100;
 	////////////////////////////////
 
 	//////////Joint PD Gain/////////
 	///For Simulation
 	for (int i = 0; i < MODEL_DOF; i++)
 	{
-		kp_joint_(i) = 225; 		//(tune)
-		kv_joint_(i) = 30;		//(tune)
+		kp_joint_(i) = 400; 		//(tune)
+		kv_joint_(i) = 40;		//(tune)
 	}
 
 	for (int i = 0; i < 3; i++) //Waist Joint Gains
@@ -181,6 +192,16 @@ void CustomController::setGains()
 		kp_joint_(12 + i) = 400;
 		kv_joint_(12 + i) = 40;
 	}
+
+	kp_joint_(21) = 49;	//wrist
+	kp_joint_(22) = 49;
+	kv_joint_(21) = 14;
+	kv_joint_(22) = 14;
+
+	kp_joint_(31) = 49;
+	kp_joint_(32) = 49;
+	kv_joint_(31) = 14;
+	kv_joint_(32) = 14;
 
 	//stiff	//(tune)
 	kp_stiff_joint_(0) = 4900; //R hip yaw joint gain
@@ -340,11 +361,10 @@ void CustomController::setGains()
     joint_limit_h_.resize(16);
     joint_vel_limit_l_.resize(16);
     joint_vel_limit_h_.resize(16);
-    joint_limit_l_ << -2.09, -3.14159, -1.9199, -3.14159, -3.14159, -3.14159, -3.14159, -2.094, -1.54, -3.14159, -1.9199,   -2.967, -3.14159, -3.14159, -3.14159, -2.094;
-    joint_limit_h_ <<  1.54,  3.14159,  1.9199,  3.14159,      2.8,  3.14159,  3.14159,  2.094,  2.09,  3.14159,  1.9199,  3.14159,      2.8,  3.14159,  3.14159,  2.094;
+    joint_limit_l_ << -2.09, -3.14159, -1.9199, -3.14159, 	 -2.8, -3.14159, -3.14159, -2.094, -1.54, -3.14159, -1.9199,   -2.967, 	   0.45, -3.14159, -3.14159, -2.094;
+    joint_limit_h_ <<  1.54,  3.14159,  1.9199,  3.14159, 	-0.45,  3.14159,  3.14159,  2.094,  2.09,  3.14159,  1.9199,  3.14159,      2.8,  3.14159,  3.14159,  2.094;
     joint_vel_limit_l_ << -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159;
     joint_vel_limit_h_ <<  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159;
-
 
 }
 
@@ -681,6 +701,7 @@ void CustomController::computeSlow()
 		torque_task_ += swingFootControlCompute(wbc_);									//swing foot control
 		torque_task_ += jointTrajectoryPDControlCompute(wbc_) * first_torque_supplier_; //upper body motion + joint damping control
 		torque_task_ += dampingControlCompute(wbc_);									
+		torque_task_ += jointLimit();
 
 		savePreData();
 
@@ -759,8 +780,8 @@ void CustomController::initWalkingParameter()
 	switching_phase_duration_ = 0.01;
 	foot_contact_ = -1;
 	foot_contact_pre_ = foot_contact_;
-	step_width_ = 0.28;  						//for preview control
-	alpha_x_ = 0.02;
+	step_width_ = 0.21;  						//for preview control
+	alpha_x_ = 0.01;
 	alpha_y_ = 0.18;
 	alpha_x_command_ = alpha_x_;
 	alpha_y_command_ = alpha_y_;
@@ -772,10 +793,10 @@ void CustomController::initWalkingParameter()
 	falling_detection_flag_ = false;
 
 	preview_horizon_ = 1.6; //seconds
-	preview_hz_ = 100;
+	preview_hz_ = 2000;
 	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
-	zmp_y_offset_ = 0.00;	//outward from com
+	zmp_y_offset_ = 0.01;	//outward from com
 
 	jac_rhand_.setZero(6, MODEL_DOF_VIRTUAL);
 	jac_lhand_.setZero(6, MODEL_DOF_VIRTUAL);
@@ -1251,7 +1272,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 
 		init_q_ = current_q_;
 		last_desired_q_ = current_q_;
-
+		
 		com_pos_desired_preview_ = com_pos_current_;
 		com_vel_desired_preview_.setZero();
 		com_acc_desired_preview_.setZero();
@@ -1361,7 +1382,8 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		com_acc_desired_preview_pre_.setZero();
 	}
 
-	swingfoot_force_control_converter_ = DyrosMath::cubic(walking_phase_, 1, 1.1, 0, 1, 0, 0);
+	// swingfoot_force_control_converter_ = DyrosMath::cubic(walking_phase_, 0.8, 0.9, 0, 1, 0, 0);
+	swingfoot_force_control_converter_ = 0;
 }
 
 void CustomController::motionGenerator()
@@ -1460,7 +1482,7 @@ void CustomController::motionGenerator()
 		pd_control_mask_(32) = 1;
 		/////////////////////////////////////////////////////
 	}
-	else if(upper_body_mode_ == 2)		// motion capture play
+	else if(upper_body_mode_ == 2)		// Zero pose
 	{
 		///////////////////////WAIST/////////////////////////
 		motion_q_(12) = (1-turning_phase_)*init_q_(12) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1; //yaw
@@ -1482,11 +1504,11 @@ void CustomController::motionGenerator()
 		///////////////////////ARM/////////////////////////
 		//////LEFT ARM///////0.3 0.3 1.5 -1.27 -1 0 -1 0
 		motion_q_(15) = 0.3;
-		motion_q_(16) = 0.05 + 5*current_q_(7);
-		motion_q_(17) = 1.55;
-		motion_q_(18) = -1.2; 
-		motion_q_(19) = -0.4 + 3*current_q_(7); //elbow
-		motion_q_(20) = 0.0;
+		motion_q_(16) = 0.12;
+		motion_q_(17) = 1.43;
+		motion_q_(18) = -0.85; 
+		motion_q_(19) = -0.45; //elbow
+		motion_q_(20) = 1;
 		motion_q_(21) = 0.0;
 		motion_q_(22) = 0.0;
 		pd_control_mask_(15) = 1;
@@ -1500,11 +1522,11 @@ void CustomController::motionGenerator()
 		//////////////////////
 		/////RIFHT ARM////////-0.3 -0.3 -1.5 1.27 1 0 1 0
 		motion_q_(25) = -0.3;
-		motion_q_(26) = -0.05 + 5*current_q_(1);
-		motion_q_(27) = -1.55;
-		motion_q_(28) = 1.2;
-		motion_q_(29) = 0.4 + 3*current_q_(1);	//elbow
-		motion_q_(30) = 0.0;
+		motion_q_(26) = -0.12;
+		motion_q_(27) = -1.43;
+		motion_q_(28) = 0.85;
+		motion_q_(29) = 0.45;	//elbow
+		motion_q_(30) = -1;
 		motion_q_(31) = 0.0;
 		motion_q_(32) = 0.0;
 		pd_control_mask_(25) = 1;
@@ -1632,11 +1654,11 @@ void CustomController::motionRetargetting()
 	// master_lhand_vel_.segment(0, 3) 	= 	rd_.link_[Left_Hand].v_traj;
 	// master_lhand_vel_.segment(3, 3) 	= 	rd_.link_[Left_Hand].w_traj;
 	
-	// master_lhand_pose_.translation() 		= lhand_transform_init_from_global_.translation();
-	// master_lhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
-	// master_lhand_pose_.linear().Identity();
-	// master_lhand_vel_.setZero();
-	// master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
+	master_lhand_pose_.translation() 		= lhand_transform_init_from_global_.translation();
+	master_lhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
+	master_lhand_pose_.linear().Identity();
+	master_lhand_vel_.setZero();
+	master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
 
 	master_rhand_pose_.translation() 		= rhand_transform_init_from_global_.translation();
 	master_rhand_pose_.translation()(0) 	+= 	0.1*sin(current_time_*2*M_PI/1);
@@ -1837,6 +1859,25 @@ void CustomController::motionRetargetting2()
 	// 	torque_task_(25 + i) += torque_d_rarm(i);
 	// }
 	///////////////////////////////////////////////////////////////////////////////////
+}
+
+void CustomController::rawMasterPoseProcessing()
+{
+	master_lhand_pose_ = master_lhand_pose_raw_;
+	master_rhand_pose_ = master_rhand_pose_raw_;
+	
+	double arm_len_max = 0.95;
+
+	if( master_lhand_pose_.translation().norm() > arm_len_max)
+	{
+		master_lhand_pose_.translation() = master_lhand_pose_.translation().normalized() * arm_len_max;
+	}
+
+	if( master_rhand_pose_.translation().norm() > arm_len_max)
+	{
+		master_rhand_pose_.translation() = master_rhand_pose_.translation().normalized() * arm_len_max;
+	}
+
 }
 
 void CustomController::getCOMTrajectory()
@@ -2170,18 +2211,18 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	/////////////////////JACOBIAN///////////////////////////////////////
 	lfoot_to_com_jac_from_global_.block(0, 6, 6, 1).setZero(); 		// 	left yaw
 	lfoot_to_com_jac_from_global_.block(0, 12, 6, 6).setZero(); 	//	right leg
-	// lfoot_to_com_jac_from_global_.block(0, 21, 6, 8).setZero();		//	left arm
+	lfoot_to_com_jac_from_global_.block(0, 21, 6, 8).setZero();		//	left arm
 	lfoot_to_com_jac_from_global_.block(0, 29, 6, 2).setZero();		//	head
-	// lfoot_to_com_jac_from_global_.block(0, 31, 6, 8).setZero();		// 	right arm
+	lfoot_to_com_jac_from_global_.block(0, 31, 6, 8).setZero();		// 	right arm
 	
 	lfoot_to_com_jac_from_global_.block(3, 9, 3, 3).setZero();		// 	left leg roational component: knee pitch, ankle pitch, ankle roll
 	
 
 	rfoot_to_com_jac_from_global_.block(0, 6, 6, 6).setZero();		//	left leg
 	rfoot_to_com_jac_from_global_.block(0, 12, 6, 1).setZero(); 	// 	right yaw
-	// rfoot_to_com_jac_from_global_.block(0, 21, 6, 8).setZero();		//	left arm
+	rfoot_to_com_jac_from_global_.block(0, 21, 6, 8).setZero();		//	left arm
 	rfoot_to_com_jac_from_global_.block(0, 29, 6, 2).setZero();		//	head
-	// rfoot_to_com_jac_from_global_.block(0, 31, 6, 8).setZero();		//	right arm
+	rfoot_to_com_jac_from_global_.block(0, 31, 6, 8).setZero();		//	right arm
 
 	rfoot_to_com_jac_from_global_.block(3, 15, 3, 3).setZero();		// 	right leg roational component: knee pitch, ankle pitch, ankle roll
 
@@ -2381,8 +2422,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 		{
 			if (foot_contact_ == -1) // right support, left support previously
 			{
-				torque_l_vel_tun.segment(12, 3).setZero(); // waist torque
-				torque_l_vel_tun.segment(23, 2).setZero(); // head torque
+				// torque_l_vel_tun.segment(12, 3).setZero(); // waist torque
+				// torque_l_vel_tun.segment(23, 2).setZero(); // head torque
 
 				lfoot_task_torque_switch = 1;
 				rfoot_task_torque_switch = 1;
@@ -2392,8 +2433,8 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 			}
 			else if (foot_contact_ == 1)
 			{
-				torque_r_vel_tun.segment(12, 3).setZero(); // waist torque
-				torque_r_vel_tun.segment(23, 2).setZero(); // head torque
+				// torque_r_vel_tun.segment(12, 3).setZero(); // waist torque
+				// torque_r_vel_tun.segment(23, 2).setZero(); // head torque
 
 				lfoot_task_torque_switch = 1;
 				rfoot_task_torque_switch = 1;
@@ -2591,6 +2632,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			}
 
 			desired_q_(0) = 0.5 * 0 + 0.5 * pre_desired_q_(0);
+			desired_q_(3) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, last_desired_q_(3), 0, 0, desired_q_leg(3), 0, 0)(0);
+
 			// desired_q_(0) = motion_q_(0);
 			Vector3d phi_swing_ankle;
 			// phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Left_Foot].Rotm, pelv_yaw_rot_current_from_global_);
@@ -2725,6 +2768,8 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			}
 
 			desired_q_(6) = 0.5 * 0 + 0.5 * pre_desired_q_(6);
+			desired_q_(9) = DyrosMath::QuinticSpline(walking_phase_, 0.0, switching_phase_duration_, last_desired_q_(9), 0, 0, desired_q_leg(9), 0, 0)(0);
+
 			Vector3d phi_swing_ankle;
 			// phi_swing_ankle = -DyrosMath::getPhi(rd_.link_[Right_Foot].Rotm, pelv_yaw_rot_current_from_global_);
 			phi_swing_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
@@ -3637,7 +3682,9 @@ Eigen::VectorQd CustomController::tuneTorqueForZMPSafety(Eigen::VectorQd task_to
 
 Eigen::VectorQd CustomController::jointLimit()
 {
+	Eigen::VectorQd joint_limit_torque;
 
+	
 }
 
 void CustomController::savePreData()
@@ -3859,9 +3906,9 @@ void CustomController::LeftControllerCallback(const VR::matrix_3_4 &msg)
 	master_lhand_pose_raw_.linear()(2, 1) = msg.thirdRow[1];
 	master_lhand_pose_raw_.linear()(2, 2) = msg.thirdRow[2];
 
-	master_lhand_pose_raw_.translation()(0) = msg.firstRow[2];
-	master_lhand_pose_raw_.translation()(1) = msg.secondRow[2];
-	master_lhand_pose_raw_.translation()(2) = msg.thirdRow[2];
+	master_lhand_pose_raw_.translation()(0) = msg.firstRow[3];
+	master_lhand_pose_raw_.translation()(1) = msg.secondRow[3];
+	master_lhand_pose_raw_.translation()(2) = msg.thirdRow[3];
 }
 
 void CustomController::RightControllerCallback(const VR::matrix_3_4 &msg)
@@ -3878,9 +3925,9 @@ void CustomController::RightControllerCallback(const VR::matrix_3_4 &msg)
 	master_rhand_pose_raw_.linear()(2, 1) = msg.thirdRow[1];
 	master_rhand_pose_raw_.linear()(2, 2) = msg.thirdRow[2];
 
-	master_rhand_pose_raw_.translation()(0) = msg.firstRow[2];
-	master_rhand_pose_raw_.translation()(1) = msg.secondRow[2];
-	master_rhand_pose_raw_.translation()(2) = msg.thirdRow[2];
+	master_rhand_pose_raw_.translation()(0) = msg.firstRow[3];
+	master_rhand_pose_raw_.translation()(1) = msg.secondRow[3];
+	master_rhand_pose_raw_.translation()(2) = msg.thirdRow[3];
 }
 
 void CustomController::HmdCallback(const VR::matrix_3_4 &msg)
@@ -3897,10 +3944,11 @@ void CustomController::HmdCallback(const VR::matrix_3_4 &msg)
 	master_head_pose_raw_.linear()(2, 1) = msg.thirdRow[1];
 	master_head_pose_raw_.linear()(2, 2) = msg.thirdRow[2];
 
-	master_head_pose_raw_.translation()(0) = msg.firstRow[2];
-	master_head_pose_raw_.translation()(1) = msg.secondRow[2];
-	master_head_pose_raw_.translation()(2) = msg.thirdRow[2];
+	master_head_pose_raw_.translation()(0) = msg.firstRow[3];
+	master_head_pose_raw_.translation()(1) = msg.secondRow[3];
+	master_head_pose_raw_.translation()(2) = msg.thirdRow[3];
 }
+
 /////////////////////////////////////PREVIEW CONTROL RELATED FUNCTION////////////////////////////////////
 void CustomController::getComTrajectory_Preview()
 { 
@@ -3979,14 +4027,15 @@ void CustomController::modifiedPreviewControl_MJ()
 {
   /////reference: http://www.tandfonline.com/doi/pdf/10.1080/0020718508961156?needAccess=true/////////////
 
-	if( int((current_time_-program_start_time_)*1e9)%int(2e7) == 0 ) //50hz update
+	if( int((current_time_-program_start_time_)*1e7)%int(2e5) == 0 ) //50hz update
 	{
 		previewParam_MJ(1/preview_hz_, zmp_size_, zc_, K_act_ , Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 		//previewParam_MJ_CPM(1.0/hz_, 16*hz_/10, K_ ,com_support_init_, Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 	}
 
 
-	if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // 200hz update
+	// if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // preview_hz_ update
+	if(true)
 	{
 		xd_b = xd_; //save previous com desired trajectory
 		yd_b = yd_;
@@ -4050,15 +4099,22 @@ void CustomController::previewParam_MJ(double dt, int NL, double zc, Eigen::Matr
 
   Eigen::MatrixXd R;
   R.resize(1,1);
-  R(0,0) = 0.000001;
+  R(0,0) = 0.000001;	//for offline
+
+//   R(0,0) = 0.000000001;		//test
 
   Eigen::MatrixXd Qx;
   Qx.setZero(3,3);
-
+  
+//   Qx(0, 0) = 0.0001;	//test
+//   Qx(1, 1) = 0.02;
+//   Qx(2, 2) = 0;
 
   Eigen::MatrixXd Q_bar;
   Q_bar.setZero(4,4);
   Q_bar(0,0) = Qe(0,0);
+
+//   Q_bar.block(1, 1, 3, 3) = Qx; // test
 
   K=discreteRiccatiEquationPrev(A_bar, B_bar, R, Q_bar);
 
@@ -4422,17 +4478,17 @@ double CustomController::bandBlock(double value, double max, double min)
 
 	if(value <= min)
 	{
-		y = value - min;
+		y = - (value - min)*(value - min);
 	}
 	else if(value >= max)
 	{
-		y = value - max;
+		y = (value - max)*(value - max);
 	}
 	else
 	{
 		y = 0;
 	}
-	
+
 	return y;
 }
 
