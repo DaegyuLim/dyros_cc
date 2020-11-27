@@ -69,9 +69,9 @@ void CustomController::setGains()
 
 	// kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
 	
-	kp_pelv_ori_(0, 0) = 1000;
+	kp_pelv_ori_(0, 0) = 100;
 	kp_pelv_ori_(1, 1) = 1000;
-	kp_pelv_ori_(2, 2) = 0;
+	kp_pelv_ori_(2, 2) = 1000;
 
 	kd_pelv_ori_ = 100*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
 
@@ -187,8 +187,8 @@ void CustomController::setGains()
 	///For Simulation
 	for (int i = 0; i < MODEL_DOF; i++)
 	{
-		kp_joint_(i) = 400; 		//(tune)
-		kv_joint_(i) = 40;		//(tune)
+		kp_joint_(i) = 100; 		//(tune)
+		kv_joint_(i) = 20;		//(tune)
 	}
 
 	for (int i = 0; i < 3; i++) //Waist Joint Gains
@@ -197,15 +197,24 @@ void CustomController::setGains()
 		kv_joint_(12 + i) = 40;
 	}
 
-	kp_joint_(21) = 49;	//wrist
-	kp_joint_(22) = 49;
-	kv_joint_(21) = 14;
-	kv_joint_(22) = 14;
+	kp_joint_(20) = 49;	//forearm
+	kp_joint_(21) = 25;	//wrist
+	kp_joint_(22) = 25;
+	kv_joint_(20) = 14;
+	kv_joint_(21) = 10;
+	kv_joint_(22) = 10;
 
-	kp_joint_(31) = 49;
-	kp_joint_(32) = 49;
-	kv_joint_(31) = 14;
-	kv_joint_(32) = 14;
+	kp_joint_(30) = 49;
+	kp_joint_(31) = 25;
+	kp_joint_(32) = 25;
+	kv_joint_(30) = 14;
+	kv_joint_(31) = 10;
+	kv_joint_(32) = 10;
+
+	kp_joint_(23) = 49;	//head
+	kp_joint_(24) = 49;	
+	kv_joint_(23) = 14;	//head
+	kv_joint_(24) = 14;	
 
 	//stiff	//(tune)
 	kp_stiff_joint_(0) = 4900; //R hip yaw joint gain
@@ -522,6 +531,8 @@ void CustomController::computeSlow()
 	else if (tc.mode == 12)
 	{
         ControlVal_ = wbc_.gravity_compensation_torque(rd_, false, false);
+		
+		rawMasterPoseProcessing();
 
         Eigen::Matrix6d RotRF2Pelvis;
         RotRF2Pelvis.setZero();
@@ -568,6 +579,7 @@ void CustomController::computeSlow()
             first_loop_ = false;
 			integral.setZero();
         }
+
         error_v.segment<3>(0) = rd_.link_[Left_Hand].x_traj -  left_x_traj_pre_;
         error_v.segment<3>(3) = rd_.link_[Right_Hand].x_traj -  right_x_traj_pre_;
 
@@ -722,8 +734,13 @@ void CustomController::computeSlow()
 
 
 		ControlVal_ = torque_task_;
- 
-
+		
+		// if( int(current_time_*10000)%20000 == 0)
+		// {
+		// 	cout<<"left hand ori mat: \n"<<lhand_transform_current_from_global_.linear()<<endl;
+		// 	cout<<"right hand ori mat: \n"<<rhand_transform_current_from_global_.linear()<<endl;
+		// }
+		
 		printOutTextFile();
 	}
 	else if (tc.mode == 14) //arm control test in the air 
@@ -766,7 +783,7 @@ void CustomController::setWalkingParameter(double walking_duration, double walki
 void CustomController::initWalkingParameter()
 {
 	walking_mode_on_ = true;
-	upper_body_mode_ = 3;
+	upper_body_mode_ = 1;
 	stop_vel_threshold_ = 0.20;
 	walking_duration_cmd_ = 0.6;
 	walking_duration_start_delay_ = 0.3;
@@ -799,7 +816,7 @@ void CustomController::initWalkingParameter()
 	upperbody_mode_recieved_ = true;
 
 	preview_horizon_ = 1.6; //seconds
-	preview_hz_ = 2000;
+	preview_hz_ = 200;
 	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
 	zmp_y_offset_ = 0.01;	//outward from com
@@ -1000,7 +1017,7 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	l_ft_ = rd_.ContactForce_FT_raw.segment(0, 6);
 	r_ft_ = rd_.ContactForce_FT_raw.segment(6, 6);
 
-	first_torque_supplier_ = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ + walking_duration_*0.5, 0, 1, 0, 0);
+	first_torque_supplier_ = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ + walking_duration_*0.3, 0, 1, 0, 0);
 }
 
 void CustomController::walkingStateManager()
@@ -1716,6 +1733,9 @@ void CustomController::motionRetargetting()
 	motion_q_(25) = -0.3;
 	pd_control_mask_(15) = 1;
 	pd_control_mask_(25) = 1;
+
+	motion_q_(19) = DyrosMath::minmax_cut(motion_q_(19), joint_limit_l_(4), joint_limit_h_(4));
+	motion_q_(29) = DyrosMath::minmax_cut(motion_q_(29), joint_limit_l_(12), joint_limit_h_(12));
 	///////////////////////////////////////////////////////////////////////////////////
 }
 
@@ -1903,15 +1923,15 @@ void CustomController::rawMasterPoseProcessing()
 	// master_lhand_vel_.segment(0, 3) 	= 	rd_.link_[Left_Hand].v_traj;
 	// master_lhand_vel_.segment(3, 3) 	= 	rd_.link_[Left_Hand].w_traj;
 	
-	master_lhand_pose_raw_.translation() 		= lhand_transform_init_from_global_.translation();
-	master_lhand_pose_raw_.translation()(2) 	+= 	0.03*sin(current_time_*2*M_PI/1);
-	master_lhand_pose_raw_.linear().Identity();
+	// master_lhand_pose_raw_.translation() 		= lhand_transform_init_from_global_.translation();
+	// master_lhand_pose_raw_.translation()(2) 	+= 	0.03*sin(current_time_*2*M_PI/1);
+	// master_lhand_pose_raw_.linear().Identity();
 	// master_lhand_vel_.setZero();
 	// master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
 
-	master_rhand_pose_raw_.translation() 		= rhand_transform_init_from_global_.translation();
-	master_rhand_pose_raw_.translation()(2) 	+= 	0.03*sin(current_time_*2*M_PI/1);
-	master_rhand_pose_raw_.linear().Identity();
+	// master_rhand_pose_raw_.translation() 		= rhand_transform_init_from_global_.translation();
+	// master_rhand_pose_raw_.translation()(2) 	+= 	0.03*sin(current_time_*2*M_PI/1);
+	// master_rhand_pose_raw_.linear().Identity();
 	// master_rhand_vel_.setZero();
 	// master_rhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
 
@@ -2053,8 +2073,9 @@ void CustomController::getCOMTrajectory()
 			// com_pos_desired_(1) = middle_of_both_foot_(1);
 			// com_vel_desired_(1) = 0;
 			
-			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(0);
-			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(1);
+			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(0);
+			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(1);
+			com_acc_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(2);
 
 			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(0);
 			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(1);
@@ -2068,6 +2089,8 @@ void CustomController::getCOMTrajectory()
 			double traj_duraiton = walking_duration_*1;
 
 			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(0);
+			// com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(1);
+			// com_acc_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(2);
 			// com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0), 0, 0)(1);
 			// com_pos_desired_(0) = com_pos_init_(0);
 			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, start_time_, start_time_+5, (com_pos_init_)(1), 0, 0, lfoot_transform_current_from_global_.translation()(1), 0, 0)(0);
@@ -2280,7 +2303,7 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	
 	phi_pelv_ = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 	torque_pelv_ = kp_pelv_ori_ * phi_pelv_ - kd_pelv_ori_ * pelv_angvel_current_;
-	// torque_pelv_(2) = 0;
+	torque_pelv_(2) = 0;
 	f_star.segment(3,3) = torque_pelv_*3;
 	/////////////////////////////////////////////
 
@@ -4113,7 +4136,8 @@ void CustomController::modifiedPreviewControl_MJ()
 		//previewParam_MJ_CPM(1.0/hz_, 16*hz_/10, K_ ,com_support_init_, Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 	}
 
-	// if(true)
+
+// if(true)
 	if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // preview_hz_ update
 	{
 		xd_b = xd_; //save previous com desired trajectory
