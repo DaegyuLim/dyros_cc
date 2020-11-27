@@ -69,7 +69,7 @@ void CustomController::setGains()
 
 	// kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
 	
-	kp_pelv_ori_(0, 0) = 100;
+	kp_pelv_ori_(0, 0) = 1000;
 	kp_pelv_ori_(1, 1) = 1000;
 	kp_pelv_ori_(2, 2) = 0;
 
@@ -1994,8 +1994,8 @@ void CustomController::getCOMTrajectory()
 			// com_pos_desired_(1) = middle_of_both_foot_(1);
 			// com_vel_desired_(1) = 0;
 			
-			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(0);
-			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(1);
+			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(0);
+			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(1);
 
 			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(0);
 			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(1);
@@ -2006,9 +2006,9 @@ void CustomController::getCOMTrajectory()
 			// com_vel_desired_(2) = 0;
 			// com_acc_desired_(2) = GRAVITY/2;		//divide 2 because each legs apply same acc
 
-			double traj_duraiton = walking_duration_*0.5;
+			double traj_duraiton = walking_duration_*1;
 
-			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0), 0, 0)(0);
+			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(0);
 			// com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0), 0, 0)(1);
 			// com_pos_desired_(0) = com_pos_init_(0);
 			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, start_time_, start_time_+5, (com_pos_init_)(1), 0, 0, lfoot_transform_current_from_global_.translation()(1), 0, 0)(0);
@@ -4050,9 +4050,8 @@ void CustomController::modifiedPreviewControl_MJ()
 		//previewParam_MJ_CPM(1.0/hz_, 16*hz_/10, K_ ,com_support_init_, Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 	}
 
-
-	// if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // preview_hz_ update
-	if(true)
+	// if(true)
+	if( int((current_time_-program_start_time_)*100000)%int(100000/preview_hz_) == 0 ) // preview_hz_ update
 	{
 		xd_b = xd_; //save previous com desired trajectory
 		yd_b = yd_;

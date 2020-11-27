@@ -11,13 +11,13 @@ extern std::mutex mtx_dc;
 const std::string FILE_NAMES[FILE_CNT] =
 {
   ///change this directory when you use this code on the other computer///
-    "/home/dyros/data/tocabi_cc/0_flag_.txt",
-    "/home/dyros/data/tocabi_cc/1_com_.txt",
-    "/home/dyros/data/tocabi_cc/2_foot_.txt",
-    "/home/dyros/data/tocabi_cc/3_torque_.txt",
-    "/home/dyros/data/tocabi_cc/4_joint_.txt",
-    "/home/dyros/data/tocabi_cc/5_hand_.txt",
-    "/home/dyros/data/tocabi_cc/6_hmd_.txt"
+    "/home/dg/data/tocabi_cc/0_flag_.txt",
+    "/home/dg/data/tocabi_cc/1_com_.txt",
+    "/home/dg/data/tocabi_cc/2_foot_.txt",
+    "/home/dg/data/tocabi_cc/3_torque_.txt",
+    "/home/dg/data/tocabi_cc/4_joint_.txt",
+    "/home/dg/data/tocabi_cc/5_hand_.txt",
+    "/home/dg/data/tocabi_cc/6_hmd_.txt"
 };
 
 class CustomController
