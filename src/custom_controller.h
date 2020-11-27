@@ -444,6 +444,9 @@ public:
     Matrix3d support_foot_damping_gain_;
 
     //MotionRetargetting variables
+    int upperbody_mode_recieved_;
+    double upperbody_command_time_;
+
     Eigen::Isometry3d master_lhand_pose_raw_;
     Eigen::Isometry3d master_rhand_pose_raw_;
     Eigen::Isometry3d master_head_pose_raw_;

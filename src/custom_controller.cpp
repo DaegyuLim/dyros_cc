@@ -766,7 +766,7 @@ void CustomController::setWalkingParameter(double walking_duration, double walki
 void CustomController::initWalkingParameter()
 {
 	walking_mode_on_ = true;
-	upper_body_mode_ = 1;
+	upper_body_mode_ = 3;
 	stop_vel_threshold_ = 0.20;
 	walking_duration_cmd_ = 0.6;
 	walking_duration_start_delay_ = 0.3;
@@ -795,6 +795,8 @@ void CustomController::initWalkingParameter()
 	foot_swing_trigger_ = false;
 	stop_walking_trigger_ = true;
 	falling_detection_flag_ = false;
+
+	upperbody_mode_recieved_ = true;
 
 	preview_horizon_ = 1.6; //seconds
 	preview_hz_ = 2000;
@@ -1548,6 +1550,12 @@ void CustomController::motionGenerator()
 	}
 	else if(upper_body_mode_ == 3)		// human motion retargetting: joint pd control with CLIK
 	{
+		if(upperbody_mode_recieved_ == true)
+		{
+			upperbody_command_time_ = current_time_;
+			upperbody_mode_recieved_ = false;
+		}
+
 		motionRetargetting();
 	}
 	else if(upper_body_mode_ == 4)		// human motion retargetting: task space position pd control
@@ -1677,6 +1685,12 @@ void CustomController::motionRetargetting()
 	
 	u_dot_lhand.segment(0, 3) = master_lhand_vel_.segment(0, 3) + kp_pos_lhand*(master_lhand_pose_.translation()-lhand_transform_pre_desired_from.translation());
 	u_dot_rhand.segment(0, 3) = master_rhand_vel_.segment(0, 3) + kp_pos_rhand*(master_rhand_pose_.translation()-rhand_transform_pre_desired_from.translation());
+
+	for(int i =0; i<3; i++)
+	{
+		u_dot_lhand(i) = DyrosMath::minmax_cut(u_dot_lhand(i), -0.5, 0.5);
+		u_dot_rhand(i) = DyrosMath::minmax_cut(u_dot_rhand(i), -0.5, 0.5);
+	}
 
 	Vector3d lhand_phi = -DyrosMath::getPhi(lhand_transform_pre_desired_from.linear(), master_lhand_pose_.linear());
 	Vector3d rhand_phi = -DyrosMath::getPhi(rhand_transform_pre_desired_from.linear(), master_rhand_pose_.linear());
@@ -1872,11 +1886,49 @@ void CustomController::motionRetargetting2()
 
 void CustomController::rawMasterPoseProcessing()
 {
-	master_lhand_pose_.translation() = 0.3*master_lhand_pose_raw_.translation() + 0.7*master_lhand_pose_pre_.translation();
-	master_rhand_pose_.translation() = 0.3*master_rhand_pose_raw_.translation() + 0.7*master_rhand_pose_pre_.translation();
+	// rd_.link_[Left_Hand].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
+    // rd_.link_[Left_Hand].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time, false);
+
+    // rd_.link_[Right_Hand].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
+    // rd_.link_[Right_Hand].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time, false);
+        
+
+	// master_rhand_pose_raw_.translation() 	= 	rd_.link_[Right_Hand].x_traj;
+	// master_rhand_pose_raw_.linear() 		= 	rd_.link_[Right_Hand].r_traj;
+	// // master_rhand_vel_.segment(0, 3) 	= 	rd_.link_[Right_Hand].v_traj;
+	// // master_rhand_vel_.segment(3, 3) 	= 	rd_.link_[Right_Hand].w_traj;
+
+	// master_lhand_pose_raw_.translation() 	= 	rd_.link_[Left_Hand].x_traj;
+	// master_lhand_pose_raw_.linear() 		= 	rd_.link_[Left_Hand].r_traj;
+	// master_lhand_vel_.segment(0, 3) 	= 	rd_.link_[Left_Hand].v_traj;
+	// master_lhand_vel_.segment(3, 3) 	= 	rd_.link_[Left_Hand].w_traj;
+	
+	master_lhand_pose_raw_.translation() 		= lhand_transform_init_from_global_.translation();
+	master_lhand_pose_raw_.translation()(2) 	+= 	0.03*sin(current_time_*2*M_PI/1);
+	master_lhand_pose_raw_.linear().Identity();
+	// master_lhand_vel_.setZero();
+	// master_lhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
+
+	master_rhand_pose_raw_.translation() 		= rhand_transform_init_from_global_.translation();
+	master_rhand_pose_raw_.translation()(2) 	+= 	0.03*sin(current_time_*2*M_PI/1);
+	master_rhand_pose_raw_.linear().Identity();
+	// master_rhand_vel_.setZero();
+	// master_rhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/1)*2*M_PI/1;
+
+	for(int i=0; i<3; i++)
+	{
+		master_lhand_pose_raw_.translation()(i) = DyrosMath::QuinticSpline(current_time_, upperbody_command_time_, upperbody_command_time_ + 3, lhand_transform_init_from_global_.translation()(i), 0, 0, master_lhand_pose_raw_.translation()(i), 0, 0)(0);
+		master_rhand_pose_raw_.translation()(i) = DyrosMath::QuinticSpline(current_time_, upperbody_command_time_, upperbody_command_time_ + 3, rhand_transform_init_from_global_.translation()(i), 0, 0, master_rhand_pose_raw_.translation()(i), 0, 0)(0);
+	}
+
+	master_lhand_pose_.translation() = 0.2*master_lhand_pose_raw_.translation() + 0.8*master_lhand_pose_pre_.translation();
+	master_rhand_pose_.translation() = 0.2*master_rhand_pose_raw_.translation() + 0.8*master_rhand_pose_pre_.translation();
 	
 	master_lhand_pose_.linear() = master_lhand_pose_raw_.linear();
 	master_rhand_pose_.linear() = master_rhand_pose_raw_.linear();
+
+	// master_lhand_pose_.linear() = lhand_transform_init_from_global_.linear();
+	// master_rhand_pose_.linear() = rhand_transform_init_from_global_.linear();
 
 	double arm_len_max = 0.95;
 
@@ -1890,8 +1942,15 @@ void CustomController::rawMasterPoseProcessing()
 		master_rhand_pose_.translation() = master_rhand_pose_.translation().normalized() * arm_len_max;
 	}
 
-	master_lhand_vel_.segment(0, 3) = (master_lhand_pose_.translation() - master_lhand_pose_pre_.translation())/dt_;;
-	master_rhand_vel_.segment(0, 3) = (master_rhand_pose_.translation() - master_rhand_pose_pre_.translation())/dt_;;
+	// for(int i = 0; i<3; i++)
+	// {
+	// 	master_lhand_vel_(i) = (master_lhand_pose_.translation()(i) - master_lhand_pose_pre_.translation()(i))/dt_;
+	// 	master_rhand_vel_(i) = (master_rhand_pose_.translation()(i) - master_rhand_pose_pre_.translation()(i))/dt_;
+	// }
+	
+
+	master_lhand_vel_.segment(0, 3).setZero();
+	master_rhand_vel_.segment(0, 3).setZero();
 
 	master_lhand_vel_.segment(3, 3).setZero();
 	master_rhand_vel_.segment(3, 3).setZero();
@@ -3744,6 +3803,9 @@ void CustomController::savePreData()
 
 	f_lfoot_damping_pre_ = f_lfoot_damping_;
 	f_rfoot_damping_pre_ = f_rfoot_damping_;
+
+	master_lhand_pose_pre_ = master_lhand_pose_;
+	master_rhand_pose_pre_ = master_rhand_pose_;
 }
 
 void CustomController::WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg)
@@ -3767,6 +3829,7 @@ void CustomController::WalkingSliderCommandCallback(const std_msgs::Float32Multi
 void CustomController::UpperbodyModeCallback(const std_msgs::Float32 &msg)
 {
 	upper_body_mode_ = msg.data;
+	upperbody_mode_recieved_ = true;
 }
 
 void CustomController::NextSwinglegCallback(const std_msgs::Float32 &msg)
