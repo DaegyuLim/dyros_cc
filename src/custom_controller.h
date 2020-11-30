@@ -5,8 +5,6 @@
 #include "VR/matrix_3_4.h"
 
 const int FILE_CNT = 7;
-extern std::mutex mtx_rbdl;
-extern std::mutex mtx_dc;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
@@ -40,6 +38,7 @@ public:
     TaskCommand tc;
 
     CQuadraticProgram QP_qdot;
+    CQuadraticProgram QP_qdot2;
 
     void setGains();
     //////////dg custom controller functions////////
@@ -69,6 +68,7 @@ public:
     //motion control
     void motionRetargetting();
     void motionRetargetting2();
+    void motionRetargetting_QPIK();
     void rawMasterPoseProcessing();
     
     //preview related functions
