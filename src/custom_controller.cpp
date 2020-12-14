@@ -807,7 +807,7 @@ void CustomController::initWalkingParameter()
 	upperbody_mode_recieved_ = true;
 
 	preview_horizon_ = 1.6; //seconds
-	preview_hz_ = 200;
+	preview_hz_ = 2000;
 	zmp_size_ = preview_horizon_*preview_hz_; 
 	ref_zmp_.setZero(zmp_size_, 2);
 	zmp_y_offset_ = 0.01;	//outward from com
@@ -4153,6 +4153,7 @@ void CustomController::modifiedPreviewControl_MJ()
 	{
 		previewParam_MJ(1/preview_hz_, zmp_size_, zc_, K_act_ , Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 		//previewParam_MJ_CPM(1.0/hz_, 16*hz_/10, K_ ,com_support_init_, Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
+		cout<<"preview parameters updated: "<<current_time_<<endl;
 	}
 
 
