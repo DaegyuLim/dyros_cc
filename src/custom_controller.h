@@ -3,6 +3,7 @@
 #include "math_type_define.h"
 #include <std_msgs/Float32MultiArray.h>
 #include "VR/matrix_3_4.h"
+#include <geometry_msgs/PoseArray.h>
 
 const int FILE_CNT = 7;
 
@@ -66,10 +67,11 @@ public:
     void fallDetection();
 
     //motion control
-    void motionRetargetting();
-    void motionRetargetting2();
-    void motionRetargetting_QPIK();
+    void motionRetargeting();
+    void motionRetargeting2();
+    void motionRetargeting_QPIK_larm();
     void rawMasterPoseProcessing();
+    void exoSuitRawDataProcessing();
     
     //preview related functions
     void getComTrajectory_Preview();
@@ -109,6 +111,8 @@ public:
     ros::Subscriber left_controller_posture_sub;
     ros::Subscriber right_controller_posture_sub;
 
+    ros::Subscriber exo_suit_sub;
+
 
     void WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg);
 
@@ -132,6 +136,8 @@ public:
     void LeftControllerCallback(const VR::matrix_3_4 &msg);
     void RightControllerCallback(const VR::matrix_3_4 &msg);
     void HmdCallback(const VR::matrix_3_4 &msg);
+    void ExosuitCallback(const geometry_msgs::PoseArray &msg);
+
     RigidBodyDynamics::Model model_d_;
 
     ////////////////dg custom controller variables/////////////
@@ -149,7 +155,7 @@ public:
     int foot_contact_pre_;
     bool foot_swing_trigger_;                               // trigger swing if the robot needs to balance.
     bool first_step_trigger_;                               // ture if this is first swing foot. turn on at the start of the swing.
-    bool start_walking_trigger_;                            // true when the walking_speed_ is not zero and swint do not start.
+    bool start_walking_trigger_;                            // true when the walking_speed_ is not zero and leg-swing do not start.
     bool stop_walking_trigger_;                             // turns on when the robot's speed become zero and lands last foot step
     bool falling_detection_flag_;                           // turns on when the robot is falling and is considered that it can not recover balance.
 
@@ -179,6 +185,8 @@ public:
 
     double swing_foot_height_;
     
+    double ankle2footcenter_offset_;
+
     double first_torque_supplier_;
     double swingfoot_force_control_converter_;
     double swingfoot_highest_time_;
@@ -195,6 +203,9 @@ public:
     Eigen::Vector3d com_pos_desired_pre_; 
     Eigen::Vector3d com_vel_desired_pre_;
     Eigen::Vector3d com_acc_desired_pre_;
+    Eigen::Vector3d com_pos_desired_last_; 
+    Eigen::Vector3d com_vel_desired_last_;
+    Eigen::Vector3d com_acc_desired_last_;
 
     Eigen::Vector3d com_pos_error_;
     Eigen::Vector3d com_vel_error_;
@@ -309,11 +320,19 @@ public:
     Eigen::Isometry3d rfoot_transform_init_from_global_;
     Eigen::Isometry3d lhand_transform_init_from_global_;
     Eigen::Isometry3d rhand_transform_init_from_global_;
+    Eigen::Isometry3d lelbow_transform_init_from_global_;
+    Eigen::Isometry3d relbow_transform_init_from_global_;
+    Eigen::Isometry3d lshoulder_transform_init_from_global_; //3rd axis of arm joint
+    Eigen::Isometry3d rshoulder_transform_init_from_global_;
 
     Eigen::Isometry3d lfoot_transform_current_from_global_;
     Eigen::Isometry3d rfoot_transform_current_from_global_;
     Eigen::Isometry3d lhand_transform_current_from_global_;
     Eigen::Isometry3d rhand_transform_current_from_global_;
+    Eigen::Isometry3d lelbow_transform_current_from_global_;
+    Eigen::Isometry3d relbow_transform_current_from_global_;
+    Eigen::Isometry3d lshoulder_transform_current_from_global_; //3rd axis of arm joint
+    Eigen::Isometry3d rshoulder_transform_current_from_global_;
 
     Eigen::Isometry3d lknee_transform_current_from_global_;
     Eigen::Isometry3d rknee_transform_current_from_global_;
@@ -322,6 +341,10 @@ public:
     Eigen::Vector6d rfoot_vel_current_from_global;
     Eigen::Vector6d lhand_vel_current_from_global;
     Eigen::Vector6d rhand_vel_current_from_global;
+    Eigen::Vector6d lelbow_vel_current_from_global;
+    Eigen::Vector6d relbow_vel_current_from_global;
+    Eigen::Vector6d lshoulder_vel_current_from_global;
+    Eigen::Vector6d rshoulder_vel_current_from_global;
 
     Eigen::Vector3d middle_of_both_foot_;
 
@@ -389,7 +412,8 @@ public:
     double preview_horizon_;
     double preview_hz_;
     double preview_update_time_;
-
+    double last_preview_param_update_time_;
+    
     Eigen::Vector3d preview_x, preview_y, preview_x_b, preview_y_b, preview_x_b2, preview_y_b2;
     double ux_, uy_, ux_1_, uy_1_;
     double zc_;
@@ -443,31 +467,78 @@ public:
 	Vector3d f_rfoot_damping_pre_;	
     Matrix3d support_foot_damping_gain_;
 
-    //MotionRetargetting variables
+    //MotionRetargeting variables
     int upperbody_mode_recieved_;
     double upperbody_command_time_;
 
     Eigen::Isometry3d master_lhand_pose_raw_;
     Eigen::Isometry3d master_rhand_pose_raw_;
     Eigen::Isometry3d master_head_pose_raw_;
+    Eigen::Isometry3d master_lelbow_pose_raw_;
+    Eigen::Isometry3d master_relbow_pose_raw_;
 
     Eigen::Isometry3d master_lhand_pose_;
     Eigen::Isometry3d master_rhand_pose_;
     Eigen::Isometry3d master_head_pose_;
+    Eigen::Isometry3d master_lelbow_pose_;
+    Eigen::Isometry3d master_relbow_pose_;
 
     Eigen::Isometry3d master_lhand_pose_pre_;
     Eigen::Isometry3d master_rhand_pose_pre_;
     Eigen::Isometry3d master_head_pose_pre_;
+    Eigen::Isometry3d master_lelbow_pose_pre_;
+    Eigen::Isometry3d master_relbow_pose_pre_;
 
     Eigen::Vector6d master_lhand_vel_;
     Eigen::Vector6d master_rhand_vel_;
     Eigen::Vector6d master_head_vel_;
+    Eigen::Vector6d master_lelbow_vel_;
+    Eigen::Vector6d master_relbow_vel_;
 
     Eigen::Vector3d master_lhand_rqy_;
     Eigen::Vector3d master_rhand_rqy_;
 
     Eigen::Vector3d master_head_orientation_rpy_;
     Eigen::Matrix3d master_head_orientation_mat_;
+
+    bool exo_suit_init_pose_calibration_;
+    double exo_suit_init_pose_cali_time_;
+
+    Eigen::Vector3d exo_suit_head_pos_raw_;   
+    Eigen::Vector3d exo_suit_lshoulder_pos_raw_;
+    Eigen::Vector3d exo_suit_llowerarm_pos_raw_;
+    Eigen::Vector3d exo_suit_lhand_pos_raw_;
+    Eigen::Vector3d exo_suit_rshoulder_pos_raw_;
+    Eigen::Vector3d exo_suit_rlowerarm_pos_raw_;
+    Eigen::Vector3d exo_suit_rhand_pos_raw_;
+    Eigen::Vector3d exo_suit_pelv_pos_raw_;
+
+    Eigen::Quaterniond exo_suit_head_q_raw_;   
+    Eigen::Quaterniond exo_suit_lshoulder_q_raw_;
+    Eigen::Quaterniond exo_suit_llowerarm_q_raw_;
+    Eigen::Quaterniond exo_suit_lhand_q_raw_;
+    Eigen::Quaterniond exo_suit_rshoulder_q_raw_;
+    Eigen::Quaterniond exo_suit_rlowerarm_q_raw_;
+    Eigen::Quaterniond exo_suit_rhand_q_raw_;
+    Eigen::Quaterniond exo_suit_pelv_q_raw_;
+
+    Eigen::Isometry3d exo_suit_head_pose_;   
+    Eigen::Isometry3d exo_suit_lshoulder_pose_;
+    Eigen::Isometry3d exo_suit_llowerarm_pose_;
+    Eigen::Isometry3d exo_suit_lhand_pose_;
+    Eigen::Isometry3d exo_suit_rshoulder_pose_;
+    Eigen::Isometry3d exo_suit_rlowerarm_pose_;
+    Eigen::Isometry3d exo_suit_rhand_pose_;
+    Eigen::Isometry3d exo_suit_pelv_pose_;
+
+    Eigen::Isometry3d exo_suit_head_pose_init_;   
+    Eigen::Isometry3d exo_suit_lshoulder_pose_init_;
+    Eigen::Isometry3d exo_suit_llowerarm_pose_init_;
+    Eigen::Isometry3d exo_suit_lhand_pose_init_;
+    Eigen::Isometry3d exo_suit_rshoulder_pose_init_;
+    Eigen::Isometry3d exo_suit_rlowerarm_pose_init_;
+    Eigen::Isometry3d exo_suit_rhand_pose_init_;
+    Eigen::Isometry3d exo_suit_pelv_pose_init_;
 
     //fallDetection variables
     Eigen::VectorQd fall_init_q_;
