@@ -5,18 +5,19 @@
 #include "VR/matrix_3_4.h"
 #include <geometry_msgs/PoseArray.h>
 
-const int FILE_CNT = 7;
+const int FILE_CNT = 8;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
   ///change this directory when you use this code on the other computer///
     "/home/dg/data/tacabi_cc/0_flag_.txt",
     "/home/dg/data/tocabi_cc/1_com_.txt",
-    "/home/dg/data/tocabi_cc/2_foot_.txt",
-    "/home/dg/data/tocabi_cc/3_torque_.txt",
-    "/home/dg/data/tocabi_cc/4_joint_.txt",
-    "/home/dg/data/tocabi_cc/5_hand_.txt",
-    "/home/dg/data/tocabi_cc/6_hmd_.txt"
+    "/home/dg/data/tocabi_cc/2_zmp_.txt",
+    "/home/dg/data/tocabi_cc/3_foot_.txt",
+    "/home/dg/data/tocabi_cc/4_torque_.txt",
+    "/home/dg/data/tocabi_cc/5_joint_.txt",
+    "/home/dg/data/tocabi_cc/6_hand_.txt",
+    "/home/dg/data/tocabi_cc/7_hmd_.txt"
 };
 
 class CustomController
@@ -43,8 +44,6 @@ public:
 
     void setGains();
     //////////dg custom controller functions////////
-    void setWalkingParameter(double walking_duration, double walking_speed, double step_width, double knee_target_angle);
-
     void getRobotData(WholebodyController &wbc);
     void getProcessedRobotData(WholebodyController &wbc);
     void walkingStateManager();
@@ -161,6 +160,9 @@ public:
 
     double stance_start_time_;
     double program_start_time_;
+    
+    double program_ready_duration_;                         // during [program_start_time, program_start_time + program_ready_duration_], init parameters are calculated and the robot is position-controlled to the inin_q
+    double walking_control_transition_duration_;            
 
     double walking_duration_;
     double walking_duration_cmd_;
@@ -187,7 +189,7 @@ public:
     
     double ankle2footcenter_offset_;
 
-    double first_torque_supplier_;
+    double first_torque_supplier_;                         // this increase with cubic function from 0 to 1 during [program_start_time + program_ready_duration_, program_start_time + program_ready_duration_ + walking_control_transition_duration_]
     double swingfoot_force_control_converter_;
     double swingfoot_highest_time_;
     // CoM variables
@@ -390,6 +392,7 @@ public:
 	Eigen::Vector6d f_star_r_pre_;
 
     Eigen::VectorQd torque_task_;
+    Eigen::VectorQd torque_init_;
     Eigen::VectorQd torque_grav_;
     Eigen::VectorQd torque_task_pre_;
     Eigen::VectorQd torque_grav_pre_;
@@ -506,40 +509,57 @@ public:
 
     Eigen::Vector3d exo_suit_head_pos_raw_;   
     Eigen::Vector3d exo_suit_lshoulder_pos_raw_;
+    Eigen::Vector3d exo_suit_lupperarm_pos_raw_;
     Eigen::Vector3d exo_suit_llowerarm_pos_raw_;
     Eigen::Vector3d exo_suit_lhand_pos_raw_;
     Eigen::Vector3d exo_suit_rshoulder_pos_raw_;
+    Eigen::Vector3d exo_suit_rupperarm_pos_raw_;
     Eigen::Vector3d exo_suit_rlowerarm_pos_raw_;
     Eigen::Vector3d exo_suit_rhand_pos_raw_;
     Eigen::Vector3d exo_suit_pelv_pos_raw_;
 
     Eigen::Quaterniond exo_suit_head_q_raw_;   
     Eigen::Quaterniond exo_suit_lshoulder_q_raw_;
+    Eigen::Quaterniond exo_suit_lupperarm_q_raw_;
     Eigen::Quaterniond exo_suit_llowerarm_q_raw_;
     Eigen::Quaterniond exo_suit_lhand_q_raw_;
     Eigen::Quaterniond exo_suit_rshoulder_q_raw_;
+    Eigen::Quaterniond exo_suit_rupperarm_q_raw_;
     Eigen::Quaterniond exo_suit_rlowerarm_q_raw_;
     Eigen::Quaterniond exo_suit_rhand_q_raw_;
     Eigen::Quaterniond exo_suit_pelv_q_raw_;
 
     Eigen::Isometry3d exo_suit_head_pose_;   
     Eigen::Isometry3d exo_suit_lshoulder_pose_;
+    Eigen::Isometry3d exo_suit_lupperarm_pose_;
     Eigen::Isometry3d exo_suit_llowerarm_pose_;
     Eigen::Isometry3d exo_suit_lhand_pose_;
     Eigen::Isometry3d exo_suit_rshoulder_pose_;
+    Eigen::Isometry3d exo_suit_rupperarm_pose_;
     Eigen::Isometry3d exo_suit_rlowerarm_pose_;
     Eigen::Isometry3d exo_suit_rhand_pose_;
     Eigen::Isometry3d exo_suit_pelv_pose_;
 
     Eigen::Isometry3d exo_suit_head_pose_init_;   
     Eigen::Isometry3d exo_suit_lshoulder_pose_init_;
+    Eigen::Isometry3d exo_suit_lupperarm_pose_init_;
     Eigen::Isometry3d exo_suit_llowerarm_pose_init_;
     Eigen::Isometry3d exo_suit_lhand_pose_init_;
     Eigen::Isometry3d exo_suit_rshoulder_pose_init_;
+    Eigen::Isometry3d exo_suit_rupperarm_pose_init_;
     Eigen::Isometry3d exo_suit_rlowerarm_pose_init_;
     Eigen::Isometry3d exo_suit_rhand_pose_init_;
     Eigen::Isometry3d exo_suit_pelv_pose_init_;
 
+    Eigen::Vector3d exo2robot_lhand_pos_mapping_;
+	Eigen::Vector3d exo2robot_rhand_pos_mapping_;
+    Eigen::Vector3d exo2robot_lelbow_pos_mapping_;
+    Eigen::Vector3d exo2robot_relbow_pos_mapping_;
+
+    Eigen::Vector3d exo2robot_lhand_pos_mapping_init_;
+    Eigen::Vector3d exo2robot_rhand_pos_mapping_init_;
+    Eigen::Vector3d exo2robot_lelbow_pos_mapping_init_;
+    Eigen::Vector3d exo2robot_relbow_pos_mapping_init_;
     //fallDetection variables
     Eigen::VectorQd fall_init_q_;
     double fall_start_time_;
