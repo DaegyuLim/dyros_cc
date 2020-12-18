@@ -69,6 +69,7 @@ public:
     void motionRetargeting();
     void motionRetargeting2();
     void motionRetargeting_QPIK_larm();
+    void motionRetargeting_QPIK_rarm();
     void rawMasterPoseProcessing();
     void exoSuitRawDataProcessing();
     
@@ -506,6 +507,15 @@ public:
 
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;
+
+    double exo_larm_max_l_;
+    double exo_rarm_max_l_;
+    double exo_lelbow_max_l_;
+    double exo_relbow_max_l_;
+    
+    double robot_arm_max_l_;
+    double robot_upperarm_max_l_;
+    double robot_lowerarm_max_l_;
 
     Eigen::Vector3d exo_suit_head_pos_raw_;   
     Eigen::Vector3d exo_suit_lshoulder_pos_raw_;
