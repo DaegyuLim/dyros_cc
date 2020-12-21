@@ -385,9 +385,12 @@ void CustomController::setGains()
     joint_limit_h_.resize(16);
     joint_vel_limit_l_.resize(16);
     joint_vel_limit_h_.resize(16);
-    joint_limit_l_ << -2.09, -3.14159, -1.9199, -3.14159, 	 -2.8, -3.14159, -3.14159, -2.094, -1.54, -3.14159, -1.9199,   -2.967, 	   0.1, -3.14159, -3.14159, -2.094;
-    joint_limit_h_ <<  1.54,  3.14159,  1.9199,  3.14159, 	-0.1,  3.14159,  3.14159,  2.094,  2.09,  3.14159,  1.9199,  3.14159,      2.8,  3.14159,  3.14159,  2.094;
-    joint_vel_limit_l_ << -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159;
+    // joint_limit_l_ << -2.09, -M_PI, -1.9199, -M_PI*2/3, -2.8, -M_PI*2, -M_PI/2, -2.094, -1.54, -M_PI/2, -1.9199,  -M_PI*2/3,	0.15, -M_PI*2, -M_PI/2, -2.094;
+    // joint_limit_h_ <<  1.54,  M_PI/2,  1.9199,  M_PI*2/3, -0.15,  M_PI*2,  M_PI/2,  2.094,  2.09,  M_PI,  1.9199,  M_PI*2/3,     2.8,  M_PI*2,  M_PI/2,  2.094;
+	joint_limit_l_ << -2.09, -M_PI, -1.9199, -M_PI, -2.8, -M_PI, -M_PI/2, -2.094, 		-1.54, -M_PI, -1.9199,  -M_PI, 	 0.2, -M_PI, -M_PI/2, -2.094;
+    joint_limit_h_ <<  1.54,  M_PI,  1.9199,  M_PI, -0.2,  M_PI,  M_PI/2,  2.094,  		2.09,  M_PI,  1.9199,  M_PI,      2.8,  M_PI,  M_PI/2,  2.094;
+	
+	joint_vel_limit_l_ << -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159, -3.14159;
     joint_vel_limit_h_ <<  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159,  3.14159;
 
 }
@@ -948,7 +951,7 @@ void CustomController::initWalkingParameter()
 	first_loop_ = true; // QP loop
 
 	robot_upperarm_max_l_ = 0.3376*1.0;
-	robot_lowerarm_max_l_ = 0.31967530867*0.988;
+	robot_lowerarm_max_l_ = 0.31967530867*0.98;
 	robot_arm_max_l_ = robot_upperarm_max_l_ + robot_lowerarm_max_l_;
 }
 
@@ -2098,7 +2101,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 	const int constraint_size1 = 7;	//[lb <=	x	<= 	ub] form constraints
 	const int constraint_size2 = 6;	//[lb <=	Ax 	<=	ub] from constraints
 	const int control_size_hand = 6;
-	const int control_size_elbow = 6;
+	const int control_size_elbow = 3;
 
 	if(first_loop_)
     {	
@@ -2111,7 +2114,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 	double w2 = 100;		//joint acc
 	double w3 = 1;		//task space vel
 	double w4 = 10;		//joint vel
-	double w5 = 100;		//elbow position tracking
+	double w5 = 10000;		//elbow position tracking
 	
 	MatrixXd J_l_arm, J_l_elbow, J_temp1, J_temp2;
 	J_l_arm.setZero(control_size_hand, variable_size);
@@ -2168,13 +2171,20 @@ void CustomController::motionRetargeting_QPIK_larm()
 
 	Vector3d error_v_lelbow = master_lelbow_pose_.translation() - lelbow_transform_pre_desired_from.translation();
 	Vector3d error_w_lelbow = -DyrosMath::getPhi(lelbow_transform_pre_desired_from.linear(), master_lelbow_pose_.linear());
+	Eigen::AngleAxisd aa_lelbow(master_lelbow_pose_.linear()*lelbow_transform_pre_desired_from.linear().transpose());
+    Vector3d error_w_lelbow2 = aa_lelbow.axis()*aa_lelbow.angle();
+
+	error_w_lelbow = lelbow_transform_pre_desired_from.linear().transpose()*error_w_lelbow;
+	error_w_lelbow(2) = 0;
+	error_w_lelbow = lelbow_transform_pre_desired_from.linear()*error_w_lelbow;
 	for(int i = 0; i<3; i++)
 	{
-		u_dot_lhand(i) = master_lhand_vel_(i) + 250*error_v_lhand(i);	
+		u_dot_lhand(i) = master_lhand_vel_(i) + 200*error_v_lhand(i);	
 		u_dot_lhand(i+3) = master_lhand_vel_(i+3) + 50*error_w_lhand(i);
 
-		u_dot_lelbow(i) = master_lelbow_vel_(i) + 250*error_v_lelbow(i);
-		u_dot_lelbow(i+3) = master_lelbow_vel_(i+3) + 50*error_w_lelbow(i);
+		// u_dot_lelbow(i) = master_lelbow_vel_(i) + 250*error_v_lelbow(i);
+		// u_dot_lelbow(i+3) = master_lelbow_vel_(i+3) + 50*error_w_lelbow(i);
+		u_dot_lelbow(i) = master_lelbow_vel_(i) + 50*error_w_lelbow(i);
 	}
 	
 	Vector3d zero3;
@@ -2186,8 +2196,9 @@ void CustomController::motionRetargeting_QPIK_larm()
 
 	J_temp2.setZero(6, MODEL_DOF_VIRTUAL);
 	RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Left_Hand-3].id, zero3, J_temp2, false);
-	J_l_elbow.block(0, 0, 3, 7) = J_temp2.block(3, 22, 3, 7);	//position
-	J_l_elbow.block(3, 0, 3, 7) = J_temp2.block(0, 22, 3, 7);	//orientation
+	// J_l_elbow.block(0, 0, 3, 7) = J_temp2.block(3, 22, 3, 7);	//position
+	// J_l_elbow.block(3, 0, 3, 7) = J_temp2.block(0, 22, 3, 7);	//orientation
+	J_l_elbow.block(0, 0, 3, 7) = J_temp2.block(0, 22, 3, 7);	//orientation
 	// null space projection of elbow control
 	MatrixXd N_1;
 	N_1.setZero(variable_size, variable_size);
@@ -2234,7 +2245,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 		cout<<"J_l_arm: \n"<<J_l_arm<<endl;
 	}
 
-	double speed_reduce_rate=18; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
+	double speed_reduce_rate=30; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
 
 	for (int i=0; i< constraint_size1; i++)
 	{
@@ -2276,7 +2287,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 		ubA(i) = 6;
 	}
 
-	QP_qdot2.EnableEqualityCondition(0.01);
+	QP_qdot2.EnableEqualityCondition(0.0001);
 	QP_qdot2.UpdateMinProblem(H, g);
 	QP_qdot2.UpdateSubjectToAx(A, lbA, ubA);
 	QP_qdot2.UpdateSubjectToX(lb, ub);
@@ -2333,7 +2344,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	const int constraint_size1 = 7;	//[lb <=	x	<= 	ub] form constraints
 	const int constraint_size2 = 6;	//[lb <=	Ax 	<=	ub] from constraints
 	const int control_size_hand = 6;
-	const int control_size_elbow = 6;
+	const int control_size_elbow = 3;
 
 	if(first_loop_)
     {	
@@ -2346,7 +2357,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	double w2 = 100;		//joint acc
 	double w3 = 1;		//task space vel
 	double w4 = 10;		//joint vel
-	double w5 = 100;		//elbow position tracking
+	double w5 = 10000;		//elbow position tracking
 	
 	MatrixXd J_r_arm, J_r_elbow, J_temp1, J_temp2;
 	J_r_arm.setZero(control_size_hand, variable_size);
@@ -2403,13 +2414,18 @@ void CustomController::motionRetargeting_QPIK_rarm()
 
 	Vector3d error_v_relbow = master_relbow_pose_.translation() - relbow_transform_pre_desired_from.translation();
 	Vector3d error_w_relbow = -DyrosMath::getPhi(relbow_transform_pre_desired_from.linear(), master_relbow_pose_.linear());
+	error_w_relbow = relbow_transform_pre_desired_from.linear().transpose()*error_w_relbow;
+	error_w_relbow(2) = 0;
+	error_w_relbow = relbow_transform_pre_desired_from.linear()*error_w_relbow;
+
 	for(int i = 0; i<3; i++)
 	{
-		u_dot_rhand(i) = master_lhand_vel_(i) + 250*error_v_rhand(i);	
-		u_dot_rhand(i+3) = master_lhand_vel_(i+3) + 50*error_w_rhand(i);
+		u_dot_rhand(i) = master_rhand_vel_(i) + 200*error_v_rhand(i);	
+		u_dot_rhand(i+3) = master_rhand_vel_(i+3) + 50*error_w_rhand(i);
 
-		u_dot_relbow(i) = master_relbow_vel_(i) + 250*error_v_relbow(i);
-		u_dot_relbow(i+3) = master_relbow_vel_(i+3) + 50*error_w_relbow(i);
+		// u_dot_relbow(i) = master_relbow_vel_(i) + 250*error_v_relbow(i);
+		// u_dot_relbow(i+3) = master_relbow_vel_(i+3) + 50*error_w_relbow(i);
+		u_dot_relbow(i) = master_relbow_vel_(i+3) + 50*error_w_relbow(i);
 	}
 	
 	Vector3d zero3;
@@ -2421,8 +2437,9 @@ void CustomController::motionRetargeting_QPIK_rarm()
 
 	J_temp2.setZero(6, MODEL_DOF_VIRTUAL);
 	RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Right_Hand-3].id, zero3, J_temp2, false);
-	J_r_elbow.block(0, 0, 3, 7) = J_temp2.block(3, 32, 3, 7);	//position
-	J_r_elbow.block(3, 0, 3, 7) = J_temp2.block(0, 32, 3, 7);	//orientation
+	// J_r_elbow.block(0, 0, 3, 7) = J_temp2.block(3, 32, 3, 7);	//position
+	// J_r_elbow.block(3, 0, 3, 7) = J_temp2.block(0, 32, 3, 7);	//orientation
+	J_r_elbow.block(0, 0, 3, 7) = J_temp2.block(0, 32, 3, 7);	//orientation
 	// null space projection of elbow control
 	MatrixXd N_1;
 	N_1.setZero(variable_size, variable_size);
@@ -2451,7 +2468,6 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	g1 = -J_r_arm.transpose()*u_dot_rhand;
 	g2 = -motion_q_dot_pre_.segment(16, 7);
 	g5 = -J_r_elbow.transpose()*u_dot_relbow;
-	// g5 = -u_dot_lelbow;
 	g = w1*g1 + w2*g2 + w5*g5;
 
 	if( int(current_time_*1e4)%int(1e3) == 0)
@@ -2469,7 +2485,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 		cout<<"J_r_arm: \n"<<J_r_arm<<endl;
 	}
 
-	double speed_reduce_rate=18; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
+	double speed_reduce_rate=30; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
 
 	for (int i=0; i< constraint_size1; i++)
 	{
@@ -2559,7 +2575,7 @@ void CustomController::rawMasterPoseProcessing()
 		upperbody_mode_recieved_ = false;
 
 		exo_suit_init_pose_calibration_ = true;
-		
+
 		exo_larm_max_l_ = (exo_suit_lshoulder_pos_raw_ - exo_suit_lhand_pos_raw_).norm();
 		exo_rarm_max_l_ = (exo_suit_rshoulder_pos_raw_ - exo_suit_rhand_pos_raw_).norm();
 		exo_lelbow_max_l_ = (exo_suit_lshoulder_pos_raw_ - exo_suit_lupperarm_pos_raw_).norm();
@@ -2596,8 +2612,8 @@ void CustomController::rawMasterPoseProcessing()
 	Eigen::Matrix3d lhand_diff_m, rhand_diff_m, lelbow_diff_m, relbow_diff_m;
 	lhand_diff_m = Eigen::AngleAxisd(lhand_ang_diff.angle()*0.4, lhand_ang_diff.axis());
 	rhand_diff_m = Eigen::AngleAxisd(rhand_ang_diff.angle()*0.4, rhand_ang_diff.axis());
-	lelbow_diff_m = Eigen::AngleAxisd(lelbow_ang_diff.angle()*0.4, lelbow_ang_diff.axis());
-	relbow_diff_m = Eigen::AngleAxisd(relbow_ang_diff.angle()*0.4, relbow_ang_diff.axis());
+	lelbow_diff_m = Eigen::AngleAxisd(lelbow_ang_diff.angle()*0.6, lelbow_ang_diff.axis());
+	relbow_diff_m = Eigen::AngleAxisd(relbow_ang_diff.angle()*0.6, relbow_ang_diff.axis());
 	
 	master_lhand_pose_.linear() = lhand_diff_m*master_lhand_pose_pre_.linear();
 	master_rhand_pose_.linear() = rhand_diff_m*master_rhand_pose_pre_.linear();
