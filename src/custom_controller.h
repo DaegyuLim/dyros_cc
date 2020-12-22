@@ -5,7 +5,7 @@
 #include "VR/matrix_3_4.h"
 #include <geometry_msgs/PoseArray.h>
 
-const int FILE_CNT = 8;
+const int FILE_CNT = 9;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
@@ -17,7 +17,8 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/4_torque_.txt",
     "/home/dg/data/tocabi_cc/5_joint_.txt",
     "/home/dg/data/tocabi_cc/6_hand_.txt",
-    "/home/dg/data/tocabi_cc/7_hmd_.txt"
+    "/home/dg/data/tocabi_cc/7_hmd_.txt",
+    "/home/dg/data/tocabi_cc/8_exosuit_.txt"
 };
 
 class CustomController
