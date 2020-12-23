@@ -41,7 +41,8 @@ public:
     TaskCommand tc;
 
     CQuadraticProgram QP_qdot;
-    CQuadraticProgram QP_qdot2;
+    CQuadraticProgram QP_qdot_larm;
+    CQuadraticProgram QP_qdot_rarm;
 
     void setGains();
     //////////dg custom controller functions////////
@@ -326,8 +327,10 @@ public:
     Eigen::Isometry3d rhand_transform_init_from_global_;
     Eigen::Isometry3d lelbow_transform_init_from_global_;
     Eigen::Isometry3d relbow_transform_init_from_global_;
-    Eigen::Isometry3d lshoulder_transform_init_from_global_; //3rd axis of arm joint
-    Eigen::Isometry3d rshoulder_transform_init_from_global_;
+    Eigen::Isometry3d lshoulder_transform_init_from_global_; //3rd axis of arm joint 
+    Eigen::Isometry3d rshoulder_transform_init_from_global_; 
+    Eigen::Isometry3d lacromion_transform_init_from_global_; //2nd axis of arm joint (견봉)
+    Eigen::Isometry3d racromion_transform_init_from_global_;
 
     Eigen::Isometry3d lfoot_transform_current_from_global_;
     Eigen::Isometry3d rfoot_transform_current_from_global_;
@@ -337,9 +340,20 @@ public:
     Eigen::Isometry3d relbow_transform_current_from_global_;
     Eigen::Isometry3d lshoulder_transform_current_from_global_; //3rd axis of arm joint
     Eigen::Isometry3d rshoulder_transform_current_from_global_;
+    Eigen::Isometry3d lacromion_transform_current_from_global_; //2nd axis of arm joint (견봉)
+    Eigen::Isometry3d racromion_transform_current_from_global_;
 
     Eigen::Isometry3d lknee_transform_current_from_global_;
     Eigen::Isometry3d rknee_transform_current_from_global_;
+
+    Isometry3d lhand_transform_pre_desired_from_;
+    Isometry3d rhand_transform_pre_desired_from_;
+    Isometry3d lelbow_transform_pre_desired_from_;
+    Isometry3d relbow_transform_pre_desired_from_;
+    Isometry3d lshoulder_transform_pre_desired_from_;
+    Isometry3d rshoulder_transform_pre_desired_from_;
+    Isometry3d lacromion_transform_pre_desired_from_;
+    Isometry3d racromion_transform_pre_desired_from_;
 
     Eigen::Vector6d lfoot_vel_current_from_global;
     Eigen::Vector6d rfoot_vel_current_from_global;
@@ -349,6 +363,8 @@ public:
     Eigen::Vector6d relbow_vel_current_from_global;
     Eigen::Vector6d lshoulder_vel_current_from_global;
     Eigen::Vector6d rshoulder_vel_current_from_global;
+    Eigen::Vector6d lacromion_vel_current_from_global;
+    Eigen::Vector6d racromion_vel_current_from_global;
 
     Eigen::Vector3d middle_of_both_foot_;
 
@@ -481,24 +497,32 @@ public:
     Eigen::Isometry3d master_head_pose_raw_;
     Eigen::Isometry3d master_lelbow_pose_raw_;
     Eigen::Isometry3d master_relbow_pose_raw_;
+    Eigen::Isometry3d master_lshoulder_pose_raw_;
+    Eigen::Isometry3d master_rshoulder_pose_raw_;
 
     Eigen::Isometry3d master_lhand_pose_;
     Eigen::Isometry3d master_rhand_pose_;
     Eigen::Isometry3d master_head_pose_;
     Eigen::Isometry3d master_lelbow_pose_;
     Eigen::Isometry3d master_relbow_pose_;
+    Eigen::Isometry3d master_lshoulder_pose_;
+    Eigen::Isometry3d master_rshoulder_pose_;
 
     Eigen::Isometry3d master_lhand_pose_pre_;
     Eigen::Isometry3d master_rhand_pose_pre_;
     Eigen::Isometry3d master_head_pose_pre_;
     Eigen::Isometry3d master_lelbow_pose_pre_;
     Eigen::Isometry3d master_relbow_pose_pre_;
+    Eigen::Isometry3d master_lshoulder_pose_pre_;
+    Eigen::Isometry3d master_rshoulder_pose_pre_;
 
     Eigen::Vector6d master_lhand_vel_;
     Eigen::Vector6d master_rhand_vel_;
     Eigen::Vector6d master_head_vel_;
     Eigen::Vector6d master_lelbow_vel_;
     Eigen::Vector6d master_relbow_vel_;
+    Eigen::Vector6d master_lshoulder_vel_;
+    Eigen::Vector6d master_rshoulder_vel_;
 
     Eigen::Vector3d master_lhand_rqy_;
     Eigen::Vector3d master_rhand_rqy_;
@@ -571,6 +595,7 @@ public:
     Eigen::Vector3d exo2robot_rhand_pos_mapping_init_;
     Eigen::Vector3d exo2robot_lelbow_pos_mapping_init_;
     Eigen::Vector3d exo2robot_relbow_pos_mapping_init_;
+
     //fallDetection variables
     Eigen::VectorQd fall_init_q_;
     double fall_start_time_;
@@ -594,5 +619,6 @@ private:
 
     Eigen::VectorQVQd q_virtual_clik_;
     Eigen::Vector8d integral;
-    bool first_loop_;
+    bool first_loop_larm_;
+    bool first_loop_rarm_;
 };
