@@ -321,6 +321,7 @@ public:
     Eigen::MatrixXd lfoot_to_com_jac_from_global_;
 	Eigen::MatrixXd rfoot_to_com_jac_from_global_;
 
+    Eigen::Isometry3d head_transform_init_from_global_;
     Eigen::Isometry3d lfoot_transform_init_from_global_;
     Eigen::Isometry3d rfoot_transform_init_from_global_;
     Eigen::Isometry3d lhand_transform_init_from_global_;
@@ -332,6 +333,7 @@ public:
     Eigen::Isometry3d lacromion_transform_init_from_global_; //2nd axis of arm joint (견봉)
     Eigen::Isometry3d racromion_transform_init_from_global_;
 
+    Eigen::Isometry3d head_transform_current_from_global_;
     Eigen::Isometry3d lfoot_transform_current_from_global_;
     Eigen::Isometry3d rfoot_transform_current_from_global_;
     Eigen::Isometry3d lhand_transform_current_from_global_;
@@ -346,6 +348,7 @@ public:
     Eigen::Isometry3d lknee_transform_current_from_global_;
     Eigen::Isometry3d rknee_transform_current_from_global_;
 
+    Isometry3d head_transform_pre_desired_from_;
     Isometry3d lhand_transform_pre_desired_from_;
     Isometry3d rhand_transform_pre_desired_from_;
     Isometry3d lelbow_transform_pre_desired_from_;
@@ -526,9 +529,6 @@ public:
 
     Eigen::Vector3d master_lhand_rqy_;
     Eigen::Vector3d master_rhand_rqy_;
-
-    Eigen::Vector3d master_head_orientation_rpy_;
-    Eigen::Matrix3d master_head_orientation_mat_;
 
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;
