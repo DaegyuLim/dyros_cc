@@ -2288,13 +2288,21 @@ void CustomController::motionRetargeting_QPIK_larm()
 	J_l_shoulder.block(0, 0, 3, 8) = J_temp3.block(0, 21, 3, 8);	//orientation
 
 	// null space projection of elbow control
-	MatrixXd N_1;
+	MatrixXd N_1, J_pinv, J_pinv_elbow, J_pinv_shoulder, I3, I6;
 	N_1.setZero(variable_size, variable_size);
-	N_1 = I8 - (J_l_arm.completeOrthogonalDecomposition().pseudoInverse())*J_l_arm;
+	I3.setIdentity(3, 3);
+	I6.setIdentity(6, 6);
+	J_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.0001).inverse();
+	// N_1 = I8 - (J_l_arm.completeOrthogonalDecomposition().pseudoInverse())*J_l_arm;
+	N_1 = I8 - (J_pinv)*J_l_arm;
 
-	u_dot_lelbow = J_l_elbow*N_1*(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow;
-	u_dot_lshoulder = J_l_shoulder*N_1*(J_l_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lshoulder;
+	J_pinv_elbow = J_l_elbow.transpose()*(J_l_elbow*J_l_elbow.transpose()+I3*0.0001).inverse();
+	// u_dot_relbow = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_relbow;
+	u_dot_lelbow = J_l_elbow*N_1*(J_pinv_elbow)*u_dot_lelbow;
+	J_pinv_shoulder = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.0001).inverse();
 
+	// u_dot_lshoulder = J_l_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lshoulder;
+	u_dot_lshoulder = J_l_shoulder*N_1*(J_pinv_shoulder)*u_dot_lshoulder;
 
 	// if(int(current_time_*1e8)%int(5e7) == 0)
 	// {
@@ -2367,8 +2375,8 @@ void CustomController::motionRetargeting_QPIK_larm()
 
 	for (int i=0; i< 3; i++) //position velocity limit
 	{
-		lbA(i) = -10;
-		ubA(i) = 10;
+		lbA(i) = -0.5;
+		ubA(i) = 0.5;
 	}
 
 	for (int i=3; i< 6; i++)	//angular velocity limit
@@ -2539,12 +2547,21 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	J_r_shoulder.block(0, 0, 3, 8) = J_temp3.block(0, 31, 3, 8);	//orientation
 
 	// null space projection of elbow control
-	MatrixXd N_1;
+	MatrixXd N_1, J_pinv, J_pinv_elbow, J_pinv_shoulder, I6, I3;
 	N_1.setZero(variable_size, variable_size);
-	N_1 = I8 - (J_r_arm.completeOrthogonalDecomposition().pseudoInverse())*J_r_arm;
+	I6.setIdentity(6, 6);
+	I3.setIdentity(3, 3);
+	J_pinv = J_r_arm.transpose()*(J_r_arm*J_r_arm.transpose()+I6*0.0001).inverse();
+	// N_1 = I8 - (J_r_arm.completeOrthogonalDecomposition().pseudoInverse())*J_r_arm;
+	N_1 = I8 - (J_pinv)*J_r_arm;
 
-	u_dot_relbow = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_relbow;
-	u_dot_rshoulder = J_r_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_rshoulder;
+	J_pinv_elbow = J_r_elbow.transpose()*(J_r_elbow*J_r_elbow.transpose()+I3*0.0001).inverse();
+	// u_dot_relbow = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_relbow;
+	u_dot_relbow = J_r_elbow*N_1*(J_pinv_elbow)*u_dot_relbow;
+	J_pinv_shoulder = J_r_shoulder.transpose()*(J_r_shoulder*J_r_shoulder.transpose()+I3*0.0001).inverse();
+
+	// u_dot_rshoulder = J_r_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_rshoulder;
+	u_dot_rshoulder = J_r_shoulder*N_1*(J_pinv_shoulder)*u_dot_rshoulder;
 
 	// if(int(current_time_*1e8)%int(5e7) == 0)
 	// {
@@ -2619,8 +2636,8 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	
 	for (int i=0; i< 3; i++) //position velocity limit
 	{
-		lbA(i) = -10;
-		ubA(i) = 10;
+		lbA(i) = -0.5;
+		ubA(i) = 0.5;
 	}
 
 	for (int i=3; i< 6; i++)	//angular velocity limit
