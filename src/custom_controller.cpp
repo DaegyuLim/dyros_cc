@@ -799,21 +799,10 @@ void CustomController::computeSlow()
 		{
 			torque_task_ = torque_task_ + comVelocityControlCompute(wbc_); 								//support chain control for COM velocity and pelvis orientation
 			torque_task_ = torque_task_ + swingFootControlCompute(wbc_);									//swing foot control
-			torque_task_ = torque_task_ +  jointTrajectoryPDControlCompute(wbc_); 							//upper body motion + joint damping control
-			torque_task_ = torque_task_ +  dampingControlCompute(wbc_);									
-			torque_task_ = torque_task_ +  jointLimit();
+			torque_task_ = torque_task_ + jointTrajectoryPDControlCompute(wbc_); 							//upper body motion + joint damping control
+			torque_task_ = torque_task_ + dampingControlCompute(wbc_);									
+			torque_task_ = torque_task_ + jointLimit();
 		}
-		
-		// if( (current_time_ ) <  program_start_time_ + program_ready_duration_ + walking_control_transition_duration_)
-		// {
-			// for (int i = 0; i < MODEL_DOF; i++)
-			// {
-			// 	torque_init_(i) = kp_joint_(i)*(init_q_(i) - current_q_(i)) - kv_joint_(i)*current_q_dot_(i);
-			// }
-			// torque_task_ =  torque_task_*first_torque_supplier_ + torque_init_*(1 - first_torque_supplier_);
-			// double temp = DyrosMath::cubic(current_time_, program_start_time_ + program_ready_duration_ + walking_control_transition_duration_, program_start_time_ + program_ready_duration_ + walking_control_transition_duration_ + 3, 1, 0, 0, 0);
-			// torque_task_ =  torque_task_*first_torque_supplier_ ;
-		// }
 
 		savePreData();
 
@@ -859,7 +848,7 @@ void CustomController::initWalkingParameter()
 {
 	walking_mode_on_ = true;
 	program_ready_duration_ = 0;
-	walking_control_transition_duration_ = 0;		
+	walking_control_transition_duration_ = 0.1;		
 	upper_body_mode_ = 1;
 	stop_vel_threshold_ = 0.20;
 	walking_duration_cmd_ = 0.6;
@@ -1820,12 +1809,16 @@ void CustomController::motionGenerator()
 		q_desired_pre.setZero();
 		q_desired_pre(39) = 1;
 		q_desired_pre.segment(6, MODEL_DOF) = pre_desired_q_;
-		MatrixXd J_temp, J_head;
+		MatrixXd J_temp, J_head, J_inv_head, I3;
 		J_temp.setZero(6, MODEL_DOF_VIRTUAL);
 		J_head.setZero(3, 2);
+		I3.setIdentity(3, 3);
+
 		RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Head].id, Eigen::Vector3d::Zero(), J_temp, false);
 		J_head.block(0, 0, 3, 2) = J_temp.block(0, 29, 3, 2);	//orientation
-		motion_q_dot_.segment(23, 2) = J_head.completeOrthogonalDecomposition().pseudoInverse()*u_dot_head;
+		J_inv_head = J_head.transpose()*(J_head*J_head.transpose()+I3*0.000001).inverse();
+
+		motion_q_dot_.segment(23, 2) =  J_inv_head*u_dot_head;
 		motion_q_.segment(23, 2) = motion_q_pre_.segment(23, 2) + motion_q_dot_.segment(23, 2)*dt_;
 
 		// motion_q_(23) = (1-turning_phase_)*init_q_(23) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1.2; //yaw
@@ -2292,14 +2285,14 @@ void CustomController::motionRetargeting_QPIK_larm()
 	N_1.setZero(variable_size, variable_size);
 	I3.setIdentity(3, 3);
 	I6.setIdentity(6, 6);
-	J_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.0001).inverse();
+	J_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.000001).inverse();
 	// N_1 = I8 - (J_l_arm.completeOrthogonalDecomposition().pseudoInverse())*J_l_arm;
 	N_1 = I8 - (J_pinv)*J_l_arm;
 
-	J_pinv_elbow = J_l_elbow.transpose()*(J_l_elbow*J_l_elbow.transpose()+I3*0.0001).inverse();
+	J_pinv_elbow = J_l_elbow.transpose()*(J_l_elbow*J_l_elbow.transpose()+I3*0.000001).inverse();
 	// u_dot_relbow = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_relbow;
 	u_dot_lelbow = J_l_elbow*N_1*(J_pinv_elbow)*u_dot_lelbow;
-	J_pinv_shoulder = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.0001).inverse();
+	J_pinv_shoulder = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.000001).inverse();
 
 	// u_dot_lshoulder = J_l_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lshoulder;
 	u_dot_lshoulder = J_l_shoulder*N_1*(J_pinv_shoulder)*u_dot_lshoulder;
@@ -2551,14 +2544,14 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	N_1.setZero(variable_size, variable_size);
 	I6.setIdentity(6, 6);
 	I3.setIdentity(3, 3);
-	J_pinv = J_r_arm.transpose()*(J_r_arm*J_r_arm.transpose()+I6*0.0001).inverse();
+	J_pinv = J_r_arm.transpose()*(J_r_arm*J_r_arm.transpose()+I6*0.000001).inverse();
 	// N_1 = I8 - (J_r_arm.completeOrthogonalDecomposition().pseudoInverse())*J_r_arm;
 	N_1 = I8 - (J_pinv)*J_r_arm;
 
-	J_pinv_elbow = J_r_elbow.transpose()*(J_r_elbow*J_r_elbow.transpose()+I3*0.0001).inverse();
+	J_pinv_elbow = J_r_elbow.transpose()*(J_r_elbow*J_r_elbow.transpose()+I3*0.000001).inverse();
 	// u_dot_relbow = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_relbow;
 	u_dot_relbow = J_r_elbow*N_1*(J_pinv_elbow)*u_dot_relbow;
-	J_pinv_shoulder = J_r_shoulder.transpose()*(J_r_shoulder*J_r_shoulder.transpose()+I3*0.0001).inverse();
+	J_pinv_shoulder = J_r_shoulder.transpose()*(J_r_shoulder*J_r_shoulder.transpose()+I3*0.000001).inverse();
 
 	// u_dot_rshoulder = J_r_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_rshoulder;
 	u_dot_rshoulder = J_r_shoulder*N_1*(J_pinv_shoulder)*u_dot_rshoulder;
@@ -3052,6 +3045,7 @@ void CustomController::getCOMTrajectory()
 			// desired_step_position_in_y = -(step_width_)*foot_contact_;
 
 			double w = (current_time_ - start_time_)/walking_duration_start_delay_;
+			w = DyrosMath::minmax_cut(w, 0, 1);
 
 			// com_pos_desired_(0) = (1-w)*middle_of_both_foot_(0) + w*com_pos_current_(0);
 			com_pos_desired_(0) = (1-w)*(com_pos_desired_last_(0)) + w*(com_pos_current_(0) + com_vel_desired_(0)*dt_);
@@ -3082,23 +3076,13 @@ void CustomController::getCOMTrajectory()
 			///////////////X DIRECTIOIN///////////
 			// com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(0);
 			// com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), 0, 0, (middle_of_both_foot_)(0), 0, 0)(1);
-			double w = (current_time_ - stance_start_time_)/0.1;
 
-			com_pos_desired_(0) = (1-w)*com_pos_desired_last_(0) + w*com_pos_current_(0);
 			// com_pos_desired_(0) = com_pos_current_(0);
-			com_vel_desired_(0) = 0;
+			com_vel_desired_(0) = 0.9*com_vel_desired_pre_(0);
+			com_pos_desired_(0) = com_pos_current_(0) + com_vel_desired_(0)*dt_;
 			// com_pos_desired_(0) = middle_of_both_foot_(0);
 
-			///////////////Y DIRECTIOIN///////////
-			// desired_step_position_in_y = - (step_width_)*foot_contact_ ;
-			desired_step_position_in_y = -(step_width_)*foot_contact_;
-			double target_com_y_speed = (support_foot_transform_init_.translation()(1) + desired_step_position_in_y - com_pos_init_(1)) / (walking_duration_);
 
-			// com_vel_desired_(1) = 0;
-			// com_pos_desired_(1) = com_pos_current_(1);
-			// com_vel_desired_(1) = DyrosMath::cubic(walking_phase_, 0, 5*switching_phase_duration_, 0, target_com_y_speed, 0, 0);
-			// com_pos_desired_(1) = support_foot_transform_current_.translation()(1) + (1 - walking_phase_) * (com_pos_init_(1) - support_foot_transform_init_.translation()(1)) + walking_phase_ * (desired_step_position_in_y);
-			// com_vel_desired_(1) = target_com_y_speed;
 		}
 		else if (program_start_time_ == stance_start_time_)
 		{
@@ -3115,29 +3099,23 @@ void CustomController::getCOMTrajectory()
 			com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_ + program_ready_duration_ + walking_control_transition_duration_, stance_start_time_ + program_ready_duration_ + walking_control_transition_duration_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0)+ankle2footcenter_offset_, 0, 0)(1);
 			com_acc_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_ + program_ready_duration_ + walking_control_transition_duration_, stance_start_time_ + program_ready_duration_ + walking_control_transition_duration_+1, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0)+ankle2footcenter_offset_, 0, 0)(2);
 
-			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(0);
-			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+1, (com_pos_init_)(1), 0, 0, (middle_of_both_foot_)(1), 0, 0)(1);
 		}
 		else if (stop_walking_trigger_ == true)
 		{
 			// com_pos_desired_(2) = com_pos_init_(2) - support_foot_transform_init_.translation()(2) + support_foot_transform_current_.translation()(2);
 			// com_vel_desired_(2) = 0;
 			// com_acc_desired_(2) = GRAVITY/2;		//divide 2 because each legs apply same acc
+			
+			com_vel_desired_(0) = 0.9*com_vel_desired_pre_(0);
 
 			double traj_duraiton = walking_duration_*1;
 
-			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_desired_last_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0)+ankle2footcenter_offset_, 0, 0)(0);
+			com_pos_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_desired_last_)(0) - support_foot_transform_init_.translation()(0), 0, 0, (middle_of_both_foot_)(0)+ankle2footcenter_offset_, 0, 0)(0);
 			// com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(1);
 			// com_acc_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, support_foot_transform_current_.translation()(0) + (com_pos_init_)(0) - support_foot_transform_init_.translation()(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0)+0.02, 0, 0)(2);
 			// com_vel_desired_(0) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(0), com_vel_init_(0), 0, (middle_of_both_foot_)(0), 0, 0)(1);
 			// com_pos_desired_(0) = com_pos_init_(0);
-			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, start_time_, start_time_+5, (com_pos_init_)(1), 0, 0, lfoot_transform_current_from_global_.translation()(1), 0, 0)(0);
-			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, start_time_, start_time_+5, (com_pos_init_)(1), 0, 0, lfoot_transform_current_from_global_.translation()(1), 0, 0)(1);
-			// com_pos_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(1), com_vel_init_(1), 0, (middle_of_both_foot_)(1), 0, 0)(0);
-			// com_vel_desired_(1) = DyrosMath::QuinticSpline(current_time_, stance_start_time_, stance_start_time_+traj_duraiton, (com_pos_init_)(1), com_vel_init_(1), 0, (middle_of_both_foot_)(1), 0, 0)(1);
-			
 			// com_pos_desired_(0) = middle_of_both_foot_(0);
-			com_vel_desired_(0) = 0;
 
 		}
 	}
@@ -3769,7 +3747,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_swing_ankle = -DyrosMath::getPhi(lfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
 			// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-			desired_q_dot_(4) = 200 * bandBlock(phi_swing_ankle(1), 20*DEG2RAD, -20*DEG2RAD); //swing ankle pitch	//(tune)
+			desired_q_dot_(4) = 200 * bandBlock(phi_swing_ankle(1), 15*DEG2RAD, -15*DEG2RAD); //swing ankle pitch	//(tune)
 			desired_q_dot_(5) = 200 * bandBlock(phi_swing_ankle(0), 0*DEG2RAD, 0*DEG2RAD); //swing ankle roll	//(tune)
 			desired_q_(4) = current_q_(4) + desired_q_dot_(4) * dt_;
 			desired_q_(5) = current_q_(5) + desired_q_dot_(5) * dt_;
@@ -3785,7 +3763,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_support_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), DyrosMath::rotateWithZ(current_q_(6)));
 
 
-			desired_q_dot_(10) = 200 * bandBlock(phi_support_ankle(1), 20*DEG2RAD, -20*DEG2RAD);	//(tune)
+			desired_q_dot_(10) = 200 * bandBlock(phi_support_ankle(1), 15*DEG2RAD, -15*DEG2RAD);		//(tune)
 			desired_q_dot_(11) = 200 * bandBlock(phi_support_ankle(0), 10*DEG2RAD, -10*DEG2RAD);		//(tune)
 			desired_q_(10) = current_q_(10) + desired_q_dot_(10) * dt_;
 			desired_q_(11) = current_q_(11) + desired_q_dot_(11) * dt_;
@@ -3904,7 +3882,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_swing_ankle = -DyrosMath::getPhi(rfoot_transform_current_from_global_.linear(), Eigen::Matrix3d::Identity());
 			// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-			desired_q_dot_(10) = 200 * bandBlock(phi_swing_ankle(1), 20*DEG2RAD, -20*DEG2RAD); //swing ankle pitch
+			desired_q_dot_(10) = 200 * bandBlock(phi_swing_ankle(1), 15*DEG2RAD, -15*DEG2RAD); //swing ankle pitch
 			desired_q_dot_(11) = 200 * bandBlock(phi_swing_ankle(0), 0*DEG2RAD, 0*DEG2RAD); //swing ankle roll
 			desired_q_(10) = current_q_(10) + desired_q_dot_(10) * dt_;
 			desired_q_(11) = current_q_(11) + desired_q_dot_(11) * dt_;
@@ -3922,7 +3900,7 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 			phi_support_ankle = -DyrosMath::getPhi(lfoot_transform_current_from_global_.linear(), DyrosMath::rotateWithZ(current_q_(0)));
 
 
-			desired_q_dot_(4) = 200 * bandBlock(phi_support_ankle(1), 20*DEG2RAD, -20*DEG2RAD);;
+			desired_q_dot_(4) = 200 * bandBlock(phi_support_ankle(1), 15*DEG2RAD, -15*DEG2RAD);;
 			desired_q_dot_(5) = 200 * bandBlock(phi_support_ankle(0), 10*DEG2RAD, -10*DEG2RAD);;
 			desired_q_(4) = current_q_(4) + desired_q_dot_(4) * dt_;
 			desired_q_(5) = current_q_(5) + desired_q_dot_(5) * dt_;

@@ -10,15 +10,15 @@ const int FILE_CNT = 9;
 const std::string FILE_NAMES[FILE_CNT] =
 {
   ///change this directory when you use this code on the other computer///
-    "/home/dyros/data/tacabi_cc/0_flag_.txt",
-    "/home/dyros/data/tocabi_cc/1_com_.txt",
-    "/home/dyros/data/tocabi_cc/2_zmp_.txt",
-    "/home/dyros/data/tocabi_cc/3_foot_.txt",
-    "/home/dyros/data/tocabi_cc/4_torque_.txt",
-    "/home/dyros/data/tocabi_cc/5_joint_.txt",
-    "/home/dyros/data/tocabi_cc/6_hand_.txt",
-    "/home/dyros/data/tocabi_cc/7_hmd_.txt",
-    "/home/dyros/data/tocabi_cc/8_exosuit_.txt"
+    "/home/dg/data/tacabi_cc/0_flag_.txt",
+    "/home/dg/data/tocabi_cc/1_com_.txt",
+    "/home/dg/data/tocabi_cc/2_zmp_.txt",
+    "/home/dg/data/tocabi_cc/3_foot_.txt",
+    "/home/dg/data/tocabi_cc/4_torque_.txt",
+    "/home/dg/data/tocabi_cc/5_joint_.txt",
+    "/home/dg/data/tocabi_cc/6_hand_.txt",
+    "/home/dg/data/tocabi_cc/7_hmd_.txt",
+    "/home/dg/data/tocabi_cc/8_exosuit_.txt"
 };
 
 class CustomController
