@@ -5,7 +5,7 @@
 #include "VR/matrix_3_4.h"
 #include <geometry_msgs/PoseArray.h>
 
-const int FILE_CNT = 9;
+const int FILE_CNT = 12;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
@@ -17,8 +17,11 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/4_torque_.txt",
     "/home/dg/data/tocabi_cc/5_joint_.txt",
     "/home/dg/data/tocabi_cc/6_hand_.txt",
-    "/home/dg/data/tocabi_cc/7_hmd_.txt",
-    "/home/dg/data/tocabi_cc/8_exosuit_.txt"
+    "/home/dg/data/tocabi_cc/7_elbow_.txt",
+    "/home/dg/data/tocabi_cc/8_shoulder_.txt",
+    "/home/dg/data/tocabi_cc/9_acromion_.txt",
+    "/home/dg/data/tocabi_cc/10_hmd_.txt",
+    "/home/dg/data/tocabi_cc/11_exosuit_.txt"
 };
 
 class CustomController
@@ -348,6 +351,15 @@ public:
     Eigen::Isometry3d lknee_transform_current_from_global_;
     Eigen::Isometry3d rknee_transform_current_from_global_;
 
+    Eigen::Vector3d lhand_rpy_current_from_global_;
+    Eigen::Vector3d rhand_rpy_current_from_global_;
+    Eigen::Vector3d lelbow_rpy_current_from_global_;
+    Eigen::Vector3d relbow_rpy_current_from_global_;
+    Eigen::Vector3d lshoulder_rpy_current_from_global_;
+    Eigen::Vector3d rshoulder_rpy_current_from_global_;
+    Eigen::Vector3d lacromion_rpy_current_from_global_;
+    Eigen::Vector3d racromion_rpy_current_from_global_;
+
     Isometry3d head_transform_pre_desired_from_;
     Isometry3d lhand_transform_pre_desired_from_;
     Isometry3d rhand_transform_pre_desired_from_;
@@ -358,16 +370,16 @@ public:
     Isometry3d lacromion_transform_pre_desired_from_;
     Isometry3d racromion_transform_pre_desired_from_;
 
-    Eigen::Vector6d lfoot_vel_current_from_global;
-    Eigen::Vector6d rfoot_vel_current_from_global;
-    Eigen::Vector6d lhand_vel_current_from_global;
-    Eigen::Vector6d rhand_vel_current_from_global;
-    Eigen::Vector6d lelbow_vel_current_from_global;
-    Eigen::Vector6d relbow_vel_current_from_global;
-    Eigen::Vector6d lshoulder_vel_current_from_global;
-    Eigen::Vector6d rshoulder_vel_current_from_global;
-    Eigen::Vector6d lacromion_vel_current_from_global;
-    Eigen::Vector6d racromion_vel_current_from_global;
+    Eigen::Vector6d lfoot_vel_current_from_global_;
+    Eigen::Vector6d rfoot_vel_current_from_global_;
+    Eigen::Vector6d lhand_vel_current_from_global_;
+    Eigen::Vector6d rhand_vel_current_from_global_;
+    Eigen::Vector6d lelbow_vel_current_from_global_;
+    Eigen::Vector6d relbow_vel_current_from_global_;
+    Eigen::Vector6d lshoulder_vel_current_from_global_;
+    Eigen::Vector6d rshoulder_vel_current_from_global_;
+    Eigen::Vector6d lacromion_vel_current_from_global_;
+    Eigen::Vector6d racromion_vel_current_from_global_;
 
     Eigen::Vector3d middle_of_both_foot_;
 
@@ -529,6 +541,12 @@ public:
 
     Eigen::Vector3d master_lhand_rqy_;
     Eigen::Vector3d master_rhand_rqy_;
+    Eigen::Vector3d master_lelbow_rqy_;
+    Eigen::Vector3d master_relbow_rqy_;
+    Eigen::Vector3d master_lshoulder_rqy_;
+    Eigen::Vector3d master_rshoulder_rqy_;
+    
+    Eigen::Vector3d master_head_rqy_;
 
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;

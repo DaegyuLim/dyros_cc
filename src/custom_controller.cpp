@@ -96,13 +96,13 @@ void CustomController::setGains()
 	// kd_compos_(1, 1) = 20;
 	// kd_compos_(2, 2) = 18;
 
-	// kp_pelv_ori_ = 2500*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
+	// kp_pelv_ori_ = 1000*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
 	// kd_pelv_ori_ = 100*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
 
 	// support_foot_damping_gain_.setZero();
-	// support_foot_damping_gain_(0, 0) = 200;
-	// support_foot_damping_gain_(1, 1) = 100;
-	// support_foot_damping_gain_(2, 2) = 10;
+	// support_foot_damping_gain_(0, 0) = 0.5;
+	// support_foot_damping_gain_(1, 1) = 0.5;
+	// support_foot_damping_gain_(2, 2) = 0;
 
 	////////////////////////////////////////////////////
 
@@ -308,29 +308,29 @@ void CustomController::setGains()
 	// kp_stiff_joint_(7) 		= 5000;
 	// kp_stiff_joint_(8) 		= 4000;
 	// kp_stiff_joint_(9) 		= 3700;
-	// kp_stiff_joint_(10) 	= 3200;
-	// kp_stiff_joint_(11) 	= 3200;
-	// kp_stiff_joint_(12) 	= 6000;
-	// kp_stiff_joint_(13) 	= 10000;
-	// kp_stiff_joint_(14) 	= 10000;
-	// kp_stiff_joint_(15) 	= 400;
-	// kp_stiff_joint_(16) 	= 1000;
-	// kp_stiff_joint_(17) 	= 400;
-	// kp_stiff_joint_(18) 	= 400;
-	// kp_stiff_joint_(19) 	= 200;
-	// kp_stiff_joint_(20) 	= 10;
-	// kp_stiff_joint_(21) 	= 10;
-	// kp_stiff_joint_(22) 	= 10;
-	// kp_stiff_joint_(23) 	= 10;
-	// kp_stiff_joint_(24) 	= 10;
-	// kp_stiff_joint_(25) 	= 400;
-	// kp_stiff_joint_(26) 	= 1000;
-	// kp_stiff_joint_(27) 	= 400;
-	// kp_stiff_joint_(28) 	= 400;
-	// kp_stiff_joint_(29) 	= 200;
-	// kp_stiff_joint_(30) 	= 10;
-	// kp_stiff_joint_(31) 	= 10;
-	// kp_stiff_joint_(32) 	= 10;
+	// kp_stiff_joint_(10) 		= 3200;
+	// kp_stiff_joint_(11) 		= 3200;
+	// kp_stiff_joint_(12) 		= 6000;
+	// kp_stiff_joint_(13) 		= 10000;
+	// kp_stiff_joint_(14) 		= 10000;
+	// kp_stiff_joint_(15) 		= 400;
+	// kp_stiff_joint_(16) 		= 1000;
+	// kp_stiff_joint_(17) 		= 400;
+	// kp_stiff_joint_(18) 		= 400;
+	// kp_stiff_joint_(19) 		= 200;
+	// kp_stiff_joint_(20) 		= 10;
+	// kp_stiff_joint_(21) 		= 10;
+	// kp_stiff_joint_(22) 		= 10;
+	// kp_stiff_joint_(23) 		= 10;
+	// kp_stiff_joint_(24) 		= 10;
+	// kp_stiff_joint_(25) 		= 400;
+	// kp_stiff_joint_(26) 		= 1000;
+	// kp_stiff_joint_(27) 		= 400;
+	// kp_stiff_joint_(28) 		= 400;
+	// kp_stiff_joint_(29) 		= 200;
+	// kp_stiff_joint_(30) 		= 10;
+	// kp_stiff_joint_(31) 		= 10;
+	// kp_stiff_joint_(32) 		= 10;
 
 	// kv_stiff_joint_(0) 		= 15;
 	// kv_stiff_joint_(1) 		= 50;
@@ -342,29 +342,29 @@ void CustomController::setGains()
 	// kv_stiff_joint_(7) 		= 50;
 	// kv_stiff_joint_(8) 		= 20;
 	// kv_stiff_joint_(9) 		= 25;
-	// kv_stiff_joint_(10) 	= 24;
-	// kv_stiff_joint_(11) 	= 24;
-	// kv_stiff_joint_(12) 	= 200;
-	// kv_stiff_joint_(13) 	= 100;
-	// kv_stiff_joint_(14) 	= 100;
-	// kv_stiff_joint_(15) 	= 10;
-	// kv_stiff_joint_(16) 	= 28;
-	// kv_stiff_joint_(17) 	= 10;
-	// kv_stiff_joint_(18) 	= 10;
-	// kv_stiff_joint_(19) 	= 5;
-	// kv_stiff_joint_(20) 	= 1;
-	// kv_stiff_joint_(21) 	= 1;
-	// kv_stiff_joint_(22) 	= 1;
-	// kv_stiff_joint_(23) 	= 1;
-	// kv_stiff_joint_(24) 	= 1;
-	// kv_stiff_joint_(25) 	= 10;
-	// kv_stiff_joint_(26) 	= 28;
-	// kv_stiff_joint_(27) 	= 10;
-	// kv_stiff_joint_(28) 	= 10;
-	// kv_stiff_joint_(29) 	= 5;
-	// kv_stiff_joint_(30) 	= 1;
-	// kv_stiff_joint_(31) 	= 1;
-	// kv_stiff_joint_(32) 	= 1;
+	// kv_stiff_joint_(10) 		= 24;
+	// kv_stiff_joint_(11) 		= 24;
+	// kv_stiff_joint_(12) 		= 200;
+	// kv_stiff_joint_(13) 		= 100;
+	// kv_stiff_joint_(14) 		= 100;
+	// kv_stiff_joint_(15) 		= 10;
+	// kv_stiff_joint_(16) 		= 28;
+	// kv_stiff_joint_(17) 		= 10;
+	// kv_stiff_joint_(18) 		= 10;
+	// kv_stiff_joint_(19) 		= 5;
+	// kv_stiff_joint_(20) 		= 1;
+	// kv_stiff_joint_(21) 		= 1;
+	// kv_stiff_joint_(22) 		= 1;
+	// kv_stiff_joint_(23) 		= 1;
+	// kv_stiff_joint_(24) 		= 1;
+	// kv_stiff_joint_(25) 		= 10;
+	// kv_stiff_joint_(26) 		= 28;
+	// kv_stiff_joint_(27) 		= 10;
+	// kv_stiff_joint_(28) 		= 10;
+	// kv_stiff_joint_(29) 		= 5;
+	// kv_stiff_joint_(30) 		= 1;
+	// kv_stiff_joint_(31) 		= 1;
+	// kv_stiff_joint_(32) 		= 1;
 
 	// for (int i = 0; i < MODEL_DOF; i++) 
 	// {
@@ -984,11 +984,10 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	rfoot_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Right_Foot].xpos - pelv_pos_current_);
 	rfoot_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Foot].Rotm;
 
-	lfoot_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Foot].v;
-	lfoot_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Foot].w;
-
-	rfoot_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Foot].v;
-	rfoot_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Foot].w;
+	lfoot_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Foot].v;
+	lfoot_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Foot].w;
+	rfoot_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Foot].v;
+	rfoot_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Foot].w;
 	///////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////Knee Transformation ////////////////////////////////////
@@ -996,6 +995,7 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	lknee_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Foot-2].Rotm;
 	rknee_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Right_Foot-2].xpos - pelv_pos_current_);
 	rknee_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Foot-2].Rotm;
+	////////////////////////////////////////////////////////////////////////////////
 
 	/////////////////////////Hands Transformation and Velocity/////////////////////
 	lhand_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand].xpos - pelv_pos_current_);
@@ -1003,51 +1003,60 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	rhand_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Right_Hand].xpos - pelv_pos_current_);
 	rhand_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand].Rotm;
 
-	lhand_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand].v;
-	lhand_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand].w;
+	lhand_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand].v;
+	lhand_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand].w;
 
-	rhand_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand].v;
-	rhand_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand].w;
+	rhand_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand].v;
+	rhand_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand].w;
 	///////////////////////////////////////////////////////////////////////////////
 
-	////////////////////////Elbow Trnasformation and Velocity///////////////////////////
+	////////////////////////Elbow Trnasformation and Velocity///////////////////////
 	lelbow_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 	lelbow_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-3].Rotm;
 	relbow_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Right_Hand-3].xpos - pelv_pos_current_);
 	relbow_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-3].Rotm;
 
-	lelbow_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-3].v;
-	lelbow_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-3].w;
+	lelbow_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-3].v;
+	lelbow_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-3].w;
+	relbow_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-3].v;
+	relbow_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-3].w;
+	////////////////////////////////////////////////////////////////////////////////
 
-	relbow_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-3].v;
-	relbow_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-3].w;
-	///////////////////////////////////////////////////////////////////////////////////
-
-	////////////////////////Shoulder Trnasformation and Velocity///////////////////////////
+	////////////////////////Shoulder Trnasformation and Velocity////////////////////
 	lshoulder_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-5].xpos - pelv_pos_current_);
 	lshoulder_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-5].Rotm;
 	rshoulder_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Right_Hand-5].xpos - pelv_pos_current_);
 	rshoulder_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-5].Rotm;
 
-	lshoulder_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-5].v;
-	lshoulder_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-5].w;
+	lshoulder_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-5].v;
+	lshoulder_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-5].w;
+	rshoulder_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-5].v;
+	rshoulder_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-5].w;
+	////////////////////////////////////////////////////////////////////////////////
 
-	rshoulder_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-5].v;
-	rshoulder_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-5].w;
-	///////////////////////////////////////////////////////////////////////////////////
-
-	////////////////////////Acromion Trnasformation and Velocity///////////////////////////
+	////////////////////////Acromion Trnasformation and Velocity////////////////////
 	lacromion_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-6].xpos - pelv_pos_current_);
 	lacromion_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-6].Rotm;
 	racromion_transform_current_from_global_.translation() = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Right_Hand-6].xpos - pelv_pos_current_);
 	racromion_transform_current_from_global_.linear() = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-6].Rotm;
 
-	lacromion_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-6].v;
-	lacromion_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-6].w;
+	lacromion_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-6].v;
+	lacromion_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Left_Hand-6].w;
+	racromion_vel_current_from_global_.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-6].v;
+	racromion_vel_current_from_global_.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-6].w;
+	////////////////////////////////////////////////////////////////////////////////
 
-	racromion_vel_current_from_global.segment(0, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-6].v;
-	racromion_vel_current_from_global.segment(3, 3) = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Right_Hand-6].w;
-	///////////////////////////////////////////////////////////////////////////////////
+	///////////////////////Rotation Euler Angles////////////////////////////////////
+	lhand_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(lhand_transform_current_from_global_.linear());
+	rhand_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(rhand_transform_current_from_global_.linear());
+	lelbow_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(lelbow_transform_current_from_global_.linear());
+	relbow_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(relbow_transform_current_from_global_.linear());
+	lshoulder_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(lshoulder_transform_current_from_global_.linear());
+	rshoulder_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(rshoulder_transform_current_from_global_.linear());
+	lacromion_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(lacromion_transform_current_from_global_.linear());
+	racromion_rpy_current_from_global_ = DyrosMath::rot2Euler_tf(racromion_transform_current_from_global_.linear());
+	////////////////////////////////////////////////////////////////////////////////
+
 
 
 	///////////////////////Variables Updated from desired joint position////////////////////////////
@@ -1115,7 +1124,7 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	rfoot_to_com_jac_from_global_.block(0, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(0, 0, 3, MODEL_DOF_VIRTUAL) + jac_com_pos_;
 	rfoot_to_com_jac_from_global_.block(3, 0, 3, MODEL_DOF_VIRTUAL) = (adjoint_pelv_to_ankle * jac_rfoot_).block(3, 0, 3, MODEL_DOF_VIRTUAL);
 
-	// A_mat_ = rd_.A_;
+	A_mat_ = rd_.A_;
 	// A_inv_mat_ = rd_.A_matrix_inverse;
 	// motor_inertia_mat_ = rd_.Motor_inertia;
 	// motor_inertia_inv_mat_ = rd_.Motor_inertia_inverse;
@@ -1499,6 +1508,10 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		master_relbow_vel_.setZero();
 		master_lshoulder_vel_.setZero();
 		master_rshoulder_vel_.setZero();
+
+		cout<<"A: \n"<<A_mat_<<endl;
+		cout<<"jac_com_: \n"<<jac_com_<<endl;
+
 	}
 
 	bool robot_goes_into_stance_phase = (current_time_ == stance_start_time_);
@@ -1523,13 +1536,13 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		{
 			swing_foot_transform_init_ = rfoot_transform_current_from_global_;
 			support_foot_transform_init_ = lfoot_transform_current_from_global_;
-			swing_foot_vel_init_ = rfoot_vel_current_from_global;
+			swing_foot_vel_init_ = rfoot_vel_current_from_global_;
 		}
 		else if (foot_contact_ == -1) //right support foot
 		{
 			swing_foot_transform_init_ = lfoot_transform_current_from_global_;
 			support_foot_transform_init_ = rfoot_transform_current_from_global_;
-			swing_foot_vel_init_ = lfoot_vel_current_from_global;
+			swing_foot_vel_init_ = lfoot_vel_current_from_global_;
 		}
 		init_q_ = current_q_;
 		last_desired_q_ = desired_q_;
@@ -1548,7 +1561,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 
 		swing_foot_transform_current_ = rfoot_transform_current_from_global_;
 		support_foot_transform_current_ = lfoot_transform_current_from_global_;
-		swing_foot_vel_current_ = rfoot_vel_current_from_global;
+		swing_foot_vel_current_ = rfoot_vel_current_from_global_;
 		support_foot_vel_current_.setZero();
 		support_foot_vel_current_.segment(3, 3) = pelv_angvel_current_ - lfoot_to_com_jac_from_global_.block(3, 6, 3, MODEL_DOF)*current_q_dot_;
 
@@ -1559,7 +1572,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 	{
 		swing_foot_transform_current_ = lfoot_transform_current_from_global_;
 		support_foot_transform_current_ = rfoot_transform_current_from_global_;
-		swing_foot_vel_current_ = lfoot_vel_current_from_global;
+		swing_foot_vel_current_ = lfoot_vel_current_from_global_;
 		support_foot_vel_current_.setZero();
 		support_foot_vel_current_.segment(3, 3) = pelv_angvel_current_ - rfoot_to_com_jac_from_global_.block(3, 6, 3, MODEL_DOF)*current_q_dot_;
 
@@ -2137,8 +2150,8 @@ void CustomController::motionRetargeting2()
 	// master_rhand_vel_(0) 	= 	0.1*cos(current_time_*2*M_PI/3)*2*M_PI/3;
 
 	// hand position
-	f_d_lhand.segment(0, 3) = kp_pos_lhand*(master_lhand_pose_.translation()-lhand_transform_current_from_global_.translation()) + kd_pos_lhand*(master_lhand_vel_.segment(0,3) - lhand_vel_current_from_global.segment(0,3));
-	f_d_rhand.segment(0, 3) = kp_pos_rhand*(master_rhand_pose_.translation()-rhand_transform_current_from_global_.translation()) + kd_pos_rhand*(master_rhand_vel_.segment(0,3) - rhand_vel_current_from_global.segment(0,3));
+	f_d_lhand.segment(0, 3) = kp_pos_lhand*(master_lhand_pose_.translation()-lhand_transform_current_from_global_.translation()) + kd_pos_lhand*(master_lhand_vel_.segment(0,3) - lhand_vel_current_from_global_.segment(0,3));
+	f_d_rhand.segment(0, 3) = kp_pos_rhand*(master_rhand_pose_.translation()-rhand_transform_current_from_global_.translation()) + kd_pos_rhand*(master_rhand_vel_.segment(0,3) - rhand_vel_current_from_global_.segment(0,3));
 
 	f_d_lhand(2) -= 0;
 	f_d_rhand(2) -= 0;
@@ -2151,8 +2164,8 @@ void CustomController::motionRetargeting2()
 	double kpa_hand = 000; //angle error gain
 	double kva_hand = 00;	//angular velocity gain
 
-	f_d_lhand.segment(3, 3) = kpa_hand * phi_lhand + kva_hand * (master_lhand_vel_.segment(3,3) - lhand_vel_current_from_global.segment(3,3));
-	f_d_rhand.segment(3, 3) = kpa_hand * phi_rhand + kva_hand * (master_rhand_vel_.segment(3,3) - rhand_vel_current_from_global.segment(3,3));
+	f_d_lhand.segment(3, 3) = kpa_hand * phi_lhand + kva_hand * (master_lhand_vel_.segment(3,3) - lhand_vel_current_from_global_.segment(3,3));
+	f_d_rhand.segment(3, 3) = kpa_hand * phi_rhand + kva_hand * (master_rhand_vel_.segment(3,3) - rhand_vel_current_from_global_.segment(3,3));
 	
 	torque_d_larm = (jac_lhand_.transpose()*f_d_lhand).segment(6, MODEL_DOF);
 	torque_d_rarm = (jac_rhand_.transpose()*f_d_rhand).segment(6, MODEL_DOF);
@@ -2292,6 +2305,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 	J_pinv_elbow = J_l_elbow.transpose()*(J_l_elbow*J_l_elbow.transpose()+I3*0.000001).inverse();
 	// u_dot_relbow = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_relbow;
 	u_dot_lelbow = J_l_elbow*N_1*(J_pinv_elbow)*u_dot_lelbow;
+	
 	J_pinv_shoulder = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.000001).inverse();
 
 	// u_dot_lshoulder = J_l_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lshoulder;
@@ -2754,6 +2768,18 @@ void CustomController::rawMasterPoseProcessing()
 	master_lshoulder_pose_.linear() = lshoulder_diff_m*master_lshoulder_pose_pre_.linear();
 	master_rshoulder_pose_.linear() = rshoulder_diff_m*master_rshoulder_pose_pre_.linear();
 	master_head_pose_.linear() = head_diff_m*master_head_pose_pre_.linear();
+
+	// for print
+	master_lhand_rqy_ = DyrosMath::rot2Euler_tf(master_lhand_pose_.linear());
+	master_rhand_rqy_ = DyrosMath::rot2Euler_tf(master_rhand_pose_.linear());
+
+	master_lelbow_rqy_ = DyrosMath::rot2Euler_tf(master_lelbow_pose_.linear());
+	master_relbow_rqy_ = DyrosMath::rot2Euler_tf(master_relbow_pose_.linear());
+
+	master_lshoulder_rqy_ = DyrosMath::rot2Euler_tf(master_lshoulder_pose_.linear());
+	master_rshoulder_rqy_ = DyrosMath::rot2Euler_tf(master_rshoulder_pose_.linear());
+
+	master_head_rqy_ = DyrosMath::rot2Euler_tf(master_head_pose_.linear());
 
 	// master_lhand_pose_.linear() = lhand_transform_init_from_global_.linear();
 	// master_rhand_pose_.linear() = rhand_transform_init_from_global_.linear();
@@ -4191,8 +4217,8 @@ Eigen::VectorQd CustomController::dampingControlCompute(WholebodyController &wbc
 	VectorQd torque;
 	torque.setZero();
 	////////////////////support angle operational space damping////////////////////////////////////////
-	f_lfoot_damping_ = -support_foot_damping_gain_*lfoot_vel_current_from_global.segment(3, 3);
-	f_rfoot_damping_ = -support_foot_damping_gain_*rfoot_vel_current_from_global.segment(3, 3);
+	f_lfoot_damping_ = -support_foot_damping_gain_*lfoot_vel_current_from_global_.segment(3, 3);
+	f_rfoot_damping_ = -support_foot_damping_gain_*rfoot_vel_current_from_global_.segment(3, 3);
 
 	if(foot_swing_trigger_ == true)
 	{
@@ -4655,7 +4681,7 @@ void CustomController::computeIk(Eigen::Isometry3d float_trunk_transform, Eigen:
 // 			left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0, 0, 0);
 // 			left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0, 0, 0);
 
-// 			angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global.segment(3,3);
+// 			angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global_.segment(3,3);
 // 			// left_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
 // 			// left_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
 			
@@ -4690,7 +4716,7 @@ void CustomController::computeIk(Eigen::Isometry3d float_trunk_transform, Eigen:
 // 			right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0, 0, 0);
 // 			right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0, 0, 0);
 
-// 			angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global.segment(3,3);
+// 			angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global_.segment(3,3);
 // 			// right_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.02, 0.05, 1, 0.0, 0, 0);
 // 			// right_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.02, 0.05, 1, 0.0, 0, 0);
 			
@@ -4743,7 +4769,7 @@ void CustomController::computeIk(Eigen::Isometry3d float_trunk_transform, Eigen:
 // 		left_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0.0, 0, 0);
 // 		left_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0.0, 0, 0);
 
-// 		// angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global.segment(3,3);
+// 		// angvel_support_ankle = lfoot_transform_current_from_global_.linear().transpose()*lfoot_vel_current_from_global_.segment(3,3);
 // 		// left_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.005, 0.1, 1, 0.0, 0, 0);
 // 		// left_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.005, 0.1, 1, 0.0, 0, 0);
 
@@ -4751,7 +4777,7 @@ void CustomController::computeIk(Eigen::Isometry3d float_trunk_transform, Eigen:
 // 		right_ankle_pitch_tune *= DyrosMath::cubic(abs(phi_support_ankle(1)), 0.00, 0.05, 1, 0.0, 0, 0);
 // 		right_ankle_roll_tune *= DyrosMath::cubic(abs(phi_support_ankle(0)), 0.00, 0.05, 1, 0.0, 0, 0);
 
-// 		// angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global.segment(3,3);
+// 		// angvel_support_ankle = rfoot_transform_current_from_global_.linear().transpose()*rfoot_vel_current_from_global_.segment(3,3);
 // 		// right_ankle_pitch_tune *= DyrosMath::cubic(abs(angvel_support_ankle(1)), 0.005, 0.1, 1, 0.0, 0, 0);
 // 		// right_ankle_roll_tune *= DyrosMath::cubic(abs(angvel_support_ankle(0)), 0.005, 0.1, 1, 0.0, 0, 0);
 
@@ -5680,10 +5706,10 @@ void CustomController::printOutTextFile()
 		<<lfoot_transform_current_from_global_.translation()(0)<<"\t"<<lfoot_transform_current_from_global_.translation()(1)<<"\t"<<lfoot_transform_current_from_global_.translation()(2)<<"\t"		//4
 		<<rfoot_transform_current_from_global_.translation()(0)<<"\t"<<rfoot_transform_current_from_global_.translation()(1)<<"\t"<<rfoot_transform_current_from_global_.translation()(2)<<"\t"		//7
 		<<swing_foot_pos_trajectory_from_global_(0)<<"\t"<<swing_foot_pos_trajectory_from_global_(1)<<"\t"<<swing_foot_pos_trajectory_from_global_(2)<<"\t"											//10
-		<<lfoot_vel_current_from_global(0)<<"\t"<<lfoot_vel_current_from_global(1)<<"\t"<<lfoot_vel_current_from_global(2)<<"\t"																	//13
-		<<lfoot_vel_current_from_global(3)<<"\t"<<lfoot_vel_current_from_global(4)<<"\t"<<lfoot_vel_current_from_global(5)<<"\t"																	//16
-		<<rfoot_vel_current_from_global(0)<<"\t"<<rfoot_vel_current_from_global(1)<<"\t"<<rfoot_vel_current_from_global(2)<<"\t"																	//19
-		<<rfoot_vel_current_from_global(3)<<"\t"<<rfoot_vel_current_from_global(4)<<"\t"<<rfoot_vel_current_from_global(5)<<"\t"																	//22
+		<<lfoot_vel_current_from_global_(0)<<"\t"<<lfoot_vel_current_from_global_(1)<<"\t"<<lfoot_vel_current_from_global_(2)<<"\t"																	//13
+		<<lfoot_vel_current_from_global_(3)<<"\t"<<lfoot_vel_current_from_global_(4)<<"\t"<<lfoot_vel_current_from_global_(5)<<"\t"																	//16
+		<<rfoot_vel_current_from_global_(0)<<"\t"<<rfoot_vel_current_from_global_(1)<<"\t"<<rfoot_vel_current_from_global_(2)<<"\t"																	//19
+		<<rfoot_vel_current_from_global_(3)<<"\t"<<rfoot_vel_current_from_global_(4)<<"\t"<<rfoot_vel_current_from_global_(5)<<"\t"																	//22
 		<<swing_foot_vel_trajectory_from_global_(0)<<"\t"<<swing_foot_vel_trajectory_from_global_(1)<<"\t"<<swing_foot_vel_trajectory_from_global_(2)<<"\t"											//25
 		<<support_foot_vel_current_(3)<<"\t"<<support_foot_vel_current_(4)<<"\t"<<support_foot_vel_current_(5)<<endl;																				//28
 
@@ -5696,18 +5722,41 @@ void CustomController::printOutTextFile()
 		<<desired_q_dot_(0)<<"\t"<<desired_q_dot_(1)<<"\t"<<desired_q_dot_(2)<<"\t"<<desired_q_dot_(3)<<"\t"<<desired_q_dot_(4)<<"\t"<<desired_q_dot_(5)<<"\t"<<desired_q_dot_(6)<<"\t"<<desired_q_dot_(7)<<"\t"<<desired_q_dot_(8)<<"\t"<<desired_q_dot_(9)<<"\t"<<desired_q_dot_(10)<<"\t"<<desired_q_dot_(11)<<"\t"<<desired_q_dot_(12)<<"\t"<<desired_q_dot_(13)<<"\t"<<desired_q_dot_(14)<<"\t"<<desired_q_dot_(15)<<"\t"<<desired_q_dot_(16)<<"\t"<<desired_q_dot_(17)<<"\t"<<desired_q_dot_(18)<<"\t"<<desired_q_dot_(19)<<"\t"<<desired_q_dot_(20)<<"\t"<<desired_q_dot_(21)<<"\t"<<desired_q_dot_(22)<<"\t"<<desired_q_dot_(23)<<"\t"<<desired_q_dot_(24)<<"\t"<<desired_q_dot_(25)<<"\t"<<desired_q_dot_(26)<<"\t"<<desired_q_dot_(27)<<"\t"<<desired_q_dot_(28)<<"\t"<<desired_q_dot_(29)<<"\t"<<desired_q_dot_(30)<<"\t"<<desired_q_dot_(31)<<"\t"<<desired_q_dot_(32)<<"\t" 
 		<<current_q_dot_(0)<<"\t"<<current_q_dot_(1)<<"\t"<<current_q_dot_(2)<<"\t"<<current_q_dot_(3)<<"\t"<<current_q_dot_(4)<<"\t"<<current_q_dot_(5)<<"\t"<<current_q_dot_(6)<<"\t"<<current_q_dot_(7)<<"\t"<<current_q_dot_(8)<<"\t"<<current_q_dot_(9)<<"\t"<<current_q_dot_(10)<<"\t"<<current_q_dot_(11)<<"\t"<<current_q_dot_(12)<<"\t"<<current_q_dot_(13)<<"\t"<<current_q_dot_(14)<<"\t"<<current_q_dot_(15)<<"\t"<<current_q_dot_(16)<<"\t"<<current_q_dot_(17)<<"\t"<<current_q_dot_(18)<<"\t"<<current_q_dot_(19)<<"\t"<<current_q_dot_(20)<<"\t"<<current_q_dot_(21)<<"\t"<<current_q_dot_(22)<<"\t"<<current_q_dot_(23)<<"\t"<<current_q_dot_(24)<<"\t"<<current_q_dot_(25)<<"\t"<<current_q_dot_(26)<<"\t"<<current_q_dot_(27)<<"\t"<<current_q_dot_(28)<<"\t"<<current_q_dot_(29)<<"\t"<<current_q_dot_(30)<<"\t"<<current_q_dot_(31)<<"\t"<<current_q_dot_(32)<<endl; 
 
-		file[6]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"
+		file[6]
+		<<lhand_transform_current_from_global_.translation()(0)<<"\t"<<lhand_transform_current_from_global_.translation()(1)<<"\t"<<lhand_transform_current_from_global_.translation()(2)<<"\t"<<rhand_transform_current_from_global_.translation()(0)<<"\t"<<rhand_transform_current_from_global_.translation()(1)<<"\t"<<rhand_transform_current_from_global_.translation()(2)<<"\t"
+		<<lhand_rpy_current_from_global_(0)<<"\t"<<lhand_rpy_current_from_global_(1)<<"\t"<<lhand_rpy_current_from_global_(2)<<"\t"<<rhand_rpy_current_from_global_(0)<<"\t"<<rhand_rpy_current_from_global_(1)<<"\t"<<rhand_rpy_current_from_global_(2)<<"\t"
+		<<lhand_vel_current_from_global_(0)<<"\t"<<lhand_vel_current_from_global_(1)<<"\t"<<lhand_vel_current_from_global_(2)<<"\t"<<rhand_vel_current_from_global_(0)<<"\t"<<rhand_vel_current_from_global_(1)<<"\t"<<rhand_vel_current_from_global_(2)<<endl;
+
+		file[7]
+		<<lelbow_transform_current_from_global_.translation()(0)<<"\t"<<lelbow_transform_current_from_global_.translation()(1)<<"\t"<<lelbow_transform_current_from_global_.translation()(2)<<"\t"<<relbow_transform_current_from_global_.translation()(0)<<"\t"<<relbow_transform_current_from_global_.translation()(1)<<"\t"<<relbow_transform_current_from_global_.translation()(2)<<"\t"
+		<<lelbow_rpy_current_from_global_(0)<<"\t"<<lelbow_rpy_current_from_global_(1)<<"\t"<<lelbow_rpy_current_from_global_(2)<<"\t"<<relbow_rpy_current_from_global_(0)<<"\t"<<relbow_rpy_current_from_global_(1)<<"\t"<<relbow_rpy_current_from_global_(2)<<"\t"
+		<<lelbow_vel_current_from_global_(0)<<"\t"<<lelbow_vel_current_from_global_(1)<<"\t"<<lelbow_vel_current_from_global_(2)<<"\t"<<relbow_vel_current_from_global_(0)<<"\t"<<relbow_vel_current_from_global_(1)<<"\t"<<relbow_vel_current_from_global_(2)<<endl;
+
+		file[8]
+		<<lshoulder_transform_current_from_global_.translation()(0)<<"\t"<<lshoulder_transform_current_from_global_.translation()(1)<<"\t"<<lshoulder_transform_current_from_global_.translation()(2)<<"\t"<<rshoulder_transform_current_from_global_.translation()(0)<<"\t"<<rshoulder_transform_current_from_global_.translation()(1)<<"\t"<<rshoulder_transform_current_from_global_.translation()(2)<<"\t"
+		<<lshoulder_rpy_current_from_global_(0)<<"\t"<<lshoulder_rpy_current_from_global_(1)<<"\t"<<lshoulder_rpy_current_from_global_(2)<<"\t"<<rshoulder_rpy_current_from_global_(0)<<"\t"<<rshoulder_rpy_current_from_global_(1)<<"\t"<<rshoulder_rpy_current_from_global_(2)<<"\t"
+		<<lshoulder_vel_current_from_global_(0)<<"\t"<<lshoulder_vel_current_from_global_(1)<<"\t"<<lshoulder_vel_current_from_global_(2)<<"\t"<<rshoulder_vel_current_from_global_(0)<<"\t"<<rshoulder_vel_current_from_global_(1)<<"\t"<<rshoulder_vel_current_from_global_(2)<<endl;
+
+		file[9]
+		<<lacromion_transform_current_from_global_.translation()(0)<<"\t"<<lacromion_transform_current_from_global_.translation()(1)<<"\t"<<lacromion_transform_current_from_global_.translation()(2)<<"\t"<<racromion_transform_current_from_global_.translation()(0)<<"\t"<<racromion_transform_current_from_global_.translation()(1)<<"\t"<<racromion_transform_current_from_global_.translation()(2)<<"\t"
+		<<lacromion_rpy_current_from_global_(0)<<"\t"<<lacromion_rpy_current_from_global_(1)<<"\t"<<lacromion_rpy_current_from_global_(2)<<"\t"<<racromion_rpy_current_from_global_(0)<<"\t"<<racromion_rpy_current_from_global_(1)<<"\t"<<racromion_rpy_current_from_global_(2)<<"\t"
+		<<lacromion_vel_current_from_global_(0)<<"\t"<<lacromion_vel_current_from_global_(1)<<"\t"<<lacromion_vel_current_from_global_(2)<<"\t"<<racromion_vel_current_from_global_(0)<<"\t"<<racromion_vel_current_from_global_(1)<<"\t"<<racromion_vel_current_from_global_(2)<<endl;
+
+		file[11]<<exo_suit_lhand_pose_.translation()(0)<<"\t"<<exo_suit_lhand_pose_.translation()(1)<<"\t"<<exo_suit_lhand_pose_.translation()(2)<<"\t"<<exo_suit_rhand_pose_.translation()(0)<<"\t"<<exo_suit_rhand_pose_.translation()(1)<<"\t"<<exo_suit_rhand_pose_.translation()(2)<<"\t"
 		<<master_lhand_pose_raw_.translation()(0)<<"\t"<<master_lhand_pose_raw_.translation()(1)<<"\t"<<master_lhand_pose_raw_.translation()(2)<<"\t"<<master_rhand_pose_raw_.translation()(0)<<"\t"<<master_rhand_pose_raw_.translation()(1)<<"\t"<<master_rhand_pose_raw_.translation()(2)<<"\t"
 		<<master_lhand_pose_.translation()(0)<<"\t"<<master_lhand_pose_.translation()(1)<<"\t"<<master_lhand_pose_.translation()(2)<<"\t"<<master_rhand_pose_.translation()(0)<<"\t"<<master_rhand_pose_.translation()(1)<<"\t"<<master_rhand_pose_.translation()(2)<<"\t"
-		<<lhand_transform_current_from_global_.translation()(0)<<"\t"<<lhand_transform_current_from_global_.translation()(1)<<"\t"<<lhand_transform_current_from_global_.translation()(2)<<"\t"<<rhand_transform_current_from_global_.translation()(0)<<"\t"<<rhand_transform_current_from_global_.translation()(1)<<"\t"<<rhand_transform_current_from_global_.translation()(2)<<"\t"
-		<<master_lhand_vel_(0)<<"\t"<<master_lhand_vel_(1)<<"\t"<<master_lhand_vel_(2)<<"\t"<<master_rhand_vel_(0)<<"\t"<<master_rhand_vel_(1)<<"\t"<<master_rhand_vel_(2)<<"\t"
-		<<lhand_vel_current_from_global(0)<<"\t"<<lhand_vel_current_from_global(1)<<"\t"<<lhand_vel_current_from_global(2)<<"\t"<<rhand_vel_current_from_global(0)<<"\t"<<rhand_vel_current_from_global(1)<<"\t"<<rhand_vel_current_from_global(2)<<endl;
-
-		file[8]<<exo_suit_lhand_pose_.translation()(0)<<"\t"<<exo_suit_lhand_pose_.translation()(1)<<"\t"<<exo_suit_lhand_pose_.translation()(2)<<"\t"
-		<<exo_suit_rhand_pose_.translation()(0)<<"\t"<<exo_suit_rhand_pose_.translation()(1)<<"\t"<<exo_suit_rhand_pose_.translation()(2)<<"\t"
-		<<master_lhand_pose_raw_.translation()(0)<<"\t"<<master_lhand_pose_raw_.translation()(1)<<"\t"<<master_lhand_pose_raw_.translation()(2)<<"\t"
-		<<master_rhand_pose_raw_.translation()(0)<<"\t"<<master_rhand_pose_raw_.translation()(1)<<"\t"<<master_rhand_pose_raw_.translation()(2)<<"\t"
-		<<master_lhand_pose_.translation()(0)<<"\t"<<master_lhand_pose_.translation()(1)<<"\t"<<master_lhand_pose_.translation()(2)<<"\t"
-		<<master_rhand_pose_.translation()(0)<<"\t"<<master_rhand_pose_.translation()(1)<<"\t"<<master_rhand_pose_.translation()(2)<<endl;
+		<<master_lhand_rqy_(0)<<"\t"<<master_lhand_rqy_(1)<<"\t"<<master_lhand_rqy_(2)<<"\t"<<master_rhand_rqy_(0)<<"\t"<<master_rhand_rqy_(1)<<"\t"<<master_rhand_rqy_(2)<<"\t"
+ 		<<exo_suit_lupperarm_pose_.translation()(0)<<"\t"<<exo_suit_lupperarm_pose_.translation()(1)<<"\t"<<exo_suit_lupperarm_pose_.translation()(2)<<"\t"<<exo_suit_rupperarm_pose_.translation()(0)<<"\t"<<exo_suit_rupperarm_pose_.translation()(1)<<"\t"<<exo_suit_rupperarm_pose_.translation()(2)<<"\t"
+		<<master_lelbow_pose_raw_.translation()(0)<<"\t"<<master_lelbow_pose_raw_.translation()(1)<<"\t"<<master_lelbow_pose_raw_.translation()(2)<<"\t"<<master_relbow_pose_raw_.translation()(0)<<"\t"<<master_relbow_pose_raw_.translation()(1)<<"\t"<<master_relbow_pose_raw_.translation()(2)<<"\t"
+		<<master_lelbow_pose_.translation()(0)<<"\t"<<master_lelbow_pose_.translation()(1)<<"\t"<<master_lelbow_pose_.translation()(2)<<"\t"<<master_relbow_pose_.translation()(0)<<"\t"<<master_relbow_pose_.translation()(1)<<"\t"<<master_relbow_pose_.translation()(2)<<"\t"
+		<<master_lelbow_rqy_(0)<<"\t"<<master_lelbow_rqy_(1)<<"\t"<<master_lelbow_rqy_(2)<<"\t"<<master_relbow_rqy_(0)<<"\t"<<master_relbow_rqy_(1)<<"\t"<<master_relbow_rqy_(2)<<"\t"
+		<<exo_suit_lshoulder_pose_.translation()(0)<<"\t"<<exo_suit_lshoulder_pose_.translation()(1)<<"\t"<<exo_suit_lshoulder_pose_.translation()(2)<<"\t"<<exo_suit_rshoulder_pose_.translation()(0)<<"\t"<<exo_suit_rshoulder_pose_.translation()(1)<<"\t"<<exo_suit_rshoulder_pose_.translation()(2)<<"\t"
+		<<master_lshoulder_pose_raw_.translation()(0)<<"\t"<<master_lshoulder_pose_raw_.translation()(1)<<"\t"<<master_lshoulder_pose_raw_.translation()(2)<<"\t"<<master_rshoulder_pose_raw_.translation()(0)<<"\t"<<master_rshoulder_pose_raw_.translation()(1)<<"\t"<<master_rshoulder_pose_raw_.translation()(2)<<"\t"
+		<<master_lshoulder_pose_.translation()(0)<<"\t"<<master_lshoulder_pose_.translation()(1)<<"\t"<<master_lshoulder_pose_.translation()(2)<<"\t"<<master_rshoulder_pose_.translation()(0)<<"\t"<<master_rshoulder_pose_.translation()(1)<<"\t"<<master_rshoulder_pose_.translation()(2)<<"\t"
+		<<master_lshoulder_rqy_(0)<<"\t"<<master_lshoulder_rqy_(1)<<"\t"<<master_lshoulder_rqy_(2)<<"\t"<<master_rshoulder_rqy_(0)<<"\t"<<master_rshoulder_rqy_(1)<<"\t"<<master_rshoulder_rqy_(2)<<"\t"
+		<<exo_suit_head_pose_.translation()(0)<<"\t"<<exo_suit_head_pose_.translation()(1)<<"\t"<<exo_suit_head_pose_.translation()(2)<<"\t"
+		<<master_head_pose_raw_.translation()(0)<<"\t"<<master_head_pose_raw_.translation()(1)<<"\t"<<master_head_pose_raw_.translation()(2)<<"\t"
+		<<master_head_pose_.translation()(0)<<"\t"<<master_head_pose_.translation()(1)<<"\t"<<master_head_pose_.translation()(2)<<"\t"
+		<<master_head_rqy_(0)<<"\t"<<master_head_rqy_(1)<<"\t"<<master_head_rqy_(2)<<endl;
 	// }
 }
