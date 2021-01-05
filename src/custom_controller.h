@@ -335,6 +335,8 @@ public:
     Eigen::Isometry3d rshoulder_transform_init_from_global_; 
     Eigen::Isometry3d lacromion_transform_init_from_global_; //2nd axis of arm joint (견봉)
     Eigen::Isometry3d racromion_transform_init_from_global_;
+    Eigen::Isometry3d larmbase_transform_init_from_global_; //1st axis of arm joint (견봉)
+    Eigen::Isometry3d rarmbase_transform_init_from_global_;
 
     Eigen::Isometry3d head_transform_current_from_global_;
     Eigen::Isometry3d lfoot_transform_current_from_global_;
@@ -347,6 +349,8 @@ public:
     Eigen::Isometry3d rshoulder_transform_current_from_global_;
     Eigen::Isometry3d lacromion_transform_current_from_global_; //2nd axis of arm joint (견봉)
     Eigen::Isometry3d racromion_transform_current_from_global_;
+    Eigen::Isometry3d larmbase_transform_current_from_global_; //1st axis of arm joint (견봉)
+    Eigen::Isometry3d rarmbase_transform_current_from_global_;
 
     Eigen::Isometry3d lknee_transform_current_from_global_;
     Eigen::Isometry3d rknee_transform_current_from_global_;
@@ -360,15 +364,17 @@ public:
     Eigen::Vector3d lacromion_rpy_current_from_global_;
     Eigen::Vector3d racromion_rpy_current_from_global_;
 
-    Isometry3d head_transform_pre_desired_from_;
-    Isometry3d lhand_transform_pre_desired_from_;
-    Isometry3d rhand_transform_pre_desired_from_;
-    Isometry3d lelbow_transform_pre_desired_from_;
-    Isometry3d relbow_transform_pre_desired_from_;
-    Isometry3d lshoulder_transform_pre_desired_from_;
-    Isometry3d rshoulder_transform_pre_desired_from_;
-    Isometry3d lacromion_transform_pre_desired_from_;
-    Isometry3d racromion_transform_pre_desired_from_;
+    Eigen::Isometry3d head_transform_pre_desired_from_;
+    Eigen::Isometry3d lhand_transform_pre_desired_from_;
+    Eigen::Isometry3d rhand_transform_pre_desired_from_;
+    Eigen::Isometry3d lelbow_transform_pre_desired_from_;
+    Eigen::Isometry3d relbow_transform_pre_desired_from_;
+    Eigen::Isometry3d lshoulder_transform_pre_desired_from_;
+    Eigen::Isometry3d rshoulder_transform_pre_desired_from_;
+    Eigen::Isometry3d lacromion_transform_pre_desired_from_;
+    Eigen::Isometry3d racromion_transform_pre_desired_from_;
+    Eigen::Isometry3d larmbase_transform_pre_desired_from_; //1st axis of arm joint (견봉)
+    Eigen::Isometry3d rarmbase_transform_pre_desired_from_;
 
     Eigen::Vector6d lfoot_vel_current_from_global_;
     Eigen::Vector6d rfoot_vel_current_from_global_;
@@ -548,6 +554,13 @@ public:
     
     Eigen::Vector3d master_head_rqy_;
 
+    Eigen::Vector3d master_relative_lhand_pos_raw_;
+    Eigen::Vector3d master_relative_rhand_pos_raw_;
+    Eigen::Vector3d master_relative_lhand_pos_;
+    Eigen::Vector3d master_relative_rhand_pos_;
+    Eigen::Vector3d master_relative_lhand_pos_pre_;
+    Eigen::Vector3d master_relative_rhand_pos_pre_;
+
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;
 
@@ -555,10 +568,12 @@ public:
     double exo_rarm_max_l_;
     double exo_lelbow_max_l_;
     double exo_relbow_max_l_;
-    
+    double exo_shoulder_width_;
+
     double robot_arm_max_l_;
     double robot_upperarm_max_l_;
     double robot_lowerarm_max_l_;
+    double robot_shoulder_width_;
 
     Eigen::Vector3d exo_suit_head_pos_raw_;   
     Eigen::Vector3d exo_suit_lshoulder_pos_raw_;
