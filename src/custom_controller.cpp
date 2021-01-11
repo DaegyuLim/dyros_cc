@@ -189,195 +189,195 @@ void CustomController::setGains()
 
 	//////////Joint PD Gain/////////
 	///For Simulation
-	for (int i = 0; i < MODEL_DOF; i++)
-	{
-		kp_joint_(i) = 100; 		//(tune)
-		kv_joint_(i) = 20;		//(tune)
-	}
-
-	//Waist Joint Gains
-	for (int i = 0; i < 3; i++) 
-	{
-		kp_joint_(12 + i) = 900;
-		kv_joint_(12 + i) = 60;
-	}
-	kp_joint_(12) = 2500;
-	kp_joint_(13) = 900;
-	kp_joint_(14) = 900;
-	
-	kv_joint_(12) = 100;
-	kv_joint_(13) = 60;
-	kv_joint_(14) = 60;
-
-	kp_joint_(20) = 64;	//forearm
-	kp_joint_(21) = 64;	//wrist1
-	kp_joint_(22) = 64;	//wrist2
-	kv_joint_(20) = 10;
-	kv_joint_(21) = 10;
-	kv_joint_(22) = 10;
-
-	kp_joint_(30) = 64;
-	kp_joint_(31) = 64;
-	kp_joint_(32) = 64;
-	kv_joint_(30) = 10;
-	kv_joint_(31) = 10;
-	kv_joint_(32) = 10;
-
-	kp_joint_(23) = 49;	//head
-	kp_joint_(24) = 49;	
-	kv_joint_(23) = 14;	//head
-	kv_joint_(24) = 14;	
-
-	//stiff	//(tune)
-	kp_stiff_joint_(0) = 3600; //R hip yaw joint gain
-	kv_stiff_joint_(0) = 120;
-	kp_stiff_joint_(1) = 4900; //L hip roll joint gain
-	kv_stiff_joint_(1) = 140;
-	kp_stiff_joint_(2) = 4900; //L hip pitch joint gain
-	kv_stiff_joint_(2) = 140;
-
-	kp_stiff_joint_(3) = 1600; //L knee joint gain
-	kv_stiff_joint_(3) = 80;
-
-	kp_stiff_joint_(4) = 400; //L ankle pitch joint gain
-	kv_stiff_joint_(4) = 40;
-	kp_stiff_joint_(5) = 400; //L ankle roll joint gain
-	kv_stiff_joint_(5) = 40;
-
-	kp_stiff_joint_(6) = 3600; //R hip yaw joint gain
-	kv_stiff_joint_(6) = 120;
-	kp_stiff_joint_(7) = 4900; //R hip roll joint gain
-	kv_stiff_joint_(7) = 140;
-	kp_stiff_joint_(8) = 4900; //R hip pitch joint gain
-	kv_stiff_joint_(8) = 140;
-
-	kp_stiff_joint_(9) = 1600; //R knee joint gain
-	kv_stiff_joint_(9) = 80;
-
-	kp_stiff_joint_(10) = 400; //R ankle pitch joint gain
-	kv_stiff_joint_(10) = 40;
-	kp_stiff_joint_(11) = 400; //R ankle roll joint gain
-	kv_stiff_joint_(11) = 40;
-
-	//soft	//(tune)
-	kp_soft_joint_(0) = 3600; //L hip yaw joint gain
-	kv_soft_joint_(0) = 120;
-	kp_soft_joint_(1) = 400; //L hip roll joint gain
-	kv_soft_joint_(1) = 40;
-	kp_soft_joint_(2) = 400; //L hip pitch joint gain
-	kv_soft_joint_(2) = 40;
-
-	kp_soft_joint_(3) = 100; //L knee joint gain
-	kv_soft_joint_(3) = 20;
-
-	kp_soft_joint_(4) = 25; //L ankle pitch joint gain
-	kv_soft_joint_(4) = 10;
-	kp_soft_joint_(5) = 25; //L ankle roll joint gain
-	kv_soft_joint_(5) = 10;
-
-	kp_soft_joint_(6) = 3600; //R hip yaw joint gain
-	kv_soft_joint_(6) = 120;
-	kp_soft_joint_(7) = 400; //R hip roll joint gain
-	kv_soft_joint_(7) = 40;
-	kp_soft_joint_(8) = 400; //R hip pitch joint gain
-	kv_soft_joint_(8) = 40;
-
-	kp_soft_joint_(9) = 100; //R knee joint gain
-	kv_soft_joint_(9) = 20;
-
-	kp_soft_joint_(10) = 25; //R ankle pitch joint gain
-	kv_soft_joint_(10) = 10;
-	kp_soft_joint_(11) = 25; //R ankle roll joint gain
-	kv_soft_joint_(11) = 10;
-
-	for (int i = 0; i < 12; i++) //Leg
-	{
-		kp_joint_(i) = kp_stiff_joint_(i);
-		kv_joint_(i) = kv_stiff_joint_(i);
-	}
-	/////////////////
-
-	///For Real Robot
-	// kp_stiff_joint_(0) 		= 2000;
-	// kp_stiff_joint_(1) 		= 5000;
-	// kp_stiff_joint_(2) 		= 4000;
-	// kp_stiff_joint_(3) 		= 3700;
-	// kp_stiff_joint_(4) 		= 3200;
-	// kp_stiff_joint_(5) 		= 3200;
-	// kp_stiff_joint_(6) 		= 2000;
-	// kp_stiff_joint_(7) 		= 5000;
-	// kp_stiff_joint_(8) 		= 4000;
-	// kp_stiff_joint_(9) 		= 3700;
-	// kp_stiff_joint_(10) 		= 3200;
-	// kp_stiff_joint_(11) 		= 3200;
-	// kp_stiff_joint_(12) 		= 6000;
-	// kp_stiff_joint_(13) 		= 10000;
-	// kp_stiff_joint_(14) 		= 10000;
-	// kp_stiff_joint_(15) 		= 400;
-	// kp_stiff_joint_(16) 		= 1000;
-	// kp_stiff_joint_(17) 		= 400;
-	// kp_stiff_joint_(18) 		= 400;
-	// kp_stiff_joint_(19) 		= 200;
-	// kp_stiff_joint_(20) 		= 10;
-	// kp_stiff_joint_(21) 		= 10;
-	// kp_stiff_joint_(22) 		= 10;
-	// kp_stiff_joint_(23) 		= 10;
-	// kp_stiff_joint_(24) 		= 10;
-	// kp_stiff_joint_(25) 		= 400;
-	// kp_stiff_joint_(26) 		= 1000;
-	// kp_stiff_joint_(27) 		= 400;
-	// kp_stiff_joint_(28) 		= 400;
-	// kp_stiff_joint_(29) 		= 200;
-	// kp_stiff_joint_(30) 		= 10;
-	// kp_stiff_joint_(31) 		= 10;
-	// kp_stiff_joint_(32) 		= 10;
-
-	// kv_stiff_joint_(0) 		= 15;
-	// kv_stiff_joint_(1) 		= 50;
-	// kv_stiff_joint_(2) 		= 20;
-	// kv_stiff_joint_(3) 		= 25;
-	// kv_stiff_joint_(4) 		= 24;
-	// kv_stiff_joint_(5) 		= 24;
-	// kv_stiff_joint_(6) 		= 15;
-	// kv_stiff_joint_(7) 		= 50;
-	// kv_stiff_joint_(8) 		= 20;
-	// kv_stiff_joint_(9) 		= 25;
-	// kv_stiff_joint_(10) 		= 24;
-	// kv_stiff_joint_(11) 		= 24;
-	// kv_stiff_joint_(12) 		= 200;
-	// kv_stiff_joint_(13) 		= 100;
-	// kv_stiff_joint_(14) 		= 100;
-	// kv_stiff_joint_(15) 		= 10;
-	// kv_stiff_joint_(16) 		= 28;
-	// kv_stiff_joint_(17) 		= 10;
-	// kv_stiff_joint_(18) 		= 10;
-	// kv_stiff_joint_(19) 		= 5;
-	// kv_stiff_joint_(20) 		= 1;
-	// kv_stiff_joint_(21) 		= 1;
-	// kv_stiff_joint_(22) 		= 1;
-	// kv_stiff_joint_(23) 		= 1;
-	// kv_stiff_joint_(24) 		= 1;
-	// kv_stiff_joint_(25) 		= 10;
-	// kv_stiff_joint_(26) 		= 28;
-	// kv_stiff_joint_(27) 		= 10;
-	// kv_stiff_joint_(28) 		= 10;
-	// kv_stiff_joint_(29) 		= 5;
-	// kv_stiff_joint_(30) 		= 1;
-	// kv_stiff_joint_(31) 		= 1;
-	// kv_stiff_joint_(32) 		= 1;
-
-	// for (int i = 0; i < MODEL_DOF; i++) 
+	// for (int i = 0; i < MODEL_DOF; i++)
 	// {
-	// 	kp_soft_joint_(i) = kp_stiff_joint_(i)/4;
-	// 	kp_soft_joint_(i) = kv_stiff_joint_(i)/2;
+	// 	kp_joint_(i) = 100; 		//(tune)
+	// 	kv_joint_(i) = 20;		//(tune)
 	// }
 
-	// for (int i = 0; i < MODEL_DOF; i++) 
+	// //Waist Joint Gains
+	// for (int i = 0; i < 3; i++) 
+	// {
+	// 	kp_joint_(12 + i) = 900;
+	// 	kv_joint_(12 + i) = 60;
+	// }
+	// kp_joint_(12) = 2500;
+	// kp_joint_(13) = 900;
+	// kp_joint_(14) = 900;
+	
+	// kv_joint_(12) = 100;
+	// kv_joint_(13) = 60;
+	// kv_joint_(14) = 60;
+
+	// kp_joint_(20) = 64;	//forearm
+	// kp_joint_(21) = 64;	//wrist1
+	// kp_joint_(22) = 64;	//wrist2
+	// kv_joint_(20) = 10;
+	// kv_joint_(21) = 10;
+	// kv_joint_(22) = 10;
+
+	// kp_joint_(30) = 64;
+	// kp_joint_(31) = 64;
+	// kp_joint_(32) = 64;
+	// kv_joint_(30) = 10;
+	// kv_joint_(31) = 10;
+	// kv_joint_(32) = 10;
+
+	// kp_joint_(23) = 49;	//head
+	// kp_joint_(24) = 49;	
+	// kv_joint_(23) = 14;	//head
+	// kv_joint_(24) = 14;	
+
+	// //stiff	//(tune)
+	// kp_stiff_joint_(0) = 3600; //R hip yaw joint gain
+	// kv_stiff_joint_(0) = 120;
+	// kp_stiff_joint_(1) = 4900; //L hip roll joint gain
+	// kv_stiff_joint_(1) = 140;
+	// kp_stiff_joint_(2) = 4900; //L hip pitch joint gain
+	// kv_stiff_joint_(2) = 140;
+
+	// kp_stiff_joint_(3) = 1600; //L knee joint gain
+	// kv_stiff_joint_(3) = 80;
+
+	// kp_stiff_joint_(4) = 400; //L ankle pitch joint gain
+	// kv_stiff_joint_(4) = 40;
+	// kp_stiff_joint_(5) = 400; //L ankle roll joint gain
+	// kv_stiff_joint_(5) = 40;
+
+	// kp_stiff_joint_(6) = 3600; //R hip yaw joint gain
+	// kv_stiff_joint_(6) = 120;
+	// kp_stiff_joint_(7) = 4900; //R hip roll joint gain
+	// kv_stiff_joint_(7) = 140;
+	// kp_stiff_joint_(8) = 4900; //R hip pitch joint gain
+	// kv_stiff_joint_(8) = 140;
+
+	// kp_stiff_joint_(9) = 1600; //R knee joint gain
+	// kv_stiff_joint_(9) = 80;
+
+	// kp_stiff_joint_(10) = 400; //R ankle pitch joint gain
+	// kv_stiff_joint_(10) = 40;
+	// kp_stiff_joint_(11) = 400; //R ankle roll joint gain
+	// kv_stiff_joint_(11) = 40;
+
+	// //soft	//(tune)
+	// kp_soft_joint_(0) = 3600; //L hip yaw joint gain
+	// kv_soft_joint_(0) = 120;
+	// kp_soft_joint_(1) = 400; //L hip roll joint gain
+	// kv_soft_joint_(1) = 40;
+	// kp_soft_joint_(2) = 400; //L hip pitch joint gain
+	// kv_soft_joint_(2) = 40;
+
+	// kp_soft_joint_(3) = 100; //L knee joint gain
+	// kv_soft_joint_(3) = 20;
+
+	// kp_soft_joint_(4) = 25; //L ankle pitch joint gain
+	// kv_soft_joint_(4) = 10;
+	// kp_soft_joint_(5) = 25; //L ankle roll joint gain
+	// kv_soft_joint_(5) = 10;
+
+	// kp_soft_joint_(6) = 3600; //R hip yaw joint gain
+	// kv_soft_joint_(6) = 120;
+	// kp_soft_joint_(7) = 400; //R hip roll joint gain
+	// kv_soft_joint_(7) = 40;
+	// kp_soft_joint_(8) = 400; //R hip pitch joint gain
+	// kv_soft_joint_(8) = 40;
+
+	// kp_soft_joint_(9) = 100; //R knee joint gain
+	// kv_soft_joint_(9) = 20;
+
+	// kp_soft_joint_(10) = 25; //R ankle pitch joint gain
+	// kv_soft_joint_(10) = 10;
+	// kp_soft_joint_(11) = 25; //R ankle roll joint gain
+	// kv_soft_joint_(11) = 10;
+
+	// for (int i = 0; i < 12; i++) //Leg
 	// {
 	// 	kp_joint_(i) = kp_stiff_joint_(i);
 	// 	kv_joint_(i) = kv_stiff_joint_(i);
 	// }
-	///////////////
+	// /////////////////
+
+	///For Real Robot
+	kp_stiff_joint_(0) 		= 2000;
+	kp_stiff_joint_(1) 		= 5000;
+	kp_stiff_joint_(2) 		= 4000;
+	kp_stiff_joint_(3) 		= 3700;
+	kp_stiff_joint_(4) 		= 3200;
+	kp_stiff_joint_(5) 		= 3200;
+	kp_stiff_joint_(6) 		= 2000;
+	kp_stiff_joint_(7) 		= 5000;
+	kp_stiff_joint_(8) 		= 4000;
+	kp_stiff_joint_(9) 		= 3700;
+	kp_stiff_joint_(10) 		= 3200;
+	kp_stiff_joint_(11) 		= 3200;
+	kp_stiff_joint_(12) 		= 6000;
+	kp_stiff_joint_(13) 		= 10000;
+	kp_stiff_joint_(14) 		= 10000;
+	kp_stiff_joint_(15) 		= 400;	//left arm
+	kp_stiff_joint_(16) 		= 1000;
+	kp_stiff_joint_(17) 		= 400;
+	kp_stiff_joint_(18) 		= 400;
+	kp_stiff_joint_(19) 		= 200;
+	kp_stiff_joint_(20) 		= 10;
+	kp_stiff_joint_(21) 		= 10;
+	kp_stiff_joint_(22) 		= 10;
+	kp_stiff_joint_(23) 		= 10;	//head
+	kp_stiff_joint_(24) 		= 10;
+	kp_stiff_joint_(25) 		= 400;	//right arm
+	kp_stiff_joint_(26) 		= 1000;
+	kp_stiff_joint_(27) 		= 400;
+	kp_stiff_joint_(28) 		= 400;
+	kp_stiff_joint_(29) 		= 200;
+	kp_stiff_joint_(30) 		= 10;
+	kp_stiff_joint_(31) 		= 10;
+	kp_stiff_joint_(32) 		= 10;
+
+	kv_stiff_joint_(0) 		= 15;
+	kv_stiff_joint_(1) 		= 50;
+	kv_stiff_joint_(2) 		= 20;
+	kv_stiff_joint_(3) 		= 25;
+	kv_stiff_joint_(4) 		= 24;
+	kv_stiff_joint_(5) 		= 24;
+	kv_stiff_joint_(6) 		= 15;
+	kv_stiff_joint_(7) 		= 50;
+	kv_stiff_joint_(8) 		= 20;
+	kv_stiff_joint_(9) 		= 25;
+	kv_stiff_joint_(10) 		= 24;
+	kv_stiff_joint_(11) 		= 24;
+	kv_stiff_joint_(12) 		= 200;
+	kv_stiff_joint_(13) 		= 100;
+	kv_stiff_joint_(14) 		= 100;
+	kv_stiff_joint_(15) 		= 10;	//left arm
+	kv_stiff_joint_(16) 		= 28;
+	kv_stiff_joint_(17) 		= 10;
+	kv_stiff_joint_(18) 		= 10;
+	kv_stiff_joint_(19) 		= 5;
+	kv_stiff_joint_(20) 		= 1;
+	kv_stiff_joint_(21) 		= 1;
+	kv_stiff_joint_(22) 		= 1;
+	kv_stiff_joint_(23) 		= 1;	//head
+	kv_stiff_joint_(24) 		= 1;
+	kv_stiff_joint_(25) 		= 10;	//right arm
+	kv_stiff_joint_(26) 		= 28;
+	kv_stiff_joint_(27) 		= 10;
+	kv_stiff_joint_(28) 		= 10;
+	kv_stiff_joint_(29) 		= 5;
+	kv_stiff_joint_(30) 		= 1;
+	kv_stiff_joint_(31) 		= 1;
+	kv_stiff_joint_(32) 		= 1;
+
+	for (int i = 0; i < MODEL_DOF; i++) 
+	{
+		kp_soft_joint_(i) = kp_stiff_joint_(i)/4;
+		kp_soft_joint_(i) = kv_stiff_joint_(i)/2;
+	}
+
+	for (int i = 0; i < MODEL_DOF; i++) 
+	{
+		kp_joint_(i) = kp_stiff_joint_(i);
+		kv_joint_(i) = kv_stiff_joint_(i);
+	}
+	/////////////
 
 	///////////////////////////////
 	
@@ -819,12 +819,12 @@ void CustomController::computeSlow()
 
 		ControlVal_ = torque_task_;
 		
-		// ControlVal_.segment(0, 15).setZero();
+		ControlVal_.segment(0, 15).setZero();
 		// Vector3d temp_sh = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-5].xpos - pelv_pos_current_);
 		// Vector3d temp_elbow = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 		// Vector3d temp_hand = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-1].xpos - pelv_pos_current_);
 		
-		// printOutTextFile();
+		printOutTextFile();
 	}
 }
 
@@ -1842,23 +1842,23 @@ void CustomController::motionGenerator()
 		/////////////////////////////////////////////////////
 
 		///////////////////////HEAD/////////////////////////
-		Vector3d error_w_head = -DyrosMath::getPhi(head_transform_pre_desired_from_.linear(), master_head_pose_.linear());
-		Vector3d u_dot_head = master_head_vel_.segment(3, 3) + 50*error_w_head;
-		VectorQVQd q_desired_pre;
-		q_desired_pre.setZero();
-		q_desired_pre(39) = 1;
-		q_desired_pre.segment(6, MODEL_DOF) = pre_desired_q_;
-		MatrixXd J_temp, J_head, J_inv_head, I3;
-		J_temp.setZero(6, MODEL_DOF_VIRTUAL);
-		J_head.setZero(3, 2);
-		I3.setIdentity(3, 3);
+		// Vector3d error_w_head = -DyrosMath::getPhi(head_transform_pre_desired_from_.linear(), master_head_pose_.linear());
+		// Vector3d u_dot_head = master_head_vel_.segment(3, 3) + 50*error_w_head;
+		// VectorQVQd q_desired_pre;
+		// q_desired_pre.setZero();
+		// q_desired_pre(39) = 1;
+		// q_desired_pre.segment(6, MODEL_DOF) = pre_desired_q_;
+		// MatrixXd J_temp, J_head, J_inv_head, I3;
+		// J_temp.setZero(6, MODEL_DOF_VIRTUAL);
+		// J_head.setZero(3, 2);
+		// I3.setIdentity(3, 3);
 
-		RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Head].id, Eigen::Vector3d::Zero(), J_temp, false);
-		J_head.block(0, 0, 3, 2) = J_temp.block(0, 29, 3, 2);	//orientation
-		J_inv_head = J_head.transpose()*(J_head*J_head.transpose()+I3*0.000001).inverse();
+		// RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Head].id, Eigen::Vector3d::Zero(), J_temp, false);
+		// J_head.block(0, 0, 3, 2) = J_temp.block(0, 29, 3, 2);	//orientation
+		// J_inv_head = J_head.transpose()*(J_head*J_head.transpose()+I3*0.000001).inverse();
 
-		motion_q_dot_.segment(23, 2) =  J_inv_head*u_dot_head;
-		motion_q_.segment(23, 2) = motion_q_pre_.segment(23, 2) + motion_q_dot_.segment(23, 2)*dt_;
+		// motion_q_dot_.segment(23, 2) =  J_inv_head*u_dot_head;
+		// motion_q_.segment(23, 2) = motion_q_pre_.segment(23, 2) + motion_q_dot_.segment(23, 2)*dt_;
 
 		// cout<< "head_transform_pre_desired_from_: \n" << head_transform_pre_desired_from_.linear() <<endl;
 		// cout<< "master_head_pose_: \n" << master_head_pose_.linear() <<endl;
@@ -1869,8 +1869,8 @@ void CustomController::motionGenerator()
 		// cout<<"motion_q_(23): "<<motion_q_(23)<<endl;
 		// cout<<"motion_q_(24): "<<motion_q_(24)<<endl;
 		// motion_q_(23) = (1-turning_phase_)*init_q_(23) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1.2; //yaw
-		// motion_q_(23) = 0; //yaw
-		// motion_q_(24) = 0; //pitch
+		motion_q_(23) = 0; //yaw
+		motion_q_(24) = 0; //pitch
 		pd_control_mask_(23) = 1;
 		pd_control_mask_(24) = 1;
 		/////////////////////////////////////////////////////
@@ -2418,8 +2418,8 @@ void CustomController::motionRetargeting_QPIK_larm()
 
 	for (int i=0; i< 3; i++) //position velocity limit
 	{
-		lbA(i) = -10;
-		ubA(i) = 10;
+		lbA(i) = -0.5;
+		ubA(i) = 0.5;
 	}
 
 	for (int i=3; i< 6; i++)	//angular velocity limit
@@ -2664,8 +2664,8 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	
 	for (int i=0; i< 3; i++) //position velocity limit
 	{
-		lbA(i) = -10;
-		ubA(i) = 10;
+		lbA(i) = -0.5;
+		ubA(i) = 0.5;
 	}
 
 	for (int i=3; i< 6; i++)	//angular velocity limit
@@ -5815,6 +5815,7 @@ void CustomController::printOutTextFile()
 
 		file[6]
 		<<lhand_transform_current_from_global_.translation()(0)<<"\t"<<lhand_transform_current_from_global_.translation()(1)<<"\t"<<lhand_transform_current_from_global_.translation()(2)<<"\t"<<rhand_transform_current_from_global_.translation()(0)<<"\t"<<rhand_transform_current_from_global_.translation()(1)<<"\t"<<rhand_transform_current_from_global_.translation()(2)<<"\t"
+		<<lhand_transform_pre_desired_from_.translation()(0)<<"\t"<<lhand_transform_pre_desired_from_.translation()(1)<<"\t"<<lhand_transform_pre_desired_from_.translation()(2)<<"\t"<<rhand_transform_pre_desired_from_.translation()(0)<<"\t"<<rhand_transform_pre_desired_from_.translation()(1)<<"\t"<<rhand_transform_pre_desired_from_.translation()(2)<<"\t"
 		<<lhand_rpy_current_from_global_(0)<<"\t"<<lhand_rpy_current_from_global_(1)<<"\t"<<lhand_rpy_current_from_global_(2)<<"\t"<<rhand_rpy_current_from_global_(0)<<"\t"<<rhand_rpy_current_from_global_(1)<<"\t"<<rhand_rpy_current_from_global_(2)<<"\t"
 		<<lhand_vel_current_from_global_(0)<<"\t"<<lhand_vel_current_from_global_(1)<<"\t"<<lhand_vel_current_from_global_(2)<<"\t"<<rhand_vel_current_from_global_(0)<<"\t"<<rhand_vel_current_from_global_(1)<<"\t"<<rhand_vel_current_from_global_(2)<<endl;
 
