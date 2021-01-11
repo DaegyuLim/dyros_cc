@@ -317,20 +317,20 @@ void CustomController::setGains()
 	kp_stiff_joint_(16) 		= 1000;
 	kp_stiff_joint_(17) 		= 400;
 	kp_stiff_joint_(18) 		= 400;
-	kp_stiff_joint_(19) 		= 200;
-	kp_stiff_joint_(20) 		= 10;
-	kp_stiff_joint_(21) 		= 10;
-	kp_stiff_joint_(22) 		= 10;
+	kp_stiff_joint_(19) 		= 250;
+	kp_stiff_joint_(20) 		= 250;
+	kp_stiff_joint_(21) 		= 50;
+	kp_stiff_joint_(22) 		= 50;
 	kp_stiff_joint_(23) 		= 10;	//head
 	kp_stiff_joint_(24) 		= 10;
 	kp_stiff_joint_(25) 		= 400;	//right arm
 	kp_stiff_joint_(26) 		= 1000;
 	kp_stiff_joint_(27) 		= 400;
 	kp_stiff_joint_(28) 		= 400;
-	kp_stiff_joint_(29) 		= 200;
-	kp_stiff_joint_(30) 		= 10;
-	kp_stiff_joint_(31) 		= 10;
-	kp_stiff_joint_(32) 		= 10;
+	kp_stiff_joint_(29) 		= 250;
+	kp_stiff_joint_(30) 		= 250;
+	kp_stiff_joint_(31) 		= 50;
+	kp_stiff_joint_(32) 		= 50;
 
 	kv_stiff_joint_(0) 		= 15;
 	kv_stiff_joint_(1) 		= 50;
@@ -352,9 +352,9 @@ void CustomController::setGains()
 	kv_stiff_joint_(17) 		= 10;
 	kv_stiff_joint_(18) 		= 10;
 	kv_stiff_joint_(19) 		= 5;
-	kv_stiff_joint_(20) 		= 1;
-	kv_stiff_joint_(21) 		= 1;
-	kv_stiff_joint_(22) 		= 1;
+	kv_stiff_joint_(20) 		= 2;
+	kv_stiff_joint_(21) 		= 2;
+	kv_stiff_joint_(22) 		= 2;
 	kv_stiff_joint_(23) 		= 1;	//head
 	kv_stiff_joint_(24) 		= 1;
 	kv_stiff_joint_(25) 		= 10;	//right arm
@@ -362,9 +362,9 @@ void CustomController::setGains()
 	kv_stiff_joint_(27) 		= 10;
 	kv_stiff_joint_(28) 		= 10;
 	kv_stiff_joint_(29) 		= 5;
-	kv_stiff_joint_(30) 		= 1;
-	kv_stiff_joint_(31) 		= 1;
-	kv_stiff_joint_(32) 		= 1;
+	kv_stiff_joint_(30) 		= 2;
+	kv_stiff_joint_(31) 		= 2;
+	kv_stiff_joint_(32) 		= 2;
 
 	for (int i = 0; i < MODEL_DOF; i++) 
 	{
@@ -797,12 +797,38 @@ void CustomController::computeSlow()
 
 		if( (current_time_ ) >=  program_start_time_ + program_ready_duration_ )
 		{
-			torque_task_ = torque_task_ + comVelocityControlCompute(wbc_); 								//support chain control for COM velocity and pelvis orientation
-			torque_task_ = torque_task_ + swingFootControlCompute(wbc_);									//swing foot control
-			torque_task_ = torque_task_ + jointTrajectoryPDControlCompute(wbc_); 							//upper body motion + joint damping control
-			torque_task_ = torque_task_ + dampingControlCompute(wbc_);									
-			torque_task_ = torque_task_ + jointLimit();
+			torque_task_ += comVelocityControlCompute(wbc_); 								//support chain control for COM velocity and pelvis orientation
+			torque_task_ += swingFootControlCompute(wbc_);									//swing foot control
+			torque_task_ += jointTrajectoryPDControlCompute(wbc_); 							//upper body motion + joint damping control
+			torque_task_ += dampingControlCompute(wbc_);									
+			torque_task_ += jointLimit();
 		}
+
+		//CoM pos & pelv orientation control
+		wbc_.set_contact(rd_, 1, 1);
+
+		int task_number = 6;
+		rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
+		rd_.f_star.setZero(task_number);
+
+		rd_.J_task = rd_.link_[COM_id].Jac;
+
+		rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
+		rd_.link_[COM_id].x_desired(2) = tc.height;
+		rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
+
+		rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
+		rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
+
+		rd_.f_star = wbc_.getfstar6d(rd_, COM_id);
+		//tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
+		//torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
+		Eigen::VectorQd torque_com_control;
+		torque_com_control = wbc_.task_control_torque_hqp_step(rd_, rd_.J_task, rd_.f_star);
+		rd_.contact_redistribution_mode = 2;
+
+		torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
+		////////////////////////////////////////
 
 		savePreData();
 
@@ -1709,14 +1735,14 @@ void CustomController::motionGenerator()
 
 		///////////////////////ARM/////////////////////////
 		//////LEFT ARM///////0.3 0.3 1.5 -1.27 -1 0 -1 0
-		motion_q_(15) = 0.3;
-		motion_q_(16) = 0.3;
-		motion_q_(17) = 1.5;
-		motion_q_(18) = -1.27; 
-		motion_q_(19) = -1.0; //elbow
-		motion_q_(20) = 0.0;
-		motion_q_(21) = -1.0;
-		motion_q_(22) = 0.0;
+		motion_q_(15) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(15), 0.3, 0, 0);
+		motion_q_(16) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(16), 0.3, 0, 0);
+		motion_q_(17) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(17), 1.5, 0, 0);
+		motion_q_(18) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(18), -1.27, 0, 0); 
+		motion_q_(19) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(19), -1.0, 0, 0); //elbow
+		motion_q_(20) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(20), 0.0, 0, 0);
+		motion_q_(21) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(21), -1.0, 0, 0);
+		motion_q_(22) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(22), 0.0, 0, 0);
 		pd_control_mask_(15) = 1;
 		pd_control_mask_(16) = 1;
 		pd_control_mask_(17) = 1;
@@ -1727,14 +1753,14 @@ void CustomController::motionGenerator()
 		pd_control_mask_(22) = 1;
 		//////////////////////
 		/////RIFHT ARM////////-0.3 -0.3 -1.5 1.27 1 0 1 0
-		motion_q_(25) = -0.3;
-		motion_q_(26) = -0.3;
-		motion_q_(27) = -1.5;
-		motion_q_(28) = 1.27;
-		motion_q_(29) = 1.0;	//elbow
-		motion_q_(30) = 0.0;
-		motion_q_(31) = 1.0;
-		motion_q_(32) = 0.0;
+		motion_q_(25) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(25), -0.3, 0, 0);
+		motion_q_(26) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(26), -0.3, 0, 0);
+		motion_q_(27) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(27), -1.5, 0, 0);
+		motion_q_(28) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(28), 1.27, 0, 0); 
+		motion_q_(29) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(29), 1.0, 0, 0); //elbow
+		motion_q_(30) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(30), 0.0, 0, 0);
+		motion_q_(31) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(31), 1.0, 0, 0);
+		motion_q_(32) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_+3, init_q_(32), 0.0, 0, 0);
 		pd_control_mask_(25) = 1;
 		pd_control_mask_(26) = 1;
 		pd_control_mask_(27) = 1;
