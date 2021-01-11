@@ -797,12 +797,38 @@ void CustomController::computeSlow()
 
 		if( (current_time_ ) >=  program_start_time_ + program_ready_duration_ )
 		{
-			torque_task_ = torque_task_ + comVelocityControlCompute(wbc_); 								//support chain control for COM velocity and pelvis orientation
-			torque_task_ = torque_task_ + swingFootControlCompute(wbc_);									//swing foot control
-			torque_task_ = torque_task_ + jointTrajectoryPDControlCompute(wbc_); 							//upper body motion + joint damping control
-			torque_task_ = torque_task_ + dampingControlCompute(wbc_);									
-			torque_task_ = torque_task_ + jointLimit();
+			torque_task_ += comVelocityControlCompute(wbc_); 								//support chain control for COM velocity and pelvis orientation
+			torque_task_ += swingFootControlCompute(wbc_);									//swing foot control
+			torque_task_ += jointTrajectoryPDControlCompute(wbc_); 							//upper body motion + joint damping control
+			torque_task_ += dampingControlCompute(wbc_);									
+			torque_task_ += jointLimit();
 		}
+
+		//CoM pos & pelv orientation control
+		wbc_.set_contact(rd_, 1, 1);
+
+		int task_number = 6;
+		rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
+		rd_.f_star.setZero(task_number);
+
+		rd_.J_task = rd_.link_[COM_id].Jac;
+
+		rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
+		rd_.link_[COM_id].x_desired(2) = tc.height;
+		rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
+
+		rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
+		rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time, false);
+
+		rd_.f_star = wbc_.getfstar6d(rd_, COM_id);
+		//tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
+		//torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
+		Eigen::VectorQd torque_com_control;
+		torque_com_control = wbc_.task_control_torque_hqp_step(rd_, rd_.J_task, rd_.f_star);
+		rd_.contact_redistribution_mode = 2;
+
+		torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
+		////////////////////////////////////////
 
 		savePreData();
 
