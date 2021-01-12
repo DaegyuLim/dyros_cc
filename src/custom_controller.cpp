@@ -819,7 +819,8 @@ void CustomController::computeSlow()
 		// rd_.link_[COM_id].x_desired(2) = tc.height;
 		rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
 
-		rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
+		// rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
+		rd_.link_[COM_id].rot_desired = pelv_yaw_rot_current_from_global_;
 		rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
 
 		rd_.f_star.segment(0, 2) = wbc_.getfstar6d(rd_, COM_id).segment(0, 2);
