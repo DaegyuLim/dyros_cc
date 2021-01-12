@@ -805,29 +805,29 @@ void CustomController::computeSlow()
 		}
 
 		//CoM pos & pelv orientation control
-		wbc_.set_contact(rd_, 1, 1);
+		// wbc_.set_contact(rd_, 1, 1);
 
-		int task_number = 6;
-		rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
-		rd_.f_star.setZero(task_number);
+		// int task_number = 6;
+		// rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
+		// rd_.f_star.setZero(task_number);
 
-		rd_.J_task = rd_.link_[COM_id].Jac;
+		// rd_.J_task = rd_.link_[COM_id].Jac;
 
-		rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
-		rd_.link_[COM_id].x_desired(2) = tc.height;
-		rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
+		// rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
+		// rd_.link_[COM_id].x_desired(2) = tc.height;
+		// rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
 
-		rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
-		rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
+		// rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
+		// rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
 
-		rd_.f_star = wbc_.getfstar6d(rd_, COM_id);
-		//tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
-		//torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
-		Eigen::VectorQd torque_com_control;
-		torque_com_control = wbc_.task_control_torque_hqp_step(rd_, rd_.J_task, rd_.f_star);
-		rd_.contact_redistribution_mode = 2;
+		// rd_.f_star = wbc_.getfstar6d(rd_, COM_id);
+		// //tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
+		// //torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
+		// Eigen::VectorQd torque_com_control;
+		// torque_com_control = wbc_.task_control_torque_hqp_step(rd_, rd_.J_task, rd_.f_star);
+		// rd_.contact_redistribution_mode = 2;
 
-		torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
+		// torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
 		////////////////////////////////////////
 
 		savePreData();
@@ -1868,23 +1868,23 @@ void CustomController::motionGenerator()
 		/////////////////////////////////////////////////////
 
 		///////////////////////HEAD/////////////////////////
-		// Vector3d error_w_head = -DyrosMath::getPhi(head_transform_pre_desired_from_.linear(), master_head_pose_.linear());
-		// Vector3d u_dot_head = master_head_vel_.segment(3, 3) + 50*error_w_head;
-		// VectorQVQd q_desired_pre;
-		// q_desired_pre.setZero();
-		// q_desired_pre(39) = 1;
-		// q_desired_pre.segment(6, MODEL_DOF) = pre_desired_q_;
-		// MatrixXd J_temp, J_head, J_inv_head, I3;
-		// J_temp.setZero(6, MODEL_DOF_VIRTUAL);
-		// J_head.setZero(3, 2);
-		// I3.setIdentity(3, 3);
+		Vector3d error_w_head = -DyrosMath::getPhi(head_transform_pre_desired_from_.linear(), master_head_pose_.linear());
+		Vector3d u_dot_head = master_head_vel_.segment(3, 3) + 50*error_w_head;
+		VectorQVQd q_desired_pre;
+		q_desired_pre.setZero();
+		q_desired_pre(39) = 1;
+		q_desired_pre.segment(6, MODEL_DOF) = pre_desired_q_;
+		MatrixXd J_temp, J_head, J_inv_head, I3;
+		J_temp.setZero(6, MODEL_DOF_VIRTUAL);
+		J_head.setZero(3, 2);
+		I3.setIdentity(3, 3);
 
-		// RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Head].id, Eigen::Vector3d::Zero(), J_temp, false);
-		// J_head.block(0, 0, 3, 2) = J_temp.block(0, 29, 3, 2);	//orientation
-		// J_inv_head = J_head.transpose()*(J_head*J_head.transpose()+I3*0.000001).inverse();
+		RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Head].id, Eigen::Vector3d::Zero(), J_temp, false);
+		J_head.block(0, 0, 3, 2) = J_temp.block(0, 29, 3, 2);	//orientation
+		J_inv_head = J_head.transpose()*(J_head*J_head.transpose()+I3*0.000001).inverse();
 
-		// motion_q_dot_.segment(23, 2) =  J_inv_head*u_dot_head;
-		// motion_q_.segment(23, 2) = motion_q_pre_.segment(23, 2) + motion_q_dot_.segment(23, 2)*dt_;
+		motion_q_dot_.segment(23, 2) =  J_inv_head*u_dot_head;
+		motion_q_.segment(23, 2) = motion_q_pre_.segment(23, 2) + motion_q_dot_.segment(23, 2)*dt_;
 
 		// cout<< "head_transform_pre_desired_from_: \n" << head_transform_pre_desired_from_.linear() <<endl;
 		// cout<< "master_head_pose_: \n" << master_head_pose_.linear() <<endl;
@@ -1895,8 +1895,8 @@ void CustomController::motionGenerator()
 		// cout<<"motion_q_(23): "<<motion_q_(23)<<endl;
 		// cout<<"motion_q_(24): "<<motion_q_(24)<<endl;
 		// motion_q_(23) = (1-turning_phase_)*init_q_(23) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1.2; //yaw
-		motion_q_(23) = 0; //yaw
-		motion_q_(24) = 0; //pitch
+		// motion_q_(23) = 0; //yaw
+		// motion_q_(24) = 0; //pitch
 		pd_control_mask_(23) = 1;
 		pd_control_mask_(24) = 1;
 		/////////////////////////////////////////////////////
