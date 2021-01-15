@@ -324,7 +324,7 @@ void CustomController::setGains()
 	kp_stiff_joint_(23) 		= 10;		//head
 	kp_stiff_joint_(24) 		= 10;
 	kp_stiff_joint_(25) 		= 400;		//right arm
-	kp_stiff_joint_(26) 		= 1000;
+	kp_stiff_joint_(26) 		= 800;
 	kp_stiff_joint_(27) 		= 400;
 	kp_stiff_joint_(28) 		= 400;
 	kp_stiff_joint_(29) 		= 250;
@@ -358,10 +358,10 @@ void CustomController::setGains()
 	kv_stiff_joint_(23) 		= 1;		//head
 	kv_stiff_joint_(24) 		= 1;		
 	kv_stiff_joint_(25) 		= 10;		//right arm
-	kv_stiff_joint_(26) 		= 28;
+	kv_stiff_joint_(26) 		= 12;
 	kv_stiff_joint_(27) 		= 10;
 	kv_stiff_joint_(28) 		= 10;
-	kv_stiff_joint_(29) 		= 5;
+	kv_stiff_joint_(29) 		= 2.5;
 	kv_stiff_joint_(30) 		= 2;
 	kv_stiff_joint_(31) 		= 2;
 	kv_stiff_joint_(32) 		= 2;
@@ -799,41 +799,52 @@ void CustomController::computeSlow()
 		if( (current_time_ ) >=  program_start_time_ + program_ready_duration_ )
 		{
 			torque_task_ += comVelocityControlCompute(wbc_); 								//support chain control for COM velocity and pelvis orientation
+			// if( int(current_time_*10000)%1000 == 0 )
+				// cout<<"torque_task_(12) 1st: " << torque_task_(13) << endl;
 			torque_task_ += swingFootControlCompute(wbc_);									//swing foot control
+			// if( int(current_time_*10000)%1000 == 0 )
+				// cout<<"torque_task_(12) 2nd: " << torque_task_(13) << endl;
 			torque_task_ += jointTrajectoryPDControlCompute(wbc_); 							//upper body motion + joint damping control
-			torque_task_ += dampingControlCompute(wbc_);									
-			torque_task_ += jointLimit();
+			// if( int(current_time_*10000)%1000 == 0 )
+				// cout<<"torque_task_(12) 3rd: " << torque_task_(13) << endl;
+			// torque_task_ += dampingControlCompute(wbc_);									
+			// if( int(current_time_*10000)%1000 == 0 )
+			// 	cout<<"torque_task_(12) 4th: " << torque_task_(13) << endl;
+			// torque_task_ += jointLimit();
+			// if( int(current_time_*10000)%1000 == 0 )
+			// 	cout<<"torque_task_(12) 5th: " << torque_task_(13) << endl;
 		}
 
 		// //CoM pos & pelv orientation control
-		// wbc_.set_contact(rd_, 1, 1);
+		wbc_.set_contact(rd_, 1, 1);
 
-		// int task_number = 6;	//CoM is not controlled in z direction 
-		// rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
-		// rd_.f_star.setZero(task_number);
+		int task_number = 6;	//CoM is not controlled in z direction 
+		rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
+		rd_.f_star.setZero(task_number);
 
-		// rd_.J_task = rd_.link_[COM_id].Jac;
-		// // rd_.J_task.block(0, 0, 2, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac.block(0, 0, 2, MODEL_DOF_VIRTUAL);
-		// // rd_.J_task.block(2, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac.block(3, 0, 3, MODEL_DOF_VIRTUAL);
+		rd_.J_task = rd_.link_[COM_id].Jac;
+		//rd_.J_task.block(2, 0, 1, MODEL_DOF_VIRTUAL) = rd_.link_[Pelvis].Jac.block(2, 0, 1, MODEL_DOF_VIRTUAL);
+		
+		// rd_.J_task.block(2, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac.block(3, 0, 3, MODEL_DOF_VIRTUAL);
 
-		// rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
-		// rd_.link_[COM_id].x_desired(2) = tc.height;
-		// rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
+		rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
+		rd_.link_[COM_id].x_desired(2) = tc.height;
+		rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
 
-		// // rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
+		rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
 		// rd_.link_[COM_id].rot_desired = pelv_yaw_rot_current_from_global_;
-		// rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
+		rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
+		
+		rd_.f_star = wbc_.getfstar6d(rd_, COM_id);
+		// rd_.f_star.segment(0, 2) = wbc_.getfstar6d(rd_, COM_id).segment(0, 2);
+		// rd_.f_star.segment(2, 3) = wbc_.getfstar6d(rd_, COM_id).segment(3, 3);
+		//tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
+		//torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
+		Eigen::VectorQd torque_com_control;
+		torque_com_control = wbc_.task_control_torque_with_gravity(rd_, rd_.J_task, rd_.f_star);
+		rd_.contact_redistribution_mode = 0;
 
-		// rd_.f_star = wbc_.getfstar6d(rd_, COM_id);
-		// // rd_.f_star.segment(0, 2) = wbc_.getfstar6d(rd_, COM_id).segment(0, 2);
-		// // rd_.f_star.segment(2, 3) = wbc_.getfstar6d(rd_, COM_id).segment(3, 3);
-		// //tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
-		// //torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
-		// Eigen::VectorQd torque_com_control;
-		// torque_com_control = wbc_.task_control_torque_hqp_step(rd_, rd_.J_task, rd_.f_star);
-		// rd_.contact_redistribution_mode = 2;
-
-		// torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
+		torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
 		// torque_task_(3) = (kp_joint_(3) * (desired_q_(3) - current_q_(3)) + kv_joint_(3) * (desired_q_dot_(3) - current_q_dot_(3)));
 		// torque_task_(9) = (kp_joint_(9) * (desired_q_(9) - current_q_(9)) + kv_joint_(9) * (desired_q_dot_(9) - current_q_dot_(9)));
 		////////////////////////////////////////
@@ -848,12 +859,22 @@ void CustomController::computeSlow()
 		///////////////////////////////////////////////////////////////////////////
         
 		//////////////////////////////FALLING//////////////////////////////
-		fallDetection();
+		// fallDetection();
 		///////////////////////////////////////////////////////////////////
 
 		ControlVal_ = torque_task_;
-		
-		ControlVal_.segment(0, 15).setZero();
+		// if( int(current_time_*10000)%1000 == 0 )
+		// {
+		// 	cout<<"torque_task_(12): "<<torque_task_(12)<<endl;
+		// 	cout<<"torque_task_(13): "<<torque_task_(13)<<endl;
+		// 	cout<<"torque_task_(14): "<<torque_task_(14)<<endl;
+		// 	cout<<"desired_q_(12): "<<desired_q_(12)<<endl;
+		// 	cout<<"desired_q_(13): "<<desired_q_(13)<<endl;
+		// 	cout<<"desired_q_(14): "<<desired_q_(14)<<endl;
+		// }
+
+
+		// ControlVal_.setZero();
 		// Vector3d temp_sh = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-5].xpos - pelv_pos_current_);
 		// Vector3d temp_elbow = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 		// Vector3d temp_hand = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-1].xpos - pelv_pos_current_);
@@ -3505,6 +3526,7 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	//         wc.set_contact(rd_, 0, 1);
 	//     }
 	// }
+	// wbc_.set_contact(rd_, 1, 1);
 	torque_g_.setZero();
 	torque_g_ = wbc.gravity_compensation_torque(rd_, true);
 
@@ -3773,7 +3795,7 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 	// if( int(walking_duration_*100)%10 == 0 )
 	// cout<<"walking_phase_: \n"<<walking_phase_<<endl;
 	// torque += torque_l_vel_tun * lfoot_task_torque_switch + torque_r_vel_tun * rfoot_task_torque_switch;
-	torque += torque_l_vel_tun + torque_r_vel_tun;
+	// torque += torque_l_vel_tun + torque_r_vel_tun;
 	// torque(0) =0;
 	// torque(6) =0;
 	/////////////////////////////////////////////////////////////////
