@@ -390,6 +390,7 @@ void CustomController::setGains()
     // joint_limit_h_ <<  1.54,  M_PI/2,  1.9199,  M_PI*2/3, -0.15,  M_PI*2,  M_PI/2,  2.094,  2.09,  M_PI,  1.9199,  M_PI*2/3,     2.8,  M_PI*2,  M_PI/2,  2.094;
 	joint_limit_l_ << -2.09, -M_PI, -1.9199, -M_PI, -2.7, -M_PI, -M_PI/2, -2.094, 		-1.54, -M_PI, -1.9199, 	-M_PI, 	0.2, -M_PI, -M_PI/2, -2.094;
     joint_limit_h_ <<  1.54,  M_PI,  1.9199,  M_PI, -0.2,  M_PI,  M_PI/2,  2.094,  		2.09,  M_PI,  1.9199,  	M_PI,  	2.7,  M_PI,  M_PI/2,  2.094;
+	
 	for(int i = 0; i<16; i++)
 	{
 		joint_limit_l_(i) = joint_limit_l_(i) + 0.05;
@@ -787,7 +788,7 @@ void CustomController::computeSlow()
 		walkingStateManager();
 		getProcessedRobotData(wbc_);	
 		
-		foot_swing_trigger_ = false;	//stay
+		// foot_swing_trigger_ = false;	//stay
 
 		//motion planing and control//
 		motionGenerator();
@@ -805,36 +806,36 @@ void CustomController::computeSlow()
 			torque_task_ += jointLimit();
 		}
 
-		//CoM pos & pelv orientation control
-		wbc_.set_contact(rd_, 1, 1);
+		///////////////CoM pos & pelv orientation control///////////////////
+		// wbc_.set_contact(rd_, 1, 1);
 
-		int task_number = 5;	//CoM is not controlled in z direction 
-		rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
-		rd_.f_star.setZero(task_number);
+		// int task_number = 5;	//CoM is not controlled in z direction 
+		// rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
+		// rd_.f_star.setZero(task_number);
 
-		rd_.J_task.block(0, 0, 2, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac.block(0, 0, 2, MODEL_DOF_VIRTUAL);
-		rd_.J_task.block(2, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac.block(3, 0, 3, MODEL_DOF_VIRTUAL);
+		// rd_.J_task.block(0, 0, 2, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac.block(0, 0, 2, MODEL_DOF_VIRTUAL);
+		// rd_.J_task.block(2, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac.block(3, 0, 3, MODEL_DOF_VIRTUAL);
 
-		rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
-		// rd_.link_[COM_id].x_desired(2) = tc.height;
-		rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
+		// rd_.link_[COM_id].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
+		// // rd_.link_[COM_id].x_desired(2) = tc.height;
+		// rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + 3);
 
-		// rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
-		rd_.link_[COM_id].rot_desired = pelv_yaw_rot_current_from_global_;
-		rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
+		// // rd_.link_[COM_id].rot_desired = Matrix3d::Identity();
+		// rd_.link_[COM_id].rot_desired = pelv_yaw_rot_current_from_global_;
+		// rd_.link_[COM_id].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + 3, false);
 
-		rd_.f_star.segment(0, 2) = wbc_.getfstar6d(rd_, COM_id).segment(0, 2);
-		rd_.f_star.segment(2, 3) = wbc_.getfstar6d(rd_, COM_id).segment(3, 3);
-		//tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
-		//torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
-		Eigen::VectorQd torque_com_control;
-		torque_com_control = wbc_.task_control_torque_hqp_step(rd_, rd_.J_task, rd_.f_star);
-		rd_.contact_redistribution_mode = 2;
+		// rd_.f_star.segment(0, 2) = wbc_.getfstar6d(rd_, COM_id).segment(0, 2);
+		// rd_.f_star.segment(2, 3) = wbc_.getfstar6d(rd_, COM_id).segment(3, 3);
+		// //tocabi_.f_star.segment(0, 2) = wbc_.fstar_regulation(tocabi_, tocabi_.f_star.segment(0, 3));
+		// //torque_task = wbc_.task_control_torque(tocabi_, tocabi_.J_task, tocabi_.f_star, tc.solver);
+		// Eigen::VectorQd torque_com_control;
+		// torque_com_control = wbc_.task_control_torque_hqp_step(rd_, rd_.J_task, rd_.f_star);
+		// rd_.contact_redistribution_mode = 2;
 
-		torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
-		torque_task_(3) = (kp_joint_(3) * (desired_q_(3) - current_q_(3)) + kv_joint_(3) * (desired_q_dot_(3) - current_q_dot_(3)));
-		torque_task_(9) = (kp_joint_(9) * (desired_q_(9) - current_q_(9)) + kv_joint_(9) * (desired_q_dot_(9) - current_q_dot_(9)));
-		////////////////////////////////////////
+		// torque_task_.segment(0, 12) = torque_com_control.segment(0, 12);
+		// torque_task_(3) = (kp_joint_(3) * (desired_q_(3) - current_q_(3)) + kv_joint_(3) * (desired_q_dot_(3) - current_q_dot_(3)));
+		// torque_task_(9) = (kp_joint_(9) * (desired_q_(9) - current_q_(9)) + kv_joint_(9) * (desired_q_dot_(9) - current_q_dot_(9)));
+		/////////////////////////////////////////////////////////////////////
 
 		savePreData();
 
@@ -2371,7 +2372,8 @@ void CustomController::motionRetargeting_QPIK_larm()
 	
 	for(int i = 0; i<3; i++)
 	{
-		u_dot_lhand(i) = master_lhand_vel_(i) + 200*(1-hand_relative_p_gain*0.9)*error_v_lhand(i) + 400*hand_relative_p_gain*error_v_lhand_rel(i);	
+		// u_dot_lhand(i) = master_lhand_vel_(i) + 200*(1-hand_relative_p_gain*0.9)*error_v_lhand(i) + 400*hand_relative_p_gain*error_v_lhand_rel(i);	
+		u_dot_lhand(i) = master_lhand_vel_(i) + 200*error_v_lhand(i);	
 		u_dot_lhand(i+3) = master_lhand_vel_(i+3) + 50*error_w_lhand(i);
 
 		// u_dot_lelbow(i) = master_lelbow_vel_(i) + 250*error_v_lelbow(i);
@@ -3355,7 +3357,7 @@ void CustomController::getSwingFootXYTrajectory(double phase, Eigen::Vector3d co
 
 		if (d_temp_x<0) d_temp_x = 0;
 
-		d_temp_x = sqrt(d_temp_x);
+		d_temp_x = sqrt(d_temp_x); 
 
 		d(0) = com_vel_current(0) * d_temp_x;
 
@@ -3762,6 +3764,7 @@ Eigen::VectorQd CustomController::comVelocityControlCompute(WholebodyController 
 
 	torque_g_.segment(0, 6) = torque_g_.segment(0, 6) * lfoot_torque_g_switch;
 	torque_g_.segment(6, 6) = torque_g_.segment(6, 6) * rfoot_torque_g_switch;
+	
 	torque_g_.segment(12, 3).setZero();
 	// if( int(walking_duration_*100)%10 == 0 )
 	// cout<<"walking_phase_: \n"<<walking_phase_<<endl;
