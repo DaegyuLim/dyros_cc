@@ -4,6 +4,7 @@
 #include <std_msgs/Float32MultiArray.h>
 #include "VR/matrix_3_4.h"
 #include <geometry_msgs/PoseArray.h>
+#include <visualization_msgs/MarkerArray.h>
 
 const int FILE_CNT = 12;
 
@@ -62,12 +63,13 @@ public:
     Eigen::VectorQd jointTrajectoryPDControlCompute(WholebodyController &wbc);
     Eigen::VectorQd dampingControlCompute(WholebodyController &wbc);
     Eigen::VectorQd jointLimit(); 
+    Eigen::VectorQd ikBalanceControlCompute(WholebodyController &wbc);
 
     bool balanceTrigger(Eigen::Vector2d com_pos_2d, Eigen::Vector2d com_vel_2d);
     int checkZMPinWhichFoot(Eigen::Vector2d zmp_measured); // check where the zmp is
     Eigen::VectorQd tuneTorqueForZMPSafety(Eigen::VectorQd task_torque); // check where the zmp is
-    Eigen::VectorQd zmpAnkleControl();
-    Eigen::VectorQd jointComTrackingTuning();
+    // Eigen::VectorQd zmpAnkleControl();
+    // Eigen::VectorQd jointComTrackingTuning();
     void fallDetection();
 
     //motion control
@@ -77,7 +79,8 @@ public:
     void motionRetargeting_QPIK_rarm();
     void rawMasterPoseProcessing();
     void exoSuitRawDataProcessing();
-    
+    void azureKinectRawDataProcessing();
+
     //preview related functions
     void getComTrajectory_Preview();
     void modifiedPreviewControl_MJ();
@@ -117,7 +120,7 @@ public:
     ros::Subscriber right_controller_posture_sub;
 
     ros::Subscriber exo_suit_sub;
-
+    ros::Subscriber azure_kinect_sub;
 
     void WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg);
 
@@ -142,6 +145,8 @@ public:
     void RightControllerCallback(const VR::matrix_3_4 &msg);
     void HmdCallback(const VR::matrix_3_4 &msg);
     void ExosuitCallback(const geometry_msgs::PoseArray &msg);
+
+    void AzureKinectCallback(const visualization_msgs::MarkerArray &msg);
 
     RigidBodyDynamics::Model model_d_;
 
@@ -323,6 +328,9 @@ public:
 
     Eigen::MatrixXd lfoot_to_com_jac_from_global_;
 	Eigen::MatrixXd rfoot_to_com_jac_from_global_;
+    
+    Eigen::Isometry3d rfoot_transform_start_from_global_;
+    Eigen::Isometry3d lfoot_transform_start_from_global_;
 
     Eigen::Isometry3d upperbody_transform_init_from_global_;
     Eigen::Isometry3d head_transform_init_from_global_;
@@ -568,6 +576,12 @@ public:
     Eigen::Vector3d master_relative_lhand_pos_pre_;
     Eigen::Vector3d master_relative_rhand_pos_pre_;
 
+    double robot_arm_max_l_;
+    double robot_upperarm_max_l_;
+    double robot_lowerarm_max_l_;
+    double robot_shoulder_width_;
+
+    ////////////EXOSUIT////////////
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;
 
@@ -576,11 +590,6 @@ public:
     double exo_lelbow_max_l_;
     double exo_relbow_max_l_;
     double exo_shoulder_width_;
-
-    double robot_arm_max_l_;
-    double robot_upperarm_max_l_;
-    double robot_lowerarm_max_l_;
-    double robot_shoulder_width_;
 
     Eigen::Vector3d exo_suit_head_pos_raw_;   
     Eigen::Vector3d exo_suit_lshoulder_pos_raw_;
@@ -592,6 +601,7 @@ public:
     Eigen::Vector3d exo_suit_rlowerarm_pos_raw_;
     Eigen::Vector3d exo_suit_rhand_pos_raw_;
     Eigen::Vector3d exo_suit_pelv_pos_raw_;
+    Eigen::Vector3d exo_suit_upperbody_pos_raw_;
 
     Eigen::Quaterniond exo_suit_head_q_raw_;   
     Eigen::Quaterniond exo_suit_lshoulder_q_raw_;
@@ -603,6 +613,7 @@ public:
     Eigen::Quaterniond exo_suit_rlowerarm_q_raw_;
     Eigen::Quaterniond exo_suit_rhand_q_raw_;
     Eigen::Quaterniond exo_suit_pelv_q_raw_;
+    Eigen::Quaterniond exo_suit_upperbody_q_raw_;
 
     Eigen::Isometry3d exo_suit_head_pose_;   
     Eigen::Isometry3d exo_suit_lshoulder_pose_;
@@ -637,6 +648,75 @@ public:
     Eigen::Vector3d exo2robot_rhand_pos_mapping_init_;
     Eigen::Vector3d exo2robot_lelbow_pos_mapping_init_;
     Eigen::Vector3d exo2robot_relbow_pos_mapping_init_;
+    //////////////////////////////////
+    ////////////AZURE KINECT////////////
+    bool azure_kinect_init_pose_calibration_;
+    double azure_kinect_init_pose_cali_time_;
+
+    double kinect_larm_max_l_;
+    double kinect_rarm_max_l_;
+    double kinect_lelbow_max_l_;
+    double kinect_relbow_max_l_;
+    double kinect_shoulder_width_;
+
+    Eigen::Vector3d azure_kinect_head_pos_raw_;   
+    Eigen::Vector3d azure_kinect_lshoulder_pos_raw_;
+    Eigen::Vector3d azure_kinect_lelbow_pos_raw_;
+    Eigen::Vector3d azure_kinect_lwrist_pos_raw_;
+    Eigen::Vector3d azure_kinect_lhand_pos_raw_;
+    Eigen::Vector3d azure_kinect_rshoulder_pos_raw_;
+    Eigen::Vector3d azure_kinect_relbow_pos_raw_;
+    Eigen::Vector3d azure_kinect_rwrist_pos_raw_;
+    Eigen::Vector3d azure_kinect_rhand_pos_raw_;
+    Eigen::Vector3d azure_kinect_pelv_pos_raw_;
+    Eigen::Vector3d azure_kinect_upperbody_pos_raw_;
+
+    Eigen::Quaterniond azure_kinect_head_q_raw_;   
+    Eigen::Quaterniond azure_kinect_lshoulder_q_raw_;
+    Eigen::Quaterniond azure_kinect_lelbow_q_raw_;
+    Eigen::Quaterniond azure_kinect_lwrist_q_raw_;
+    Eigen::Quaterniond azure_kinect_lhand_q_raw_;
+    Eigen::Quaterniond azure_kinect_rshoulder_q_raw_;
+    Eigen::Quaterniond azure_kinect_relbow_q_raw_;
+    Eigen::Quaterniond azure_kinect_rwrist_q_raw_;
+    Eigen::Quaterniond azure_kinect_rhand_q_raw_;
+    Eigen::Quaterniond azure_kinect_pelv_q_raw_;
+    Eigen::Quaterniond azure_kinect_upperbody_q_raw_;
+
+    Eigen::Isometry3d azure_kinect_head_pose_;   
+    Eigen::Isometry3d azure_kinect_lshoulder_pose_;
+    Eigen::Isometry3d azure_kinect_lelbow_pose_;
+    Eigen::Isometry3d azure_kinect_lwrist_pose_;
+    Eigen::Isometry3d azure_kinect_lhand_pose_;
+    Eigen::Isometry3d azure_kinect_rshoulder_pose_;
+    Eigen::Isometry3d azure_kinect_relbow_pose_;
+    Eigen::Isometry3d azure_kinect_rwrist_pose_;
+    Eigen::Isometry3d azure_kinect_rhand_pose_;
+    Eigen::Isometry3d azure_kinect_pelv_pose_;
+    Eigen::Isometry3d azure_kinect_upperbody_pose_;
+
+    Eigen::Isometry3d azure_kinect_head_pose_init_;   
+    Eigen::Isometry3d azure_kinect_lshoulder_pose_init_;
+    Eigen::Isometry3d azure_kinect_lelbow_pose_init_;
+    Eigen::Isometry3d azure_kinect_lwrist_pose_init_;
+    Eigen::Isometry3d azure_kinect_lhand_pose_init_;
+    Eigen::Isometry3d azure_kinect_rshoulder_pose_init_;
+    Eigen::Isometry3d azure_kinect_relbow_pose_init_;
+    Eigen::Isometry3d azure_kinect_rwrist_pose_init_;
+    Eigen::Isometry3d azure_kinect_rhand_pose_init_;
+    Eigen::Isometry3d azure_kinect_pelv_pose_init_;
+    Eigen::Isometry3d azure_kinect_upperbody_pose_init_;
+
+    Eigen::Vector3d kinect2robot_lhand_pos_mapping_;
+	Eigen::Vector3d kinect2robot_rhand_pos_mapping_;
+    Eigen::Vector3d kinect2robot_lelbow_pos_mapping_;
+    Eigen::Vector3d kinect2robot_relbow_pos_mapping_;
+
+    Eigen::Vector3d kinect2robot_lhand_pos_mapping_init_;
+    Eigen::Vector3d kinect2robot_rhand_pos_mapping_init_;
+    Eigen::Vector3d kinect2robot_lelbow_pos_mapping_init_;
+    Eigen::Vector3d kinect2robot_relbow_pos_mapping_init_;    
+    //////////////////////////////////
 
     //fallDetection variables
     Eigen::VectorQd fall_init_q_;
