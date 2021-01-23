@@ -768,7 +768,7 @@ void CustomController::computeSlow()
 		// printOutTextFile();
 		
 	}
-	else if (tc.mode == 14) //arm control test in the air 
+	else if (tc.mode == 14) 
 	{
 		////////////////////////////////////////////////////////////////////////////
 		/////////////////// Human-like Biped Walking Controller ////////////////////
