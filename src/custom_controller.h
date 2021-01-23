@@ -329,6 +329,7 @@ public:
     Eigen::MatrixXd lfoot_to_com_jac_from_global_;
 	Eigen::MatrixXd rfoot_to_com_jac_from_global_;
     
+    Eigen::Isometry3d pelv_transform_start_from_global_;
     Eigen::Isometry3d rfoot_transform_start_from_global_;
     Eigen::Isometry3d lfoot_transform_start_from_global_;
 

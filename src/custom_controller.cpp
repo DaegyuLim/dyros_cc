@@ -60,42 +60,42 @@ void CustomController::setGains()
 {
 	//////////Control Gain///////////////////////////
 	////sim
-	kp_compos_.setZero(); 		
-	kd_compos_.setZero();	 	
-
-	kp_compos_(0, 0) = 100;
-	kp_compos_(1, 1) = 100;
-	kp_compos_(2, 2) = 100;
-
-	kd_compos_(0, 0) = 20;
-	kd_compos_(1, 1) = 20;
-	kd_compos_(2, 2) = 20;
-
-	kp_pelv_ori_.setZero();
-	kd_pelv_ori_.setZero();
-	kp_pelv_ori_ = 1000*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
-	// kp_pelv_ori_(0, 0) = 1000;
-	// kp_pelv_ori_(1, 1) = 1000;
-	// kp_pelv_ori_(2, 2) = 0;
-
-	kd_pelv_ori_ = 100*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
-
-	support_foot_damping_gain_.setZero();
-	support_foot_damping_gain_(0, 0) = 0.5;
-	support_foot_damping_gain_(1, 1) = 0.5;
-	support_foot_damping_gain_(2, 2) = 0;
-
-	////real
 	// kp_compos_.setZero(); 		
 	// kd_compos_.setZero();	 	
 
-	// kp_compos_(0, 0) = 80;
+	// kp_compos_(0, 0) = 100;
 	// kp_compos_(1, 1) = 100;
-	// kp_compos_(2, 2) = 80;
+	// kp_compos_(2, 2) = 100;
 
-	// kd_compos_(0, 0) = 18;
-	// kd_compos_(1, 1) = 18;
-	// kd_compos_(2, 2) = 18;
+	// kd_compos_(0, 0) = 20;
+	// kd_compos_(1, 1) = 20;
+	// kd_compos_(2, 2) = 20;
+
+	// kp_pelv_ori_.setZero();
+	// kd_pelv_ori_.setZero();
+	// kp_pelv_ori_ = 1000*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
+	// // kp_pelv_ori_(0, 0) = 1000;
+	// // kp_pelv_ori_(1, 1) = 1000;
+	// // kp_pelv_ori_(2, 2) = 0;
+
+	// kd_pelv_ori_ = 100*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
+
+	// support_foot_damping_gain_.setZero();
+	// support_foot_damping_gain_(0, 0) = 0.5;
+	// support_foot_damping_gain_(1, 1) = 0.5;
+	// support_foot_damping_gain_(2, 2) = 0;
+
+	////real
+	kp_compos_.setZero(); 		
+	kd_compos_.setZero();	 	
+
+	kp_compos_(0, 0) = 0.2;
+	kp_compos_(1, 1) = 0.2;
+	kp_compos_(2, 2) = 0.2;
+
+	kd_compos_(0, 0) = 0.04;
+	kd_compos_(1, 1) = 0.04;
+	kd_compos_(2, 2) = 0.00;
 
 	// kp_pelv_ori_ = 1000*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
 	// kd_pelv_ori_ = 50*Eigen::Matrix3d::Identity();		//angular velocity gain (sim: 140)(tune)
@@ -315,7 +315,7 @@ void CustomController::setGains()
 	kp_stiff_joint_(13) 		= 10000;
 	kp_stiff_joint_(14) 		= 10000;
 	kp_stiff_joint_(15) 		= 400;		//left arm
-	kp_stiff_joint_(16) 		= 1000;
+	kp_stiff_joint_(16) 		= 800;
 	kp_stiff_joint_(17) 		= 400;
 	kp_stiff_joint_(18) 		= 400;
 	kp_stiff_joint_(19) 		= 250;
@@ -349,17 +349,17 @@ void CustomController::setGains()
 	kv_stiff_joint_(13) 		= 100;
 	kv_stiff_joint_(14) 		= 100;
 	kv_stiff_joint_(15) 		= 10;		//left arm
-	kv_stiff_joint_(16) 		= 28;
+	kv_stiff_joint_(16) 		= 10;
 	kv_stiff_joint_(17) 		= 10;
 	kv_stiff_joint_(18) 		= 10;
-	kv_stiff_joint_(19) 		= 5;
+	kv_stiff_joint_(19) 		= 2.5;
 	kv_stiff_joint_(20) 		= 2;
 	kv_stiff_joint_(21) 		= 2;
 	kv_stiff_joint_(22) 		= 2;
 	kv_stiff_joint_(23) 		= 2;		//head
 	kv_stiff_joint_(24) 		= 2;		
 	kv_stiff_joint_(25) 		= 10;		//right arm
-	kv_stiff_joint_(26) 		= 12;
+	kv_stiff_joint_(26) 		= 10;
 	kv_stiff_joint_(27) 		= 10;
 	kv_stiff_joint_(28) 		= 10;
 	kv_stiff_joint_(29) 		= 2.5;
@@ -1576,6 +1576,8 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		
 		walking_mode_on_ = false;
 
+		pelv_transform_start_from_global_.translation()  = pelv_pos_current_;
+		pelv_transform_start_from_global_.linear()  = pelv_rot_current_;
 		lfoot_transform_start_from_global_ = lfoot_transform_current_from_global_;
 		rfoot_transform_start_from_global_ = rfoot_transform_current_from_global_;
 
@@ -1943,15 +1945,16 @@ void CustomController::motionGenerator()
 			u_dot_upperbody(i) = DyrosMath::minmax_cut(u_dot_upperbody(i), -3, 3);
 		}
 
-		motion_q_dot_.segment(12, 3) =  J_inv_head*u_dot_upperbody;
-		motion_q_.segment(12, 3) = motion_q_pre_.segment(12, 3) + motion_q_dot_.segment(12, 3)*dt_;
-		motion_q_(12) = DyrosMath::minmax_cut(motion_q_(12), -1.5, 1.5);
-		motion_q_(13) = DyrosMath::minmax_cut(motion_q_(13), -0.5, 0.5);
-		motion_q_(14) = DyrosMath::minmax_cut(motion_q_(14), -0.5, 0.5);
-
+		// motion_q_dot_.segment(12, 3) =  J_inv_head*u_dot_upperbody;
+		// motion_q_.segment(12, 3) = motion_q_pre_.segment(12, 3) + motion_q_dot_.segment(12, 3)*dt_;
+		// motion_q_(12) = DyrosMath::minmax_cut(motion_q_(12), -1.5, 1.5);
+		// motion_q_(13) = DyrosMath::minmax_cut(motion_q_(13), -0.5, 0.5);
+		// motion_q_(14) = DyrosMath::minmax_cut(motion_q_(14), -0.5, 0.5);
+		motion_q_dot_.segment(12,3).setZero();
 		// motion_q_(12) = (1-turning_phase_)*init_q_(12) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1; //yaw
-		// motion_q_(13) = 0; //pitch
-		// motion_q_(14) = 0; //roll
+		motion_q_(12) = 0;
+		motion_q_(13) = 0; //pitch
+		motion_q_(14) = 0; //roll
 		pd_control_mask_(12) = 1;
 		pd_control_mask_(13) = 1;
 		pd_control_mask_(14) = 1;
@@ -2895,8 +2898,8 @@ void CustomController::rawMasterPoseProcessing()
 	master_head_pose_raw_.linear() = DyrosMath::rotationCubic(current_time_, upperbody_command_time_, upperbody_command_time_ + 3, head_transform_pre_desired_from_.linear(), master_head_pose_raw_.linear());
 	master_upperbody_pose_raw_.linear() = DyrosMath::rotationCubic(current_time_, upperbody_command_time_, upperbody_command_time_ + 3, upperbody_transform_pre_desired_from_.linear(), master_upperbody_pose_raw_.linear());
 
-	master_lhand_pose_.translation() = 0.1*master_lhand_pose_raw_.translation() + 0.9*master_lhand_pose_pre_.translation();
-	master_rhand_pose_.translation() = 0.1*master_rhand_pose_raw_.translation() + 0.9*master_rhand_pose_pre_.translation();
+	master_lhand_pose_.translation() = 0.05*master_lhand_pose_raw_.translation() + 0.95*master_lhand_pose_pre_.translation();
+	master_rhand_pose_.translation() = 0.05*master_rhand_pose_raw_.translation() + 0.95*master_rhand_pose_pre_.translation();
 	master_lelbow_pose_.translation() = 0.1*master_lelbow_pose_raw_.translation() + 0.9*master_lelbow_pose_pre_.translation();
 	master_relbow_pose_.translation() = 0.1*master_relbow_pose_raw_.translation() + 0.9*master_relbow_pose_pre_.translation();
 	master_lshoulder_pose_.translation() = 0.1*master_lshoulder_pose_raw_.translation() + 0.9*master_lshoulder_pose_pre_.translation();
@@ -2904,8 +2907,8 @@ void CustomController::rawMasterPoseProcessing()
 	master_head_pose_.translation() = 0.1*master_head_pose_raw_.translation() + 0.9*master_head_pose_pre_.translation();
 	master_upperbody_pose_raw_.translation() = 0.1*master_upperbody_pose_raw_.translation() + 0.9*master_upperbody_pose_pre_.translation();
 
-	master_relative_lhand_pos_ = 0.1*master_relative_lhand_pos_raw_ + 0.9*master_relative_lhand_pos_pre_;
-	master_relative_rhand_pos_ = 0.1*master_relative_rhand_pos_raw_ + 0.9*master_relative_rhand_pos_pre_;
+	master_relative_lhand_pos_ = 0.05*master_relative_lhand_pos_raw_ + 0.95*master_relative_lhand_pos_pre_;
+	master_relative_rhand_pos_ = 0.05*master_relative_rhand_pos_raw_ + 0.95*master_relative_rhand_pos_pre_;
 
 	Eigen::AngleAxisd lhand_ang_diff(master_lhand_pose_raw_.linear()*master_lhand_pose_pre_.linear().transpose());
 	Eigen::AngleAxisd rhand_ang_diff(master_rhand_pose_raw_.linear()*master_rhand_pose_pre_.linear().transpose());
@@ -2917,14 +2920,14 @@ void CustomController::rawMasterPoseProcessing()
 	Eigen::AngleAxisd upperbody_ang_diff(master_upperbody_pose_raw_.linear()*master_upperbody_pose_pre_.linear().transpose());
 
 	Eigen::Matrix3d lhand_diff_m, rhand_diff_m, lelbow_diff_m, relbow_diff_m, lshoulder_diff_m, rshoulder_diff_m, head_diff_m, upperbody_diff_m;
-	lhand_diff_m = Eigen::AngleAxisd(lhand_ang_diff.angle()*0.1, lhand_ang_diff.axis());
-	rhand_diff_m = Eigen::AngleAxisd(rhand_ang_diff.angle()*0.1, rhand_ang_diff.axis());
-	lelbow_diff_m = Eigen::AngleAxisd(lelbow_ang_diff.angle()*0.1, lelbow_ang_diff.axis());
-	relbow_diff_m = Eigen::AngleAxisd(relbow_ang_diff.angle()*0.1, relbow_ang_diff.axis());
-	lshoulder_diff_m = Eigen::AngleAxisd(lshoulder_ang_diff.angle()*0.1, lshoulder_ang_diff.axis());
-	rshoulder_diff_m = Eigen::AngleAxisd(rshoulder_ang_diff.angle()*0.1, rshoulder_ang_diff.axis());
-	head_diff_m = Eigen::AngleAxisd(head_ang_diff.angle()*0.1, head_ang_diff.axis());
-	upperbody_diff_m = Eigen::AngleAxisd(upperbody_ang_diff.angle()*0.1, upperbody_ang_diff.axis());
+	lhand_diff_m = Eigen::AngleAxisd(lhand_ang_diff.angle()*0.08, lhand_ang_diff.axis());
+	rhand_diff_m = Eigen::AngleAxisd(rhand_ang_diff.angle()*0.08, rhand_ang_diff.axis());
+	lelbow_diff_m = Eigen::AngleAxisd(lelbow_ang_diff.angle()*0.08, lelbow_ang_diff.axis());
+	relbow_diff_m = Eigen::AngleAxisd(relbow_ang_diff.angle()*0.08, relbow_ang_diff.axis());
+	lshoulder_diff_m = Eigen::AngleAxisd(lshoulder_ang_diff.angle()*0.08, lshoulder_ang_diff.axis());
+	rshoulder_diff_m = Eigen::AngleAxisd(rshoulder_ang_diff.angle()*0.08, rshoulder_ang_diff.axis());
+	head_diff_m = Eigen::AngleAxisd(head_ang_diff.angle()*0.08, head_ang_diff.axis());
+	upperbody_diff_m = Eigen::AngleAxisd(upperbody_ang_diff.angle()*0.08, upperbody_ang_diff.axis());
 
 	master_lhand_pose_.linear() = lhand_diff_m*master_lhand_pose_pre_.linear();
 	master_rhand_pose_.linear() = rhand_diff_m*master_rhand_pose_pre_.linear();
@@ -4884,13 +4887,15 @@ Eigen::VectorQd CustomController::dampingControlCompute(WholebodyController &wbc
 
 Eigen::VectorQd CustomController::ikBalanceControlCompute(WholebodyController &wbc)
 {
-	double kp_com = 1.0;
-	double kp_zmp = 0.01;
+	double kp_com = 0.2;
+	double kp_zmp = 0.04;
 	Eigen::Isometry3d lfoot_transform_desired;
 	Eigen::Isometry3d rfoot_transform_desired;
 	Eigen::Isometry3d pelv_transform_desired;
 	Vector12d q_leg_desired;
-	VectorQd torque_output;
+	VectorQd torque_output, torque_g;
+	double pd_control_schedule;
+	pd_control_schedule = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ +3, 0, 1, 0, 0);
 	q_leg_desired.setZero();
 	torque_output.setZero();
 
@@ -4907,19 +4912,21 @@ Eigen::VectorQd CustomController::ikBalanceControlCompute(WholebodyController &w
 
 	// lfoot_transform_desired.linear().setIdentity();
 	// rfoot_transform_desired.linear().setIdentity();
-	pelv_transform_desired.linear().setIdentity();
+	// pelv_transform_desired.linear().setIdentity();
 	lfoot_transform_desired.linear() = DyrosMath::rotationCubic(current_time_, program_start_time_, program_start_time_ + 3, lfoot_transform_start_from_global_.linear(), Eigen::Matrix3d::Identity());
 	rfoot_transform_desired.linear() = DyrosMath::rotationCubic(current_time_, program_start_time_, program_start_time_ + 3, rfoot_transform_start_from_global_.linear(), Eigen::Matrix3d::Identity());
-	// pelv_transform_desired.linear() = DyrosMath::rotationCubic(current_time_, program_start_time_, program_start_time_ + 3, pelv_rot_init_, Eigen::Matrix3d::Identity());
+	pelv_transform_desired.linear() = DyrosMath::rotationCubic(current_time_, program_start_time_, program_start_time_ + 3, pelv_transform_start_from_global_.linear(), Eigen::Matrix3d::Identity());
 
-	pelv_transform_desired.translation() += kp_com*(com_pos_desired_ - com_pos_current_) - kp_zmp*(middle_of_both_foot_ - zmp_measured_);
-	// pelv_transform_desired.translation() += kp_compos_*(com_pos_desired_ - com_pos_current_) - kd_compos_*(middle_of_both_foot_ - zmp_measured_);
-
+	// pelv_transform_desired.translation() += kp_com*(com_pos_desired_ - com_pos_current_) - kp_zmp*(middle_of_both_foot_ - zmp_measured_);
+	pelv_transform_desired.translation() += kp_compos_*(com_pos_desired_ - com_pos_current_) - kd_compos_*(middle_of_both_foot_ - zmp_measured_);
 	computeIk(pelv_transform_desired, lfoot_transform_desired, rfoot_transform_desired, q_leg_desired);
+
+	wbc.set_contact(rd_, 1, 1);
+	torque_g = wbc_.gravity_compensation_torque(rd_, false, false);
 
 	for(int i=0; i<12; i++)
 	{
-		torque_output(i) = kp_joint_(i)*(q_leg_desired(i) - current_q_(i)) - current_q_dot_(i);
+		torque_output(i) = pd_control_schedule*( kp_joint_(i)*(q_leg_desired(i) - current_q_(i)) - kv_joint_(i)*current_q_dot_(i) ) + torque_g(i);
 	}
 	
 	return torque_output;
