@@ -861,7 +861,7 @@ void CustomController::computeSlow()
 		///////////////////////////////////////////////////////////////////////////
         
 		//////////////////////////////FALLING//////////////////////////////
-		// fallDetection();
+		fallDetection();
 		///////////////////////////////////////////////////////////////////
 
 		ControlVal_ = torque_task_;
@@ -1942,19 +1942,19 @@ void CustomController::motionGenerator()
 
 		for(int i=1; i<3; i++)
 		{
-			u_dot_upperbody(i) = DyrosMath::minmax_cut(u_dot_upperbody(i), -3, 3);
+			u_dot_upperbody(i) = DyrosMath::minmax_cut(u_dot_upperbody(i), -0.5, 0.5);
 		}
 
-		// motion_q_dot_.segment(12, 3) =  J_inv_head*u_dot_upperbody;
-		// motion_q_.segment(12, 3) = motion_q_pre_.segment(12, 3) + motion_q_dot_.segment(12, 3)*dt_;
-		// motion_q_(12) = DyrosMath::minmax_cut(motion_q_(12), -1.5, 1.5);
-		// motion_q_(13) = DyrosMath::minmax_cut(motion_q_(13), -0.5, 0.5);
-		// motion_q_(14) = DyrosMath::minmax_cut(motion_q_(14), -0.5, 0.5);
+		motion_q_dot_.segment(12, 3) =  J_inv_head*u_dot_upperbody;
+		motion_q_.segment(12, 3) = motion_q_pre_.segment(12, 3) + motion_q_dot_.segment(12, 3)*dt_;
+		motion_q_(12) = DyrosMath::minmax_cut(motion_q_(12), -0.6, 0.6);
+		motion_q_(13) = DyrosMath::minmax_cut(motion_q_(13), -0.2, 0.2);
+		motion_q_(14) = DyrosMath::minmax_cut(motion_q_(14), -0.2, 0.2);
 		motion_q_dot_.segment(12,3).setZero();
 		// motion_q_(12) = (1-turning_phase_)*init_q_(12) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1; //yaw
-		motion_q_(12) = 0;
-		motion_q_(13) = 0; //pitch
-		motion_q_(14) = 0; //roll
+		// motion_q_(12) = 0;
+		// motion_q_(13) = 0; //pitch
+		// motion_q_(14) = 0; //roll
 		pd_control_mask_(12) = 1;
 		pd_control_mask_(13) = 1;
 		pd_control_mask_(14) = 1;
@@ -1973,13 +1973,14 @@ void CustomController::motionGenerator()
 
 		for(int i=1; i<3; i++)
 		{
-			u_dot_head(i) = DyrosMath::minmax_cut(u_dot_head(i), -3, 3);
+			u_dot_head(i) = DyrosMath::minmax_cut(u_dot_head(i), -1, 1);
 		}
 
 		motion_q_dot_.segment(23, 2) =  J_inv_head*u_dot_head;
 		motion_q_.segment(23, 2) = motion_q_pre_.segment(23, 2) + motion_q_dot_.segment(23, 2)*dt_;
 		motion_q_(23) = DyrosMath::minmax_cut(motion_q_(23), -0.90, 0.90);
-		motion_q_(24) = DyrosMath::minmax_cut(motion_q_(24), -0.90, 0.90);
+		motion_q_(24) = DyrosMath::minmax_cut(motion_q_(24), -0.60, 0.80);
+		motion_q_dot_.segment(23, 2).setZero();
 		// cout<< "head_transform_pre_desired_from_: \n" << head_transform_pre_desired_from_.linear() <<endl;
 		// cout<< "master_head_pose_: \n" << master_head_pose_.linear() <<endl;
 		// cout<< "master_head_pose_raw_: \n" << master_head_pose_raw_.linear() <<endl;
@@ -4639,18 +4640,23 @@ Eigen::VectorQd CustomController::jointTrajectoryPDControlCompute(WholebodyContr
 	///////////////////////////////////////////////////////////////////////////
 
 	/////////////////////////////////WAIST DESIRED JOINT ANGLES//////////////////////////////
-	Vector3d phi_trunk;
-	Matrix3d upper_body_rotaion_matrix = DyrosMath::rotateWithZ(motion_q_(12));
-	phi_trunk = -DyrosMath::getPhi(pelv_yaw_rot_current_from_global_.transpose()* rd_.link_[Upper_Body].Rotm, upper_body_rotaion_matrix);
-	// phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
+	// Vector3d phi_trunk;
+	// Matrix3d upper_body_rotaion_matrix = DyrosMath::rotateWithZ(motion_q_(12));
+	// phi_trunk = -DyrosMath::getPhi(pelv_yaw_rot_current_from_global_.transpose()* rd_.link_[Upper_Body].Rotm, upper_body_rotaion_matrix);
+	// // phi_trunk = -DyrosMath::getPhi(pelv_rot_current_yaw_aline_, Eigen::Matrix3d::Identity());
 
-	desired_q_dot_(12) = 50 * phi_trunk(2);	 //waist yaw //(tune)
-	desired_q_dot_(13) = 30 * phi_trunk(1);	 //waist pitch
-	desired_q_dot_(14) = -30 * phi_trunk(0); //waist roll
+	// desired_q_dot_(12) = 50 * phi_trunk(2);	 //waist yaw //(tune)
+	// desired_q_dot_(13) = 30 * phi_trunk(1);	 //waist pitch
+	// desired_q_dot_(14) = -30 * phi_trunk(0); //waist roll
 
-	desired_q_.segment(12, 3) = current_q_.segment(12, 3) + desired_q_dot_.segment(12, 3) * dt_;
+	// desired_q_.segment(12, 3) = current_q_.segment(12, 3) + desired_q_dot_.segment(12, 3) * dt_;
 
-	desired_q_(12) = motion_q_(12);
+	// desired_q_(12) = motion_q_(12);
+	for (int i = 12; i < 15; i++)
+	{
+		desired_q_(i) = motion_q_(i);
+		desired_q_dot_(i) = motion_q_dot_(i);
+	}
 	//////////////////////////////////////////////////////////////////////////////////////////
 
 	///////////////////////////////ARM & HEAD///////////////////////////////////////////////
@@ -4887,14 +4893,18 @@ Eigen::VectorQd CustomController::dampingControlCompute(WholebodyController &wbc
 
 Eigen::VectorQd CustomController::ikBalanceControlCompute(WholebodyController &wbc)
 {
-	double kp_com = 0.2;
-	double kp_zmp = 0.04;
+	//real
+	// double kp_com = 0.2;
+	// double kp_zmp = 0.04;
+	//sim
+	double kp_com = 0.9;
+	double kp_zmp = 0.1;
 	Eigen::Isometry3d lfoot_transform_desired;
 	Eigen::Isometry3d rfoot_transform_desired;
 	Eigen::Isometry3d pelv_transform_desired;
 	Vector12d q_leg_desired;
 	VectorQd torque_output, torque_g;
-	double pd_control_schedule;
+	double pd_control_schedule, falling_detection;
 	pd_control_schedule = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ +3, 0, 1, 0, 0);
 	q_leg_desired.setZero();
 	torque_output.setZero();
@@ -5531,13 +5541,13 @@ void CustomController::ExosuitCallback(const geometry_msgs::PoseArray &msg)
 	exo_suit_pelv_q_raw_.z() = -msg.poses[9].orientation.y;
 	exo_suit_pelv_q_raw_.w() = msg.poses[9].orientation.w;
 
-	exo_suit_upperbody_pos_raw_(0) = msg.poses[10].position.z;
-	exo_suit_upperbody_pos_raw_(1) = -msg.poses[10].position.x;
-	exo_suit_upperbody_pos_raw_(2) = msg.poses[10].position.y;
-	exo_suit_upperbody_q_raw_.x() = -msg.poses[10].orientation.z;
-	exo_suit_upperbody_q_raw_.y() = msg.poses[10].orientation.x;
-	exo_suit_upperbody_q_raw_.z() = -msg.poses[10].orientation.y;
-	exo_suit_upperbody_q_raw_.w() = msg.poses[10].orientation.w;
+	exo_suit_upperbody_pos_raw_(0) = msg.poses[11].position.z;
+	exo_suit_upperbody_pos_raw_(1) = -msg.poses[11].position.x;
+	exo_suit_upperbody_pos_raw_(2) = msg.poses[11].position.y;
+	exo_suit_upperbody_q_raw_.x() = -msg.poses[11].orientation.z;
+	exo_suit_upperbody_q_raw_.y() = msg.poses[11].orientation.x;
+	exo_suit_upperbody_q_raw_.z() = -msg.poses[11].orientation.y;
+	exo_suit_upperbody_q_raw_.w() = msg.poses[11].orientation.w;
 }
 
 void CustomController::AzureKinectCallback(const visualization_msgs::MarkerArray &msg)
@@ -6110,7 +6120,7 @@ void CustomController::fallDetection()
 		{
 			desired_q_(i) = DyrosMath::QuinticSpline(current_time_, fall_start_time_, fall_start_time_+3.0, fall_init_q_(i), 0, 0, zero_q_(i), 0, 0)(0);
 			desired_q_dot_(i) = DyrosMath::QuinticSpline(current_time_, fall_start_time_, fall_start_time_+3.0, fall_init_q_(i), 0, 0, zero_q_(i), 0, 0)(1);
-			torque_task_(i) = (100 * (desired_q_(i) - current_q_(i)) + 20 * (desired_q_dot_(i) - current_q_dot_(i))) + torque_g_(i);
+			torque_task_(i) = (kp_joint_(i) * (desired_q_(i) - current_q_(i)) + kv_joint_(i) * (desired_q_dot_(i) - current_q_dot_(i))) + torque_g_(i);
 		}	
 	}
 }
