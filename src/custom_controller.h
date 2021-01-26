@@ -2,6 +2,7 @@
 #include <tocabi_controller/link.h>
 #include "math_type_define.h"
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Int8.h>
 #include "VR/matrix_3_4.h"
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -80,6 +81,8 @@ public:
     void rawMasterPoseProcessing();
     void exoSuitRawDataProcessing();
     void azureKinectRawDataProcessing();
+    void hmdRawDataProcessing();
+    void poseCalibration();
 
     //preview related functions
     void getComTrajectory_Preview();
@@ -118,6 +121,14 @@ public:
     ros::Subscriber hmd_posture_sub;
     ros::Subscriber left_controller_posture_sub;
     ros::Subscriber right_controller_posture_sub;
+    ros::Subscriber lhand_tracker_posture_sub;
+    ros::Subscriber rhand_tracker_posture_sub;
+    ros::Subscriber lelbow_tracker_posture_sub;
+    ros::Subscriber relbow_tracker_posture_sub;
+    ros::Subscriber chest_tracker_posture_sub;
+    ros::Subscriber pelvis_tracker_posture_sub;
+
+    ros::Subscriber vive_tracker_pose_calibration_sub;
 
     ros::Subscriber exo_suit_sub;
     ros::Subscriber azure_kinect_sub;
@@ -141,9 +152,17 @@ public:
     void ArmJointGainCallback(const std_msgs::Float32MultiArray &msg);
     void WaistJointGainCallback(const std_msgs::Float32MultiArray &msg);
 
+    void LeftHandTrackerCallback(const VR::matrix_3_4 &msg);
+    void RightHandTrackerCallback(const VR::matrix_3_4 &msg);
+    void LeftElbowTrackerCallback(const VR::matrix_3_4 &msg);
+    void RightElbowTrackerCallback(const VR::matrix_3_4 &msg);
+    void ChestTrackerCallback(const VR::matrix_3_4 &msg);
+    void PelvisTrackerCallback(const VR::matrix_3_4 &msg);
     void LeftControllerCallback(const VR::matrix_3_4 &msg);
     void RightControllerCallback(const VR::matrix_3_4 &msg);
     void HmdCallback(const VR::matrix_3_4 &msg);
+    void PoseCalibrationCallback(const std_msgs::Int8 &msg);
+
     void ExosuitCallback(const geometry_msgs::PoseArray &msg);
 
     void AzureKinectCallback(const visualization_msgs::MarkerArray &msg);
@@ -581,7 +600,57 @@ public:
     double robot_upperarm_max_l_;
     double robot_lowerarm_max_l_;
     double robot_shoulder_width_;
+    ////////////HMD + VIVE TRACKER////////////
+    bool hmd_init_pose_calibration_;
+    double hmd_init_pose_cali_time_;
 
+    double hmd_larm_max_l_;
+    double hmd_rarm_max_l_;
+    double hmd_shoulder_width_;
+
+    bool hmd_check_pose_calibration_[4];   // 0: still cali, 1: T pose cali, 2: Forward Stretch cali, 3: Calibration is completed
+    bool still_pose_cali_flag_;
+    bool t_pose_cali_flag_;
+    bool forward_pose_cali_flag_;
+
+
+    Eigen::Isometry3d hmd_head_pose_;
+    Eigen::Isometry3d hmd_lshoulder_pose_;
+    Eigen::Isometry3d hmd_lupperarm_pose_;
+    Eigen::Isometry3d hmd_lhand_pose_;
+    Eigen::Isometry3d hmd_rshoulder_pose_;
+    Eigen::Isometry3d hmd_rupperarm_pose_;
+    Eigen::Isometry3d hmd_rhand_pose_;
+    Eigen::Isometry3d hmd_chest_pose_;
+    Eigen::Isometry3d hmd_pelv_pose_;
+
+    Eigen::Isometry3d hmd_head_pose_init_;  
+    Eigen::Isometry3d hmd_lshoulder_pose_init_; 
+    Eigen::Isometry3d hmd_lupperarm_pose_init_;
+    Eigen::Isometry3d hmd_lhand_pose_init_;
+    Eigen::Isometry3d hmd_rshoulder_pose_init_; 
+    Eigen::Isometry3d hmd_rupperarm_pose_init_;
+    Eigen::Isometry3d hmd_rhand_pose_init_;
+    Eigen::Isometry3d hmd_chest_pose_init_;
+    Eigen::Isometry3d hmd_pelv_pose_init_;
+
+    Eigen::Vector3d hmd2robot_lhand_pos_mapping_;
+	Eigen::Vector3d hmd2robot_rhand_pos_mapping_;
+    Eigen::Vector3d hmd2robot_lelbow_pos_mapping_;
+    Eigen::Vector3d hmd2robot_relbow_pos_mapping_;
+
+    Eigen::Vector3d hmd2robot_lhand_pos_mapping_init_;
+    Eigen::Vector3d hmd2robot_rhand_pos_mapping_init_;
+
+    Eigen::Vector3d hmd_still_cali_lhand_pos_;
+    Eigen::Vector3d hmd_still_cali_rhand_pos_;
+    Eigen::Vector3d hmd_tpose_cali_lhand_pos_;
+    Eigen::Vector3d hmd_tpose_cali_rhand_pos_;
+    Eigen::Vector3d hmd_forward_cali_lhand_pos_;
+    Eigen::Vector3d hmd_forward_cali_rhand_pos_;
+    
+    Eigen::Vector3d hmd_lshoulder_center_pos_;
+    Eigen::Vector3d hmd_rshoulder_center_pos_;
     ////////////EXOSUIT////////////
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;
