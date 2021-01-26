@@ -25,12 +25,12 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
 	// left_controller_posture_sub = dc.nh.subscribe("/LEFTCONTROLLER", 100, &CustomController::LeftControllerCallback, this);
 	// right_controller_posture_sub = dc.nh.subscribe("/RIGHTCONTROLLER", 100, &CustomController::RightControllerCallback, this);
 	hmd_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::HmdCallback, this);
-	lhand_tracker_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::LeftHandTrackerCallback, this);
-	rhand_tracker_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::RightHandTrackerCallback, this);
-	lelbow_tracker_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::LeftElbowTrackerCallback, this);
-	relbow_tracker_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::RightElbowTrackerCallback, this);
-	chest_tracker_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::ChestTrackerCallback, this);
-	pelvis_tracker_posture_sub = dc.nh.subscribe("/HMD", 100, &CustomController::PelvisTrackerCallback, this);
+	lhand_tracker_posture_sub = dc.nh.subscribe("/TRACKER2", 100, &CustomController::LeftHandTrackerCallback, this);
+	rhand_tracker_posture_sub = dc.nh.subscribe("/TRACKER4", 100, &CustomController::RightHandTrackerCallback, this);
+	lelbow_tracker_posture_sub = dc.nh.subscribe("/TRACKER1", 100, &CustomController::LeftElbowTrackerCallback, this);
+	relbow_tracker_posture_sub = dc.nh.subscribe("/TRACKER3", 100, &CustomController::RightElbowTrackerCallback, this);
+	chest_tracker_posture_sub = dc.nh.subscribe("/TRACKER5", 100, &CustomController::ChestTrackerCallback, this);
+	pelvis_tracker_posture_sub = dc.nh.subscribe("/TRACKER0", 100, &CustomController::PelvisTrackerCallback, this);
 
 	vive_tracker_pose_calibration_sub = dc.nh.subscribe("/tocabi/dg/avatar/pose_calibration_flag", 100, &CustomController::PoseCalibrationCallback, this);
 
@@ -1044,7 +1044,7 @@ void CustomController::initWalkingParameter()
 	hmd_larm_max_l_ = 0.8;
 	hmd_rarm_max_l_ = 0.8;
 	hmd_shoulder_width_ = 0.5;
-	
+
 	hmd_pelv_pose_.linear().setIdentity();
 	hmd_pelv_pose_.translation().setZero();
 	hmd_lshoulder_pose_.setIdentity();
@@ -1792,7 +1792,6 @@ void CustomController::motionGenerator()
 	pd_control_mask_(11) = 1;
 	//////////////////////
 
-	rawMasterPoseProcessing();
 	poseCalibration();
 
 	if(upper_body_mode_ == 1) // init pose 
@@ -1955,6 +1954,8 @@ void CustomController::motionGenerator()
 		}
 		else
 		{
+			rawMasterPoseProcessing();
+
 			// motionRetargeting2();
 
 			motionRetargeting_QPIK_larm();
@@ -2872,6 +2873,19 @@ void CustomController::motionRetargeting_QPIK_rarm()
 
 void CustomController::poseCalibration()
 {
+	//coordinate conversion
+	hmd_head_pose_ = hmd_pelv_pose_.inverse()*hmd_head_pose_;
+	hmd_lupperarm_pose_ = hmd_pelv_pose_.inverse()*hmd_lupperarm_pose_;
+	hmd_lhand_pose_ = hmd_pelv_pose_.inverse()*hmd_lhand_pose_;
+	hmd_rupperarm_pose_ = hmd_pelv_pose_.inverse()*hmd_rupperarm_pose_;
+	hmd_rhand_pose_ = hmd_pelv_pose_.inverse()*hmd_rhand_pose_;
+	hmd_chest_pose_.setIdentity();	//no sensor
+	hmd_lshoulder_pose_.translation() = hmd_lshoulder_center_pos_;
+	hmd_lshoulder_pose_.linear() = hmd_chest_pose_.linear();
+	hmd_rshoulder_pose_.translation() = hmd_rshoulder_center_pos_;
+	hmd_rshoulder_pose_.linear() = hmd_chest_pose_.linear();
+	hmd_pelv_pose_.linear().setIdentity();
+
 	if( (hmd_check_pose_calibration_[0] == true) && (still_pose_cali_flag_ == false) )
 	{
 		hmd_still_cali_lhand_pos_ = hmd_lhand_pose_.translation();
@@ -2900,7 +2914,15 @@ void CustomController::poseCalibration()
 	{
 		hmd_lshoulder_center_pos_ = (hmd_still_cali_lhand_pos_+hmd_tpose_cali_lhand_pos_+hmd_forward_cali_lhand_pos_)/3;
 		hmd_rshoulder_center_pos_ = (hmd_still_cali_rhand_pos_+hmd_tpose_cali_rhand_pos_+hmd_forward_cali_rhand_pos_)/3;
+		
+		hmd_lshoulder_center_pos_(0) = 0;
+		hmd_lshoulder_center_pos_(1) = 0.25;
+		hmd_lshoulder_center_pos_(2) = 0.4;
 
+		hmd_rshoulder_center_pos_(0) = 0;
+		hmd_rshoulder_center_pos_(1) = -0.25;
+		hmd_rshoulder_center_pos_(2) = 0.4;
+		
 		hmd_larm_max_l_ = (hmd_lshoulder_center_pos_ - hmd_still_cali_lhand_pos_).norm();
 		hmd_rarm_max_l_ = (hmd_rshoulder_center_pos_ - hmd_still_cali_rhand_pos_).norm();
 
@@ -3589,18 +3611,8 @@ void CustomController::azureKinectRawDataProcessing()
 void CustomController::hmdRawDataProcessing()
 {
 
-	//coordinate conversion
-	// hmd_head_pose_ = hmd_pelv_pose_.inverse()*hmd_head_pose_;
-	// hmd_lupperarm_pose_ = hmd_pelv_pose_.inverse()*hmd_lupperarm_pose_;
-	// hmd_lhand_pose_ = hmd_pelv_pose_.inverse()*hmd_lhand_pose_;
-	// hmd_rupperarm_pose_ = hmd_pelv_pose_.inverse()*hmd_rupperarm_pose_;
-	// hmd_rhand_pose_ = hmd_pelv_pose_.inverse()*hmd_rhand_pose_;
-	hmd_chest_pose_.setIdentity();	//no sensor
-	hmd_lshoulder_pose_.translation() = hmd_lshoulder_center_pos_;
-	hmd_lshoulder_pose_.linear() = hmd_chest_pose_.linear();
-	hmd_rshoulder_pose_.translation() = hmd_rshoulder_center_pos_;
-	hmd_rshoulder_pose_.linear() = hmd_chest_pose_.linear();
-	hmd_pelv_pose_.linear().setIdentity();
+
+	
 
 	if( int(current_time_*1e4)%int(1e3) == 0)
 	{
@@ -3608,7 +3620,9 @@ void CustomController::hmdRawDataProcessing()
 	}
 
 	double dist_btw_hands = (hmd_lhand_pose_.translation() - hmd_rhand_pose_.translation()).norm();
-	Vector3d unit_vec_y_axis = -hmd_pelv_pose_.linear().block(0, 0, 3, 1);
+	Vector3d unit_vec_y_axis;
+	unit_vec_y_axis.setZero();
+	unit_vec_y_axis(1) = 1;
 
 	// left hand
 	if( unit_vec_y_axis.transpose() * hmd_lhand_pose_.translation() >= hmd_shoulder_width_/2 )
@@ -3633,7 +3647,6 @@ void CustomController::hmdRawDataProcessing()
 		hmd2robot_lhand_pos_mapping_ -= double(unit_vec_y_axis.transpose() * hmd2robot_lhand_pos_mapping_)*unit_vec_y_axis;
 		hmd2robot_lhand_pos_mapping_ += ( (robot_arm_max_l_)/(hmd_larm_max_l_)*(unit_vec_y_axis.transpose()*hmd_lhand_pose_.translation() + hmd_shoulder_width_/2) - robot_shoulder_width_/2 )*unit_vec_y_axis;
 	}
-
 	// right hand
 	if( unit_vec_y_axis.transpose() * hmd_rhand_pose_.translation() >= hmd_shoulder_width_/2 )
 	{
