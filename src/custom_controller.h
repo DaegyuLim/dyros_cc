@@ -23,7 +23,7 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/8_shoulder_.txt",
     "/home/dg/data/tocabi_cc/9_acromion_.txt",
     "/home/dg/data/tocabi_cc/10_hmd_.txt",
-    "/home/dg/data/tocabi_cc/11_exosuit_.txt"
+    "/home/dg/data/tocabi_cc/11_tracker_.txt"
 };
 
 class CustomController
