@@ -3,6 +3,7 @@
 #include "math_type_define.h"
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Int8.h>
+#include <std_msgs/Bool.h>
 #include "VR/matrix_3_4.h"
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -127,6 +128,7 @@ public:
     ros::Subscriber relbow_tracker_posture_sub;
     ros::Subscriber chest_tracker_posture_sub;
     ros::Subscriber pelvis_tracker_posture_sub;
+    ros::Subscriber tracker_status_sub;
 
     ros::Subscriber vive_tracker_pose_calibration_sub;
 
@@ -152,6 +154,7 @@ public:
     void ArmJointGainCallback(const std_msgs::Float32MultiArray &msg);
     void WaistJointGainCallback(const std_msgs::Float32MultiArray &msg);
 
+    // HMD + Tracker related
     void LeftHandTrackerCallback(const VR::matrix_3_4 &msg);
     void RightHandTrackerCallback(const VR::matrix_3_4 &msg);
     void LeftElbowTrackerCallback(const VR::matrix_3_4 &msg);
@@ -162,6 +165,7 @@ public:
     void RightControllerCallback(const VR::matrix_3_4 &msg);
     void HmdCallback(const VR::matrix_3_4 &msg);
     void PoseCalibrationCallback(const std_msgs::Int8 &msg);
+    void TrackerStatusCallback(const std_msgs::Bool &msg);
 
     void ExosuitCallback(const geometry_msgs::PoseArray &msg);
 
@@ -604,6 +608,19 @@ public:
     bool hmd_init_pose_calibration_;
     double hmd_init_pose_cali_time_;
 
+    bool hmd_tracker_status_;   //1: good, 0: bad
+    bool hmd_tracker_status_pre_;   //1: good, 0: bad
+
+    double tracker_status_changed_time_;
+    double calibration_x_l_scale_;
+    double calibration_x_r_scale_;
+    double calibration_y_l_scale_;
+    double calibration_y_r_scale_;
+    double calibration_z_l_scale_;
+    double calibration_z_r_scale_;
+    
+    
+
     double hmd_larm_max_l_;
     double hmd_rarm_max_l_;
     double hmd_shoulder_width_;
@@ -622,6 +639,16 @@ public:
     Eigen::Isometry3d hmd_rhand_pose_raw_;
     Eigen::Isometry3d hmd_chest_pose_raw_;
     Eigen::Isometry3d hmd_pelv_pose_raw_;
+
+    Eigen::Isometry3d hmd_head_pose_raw_last_;
+    Eigen::Isometry3d hmd_lshoulder_pose_raw_last_;
+    Eigen::Isometry3d hmd_lupperarm_pose_raw_last_;
+    Eigen::Isometry3d hmd_lhand_pose_raw_last_;
+    Eigen::Isometry3d hmd_rshoulder_pose_raw_last_;
+    Eigen::Isometry3d hmd_rupperarm_pose_raw_last_;
+    Eigen::Isometry3d hmd_rhand_pose_raw_last_;
+    Eigen::Isometry3d hmd_chest_pose_raw_last_;
+    Eigen::Isometry3d hmd_pelv_pose_raw_last_;
 
     Eigen::Isometry3d hmd_head_pose_;
     Eigen::Isometry3d hmd_lshoulder_pose_;
