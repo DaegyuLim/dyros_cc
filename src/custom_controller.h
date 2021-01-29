@@ -608,6 +608,7 @@ public:
     bool hmd_init_pose_calibration_;
     double hmd_init_pose_cali_time_;
 
+    bool hmd_tracker_status_raw_;   //1: good, 0: bad
     bool hmd_tracker_status_;   //1: good, 0: bad
     bool hmd_tracker_status_pre_;   //1: good, 0: bad
 
@@ -618,7 +619,6 @@ public:
     double calibration_y_r_scale_;
     double calibration_z_l_scale_;
     double calibration_z_r_scale_;
-    
     
 
     double hmd_larm_max_l_;
