@@ -102,8 +102,8 @@ void CustomController::setGains()
 	kp_compos_(1, 1) = 0.2;
 	kp_compos_(2, 2) = 0.2;
 
-	kd_compos_(0, 0) = 0.04;
-	kd_compos_(1, 1) = 0.04;
+	kd_compos_(0, 0) = 0.05;
+	kd_compos_(1, 1) = 0.05;
 	kd_compos_(2, 2) = 0.00;
 
 	// kp_pelv_ori_ = 1000*Eigen::Matrix3d::Identity(); 	//angle error gain (sim: 4900)(tune)
@@ -398,8 +398,8 @@ void CustomController::setGains()
     joint_vel_limit_h_.resize(16);
     // joint_limit_l_ << -2.09, -M_PI, -1.9199, -M_PI*2/3, -2.8, -M_PI*2, -M_PI/2, -2.094, -1.54, -M_PI/2, -1.9199,  -M_PI*2/3,	0.15, -M_PI*2, -M_PI/2, -2.094;
     // joint_limit_h_ <<  1.54,  M_PI/2,  1.9199,  M_PI*2/3, -0.15,  M_PI*2,  M_PI/2,  2.094,  2.09,  M_PI,  1.9199,  M_PI*2/3,     2.8,  M_PI*2,  M_PI/2,  2.094;
-	joint_limit_l_ << -30*DEG2RAD, -170*DEG2RAD, -90*DEG2RAD, -M_PI, -2.7, -M_PI, -M_PI/2, -M_PI/3, 		-30*DEG2RAD, -80*DEG2RAD, -100*DEG2RAD, 	-M_PI, 	0.2, -M_PI, -M_PI/2, -M_PI/3;
-    joint_limit_h_ <<  30*DEG2RAD,  80*DEG2RAD,  100*DEG2RAD,  M_PI, -0.2,  M_PI,  M_PI/2,  M_PI/3,  		30*DEG2RAD,  170*DEG2RAD,  90*DEG2RAD,  	M_PI,  	2.7,  M_PI,  M_PI/2,  M_PI/3;
+	joint_limit_l_ << -40*DEG2RAD, -170*DEG2RAD, -90*DEG2RAD, -M_PI, -2.7, -M_PI, -M_PI/2, -M_PI/3, 		-30*DEG2RAD, -80*DEG2RAD, -100*DEG2RAD, 	-M_PI, 	0.2, -M_PI, -M_PI/2, -M_PI/3;
+    joint_limit_h_ <<  40*DEG2RAD,  80*DEG2RAD,  100*DEG2RAD,  M_PI, -0.2,  M_PI,  M_PI/2,  M_PI/3,  		30*DEG2RAD,  170*DEG2RAD,  90*DEG2RAD,  	M_PI,  	2.7,  M_PI,  M_PI/2,  M_PI/3;
 	for(int i = 0; i<16; i++)
 	{
 		joint_limit_l_(i) = joint_limit_l_(i) + 0.05;
@@ -2891,6 +2891,7 @@ void CustomController::poseCalibration()
 		if(hmd_tracker_status_pre_ == false)
 		{
 			tracker_status_changed_time_ = current_time_;
+			cout<<"tracker is attatched"<<endl;
 		}
 		
 		if( current_time_ - tracker_status_changed_time_ <= 5)
