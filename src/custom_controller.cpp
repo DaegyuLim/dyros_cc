@@ -398,8 +398,8 @@ void CustomController::setGains()
     joint_vel_limit_h_.resize(16);
     // joint_limit_l_ << -2.09, -M_PI, -1.9199, -M_PI*2/3, -2.8, -M_PI*2, -M_PI/2, -2.094, -1.54, -M_PI/2, -1.9199,  -M_PI*2/3,	0.15, -M_PI*2, -M_PI/2, -2.094;
     // joint_limit_h_ <<  1.54,  M_PI/2,  1.9199,  M_PI*2/3, -0.15,  M_PI*2,  M_PI/2,  2.094,  2.09,  M_PI,  1.9199,  M_PI*2/3,     2.8,  M_PI*2,  M_PI/2,  2.094;
-	joint_limit_l_ << -40*DEG2RAD, -170*DEG2RAD, -90*DEG2RAD, -M_PI, -2.7, -M_PI, -M_PI/2, -M_PI/3, 		-30*DEG2RAD, -80*DEG2RAD, -100*DEG2RAD, 	-M_PI, 	0.2, -M_PI, -M_PI/2, -M_PI/3;
-    joint_limit_h_ <<  40*DEG2RAD,  80*DEG2RAD,  100*DEG2RAD,  M_PI, -0.2,  M_PI,  M_PI/2,  M_PI/3,  		30*DEG2RAD,  170*DEG2RAD,  90*DEG2RAD,  	M_PI,  	2.7,  M_PI,  M_PI/2,  M_PI/3;
+	joint_limit_l_ << -40*DEG2RAD, -170*DEG2RAD, -90*DEG2RAD, -M_PI, -2.7, -M_PI, -M_PI/2, -M_PI/3, 		-30*DEG2RAD, -80*DEG2RAD, -95*DEG2RAD, 	-M_PI, 	0.2, -M_PI, -M_PI/2, -M_PI/3;
+    joint_limit_h_ <<  40*DEG2RAD,  80*DEG2RAD,  95*DEG2RAD,  M_PI, -0.2,  M_PI,  M_PI/2,  M_PI/3,  		30*DEG2RAD,  170*DEG2RAD,  90*DEG2RAD,  	M_PI,  	2.7,  M_PI,  M_PI/2,  M_PI/3;
 	for(int i = 0; i<16; i++)
 	{
 		joint_limit_l_(i) = joint_limit_l_(i) + 0.05;
@@ -901,11 +901,13 @@ void CustomController::computeSlow()
 
 
 		// ControlVal_.setZero();
+		// ControlVal_(23) = torque_task_(23);
+		// ControlVal_(24) = torque_task_(24);
 		// Vector3d temp_sh = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-5].xpos - pelv_pos_current_);
 		// Vector3d temp_elbow = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 		// Vector3d temp_hand = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-1].xpos - pelv_pos_current_);
 		
-		printOutTextFile();
+		// printOutTextFile();
 	}
 }
 
@@ -1947,7 +1949,7 @@ void CustomController::motionGenerator()
 	}
 	else if(upper_body_mode_ == 3)		// human motion retargetting: joint pd control with CLIK
 	{
-		motionRetargeting();
+		// motionRetargeting();
 	}
 	else if(upper_body_mode_ == 4)		// human motion retargetting: joint pd control with CLIK
 	{
@@ -2005,7 +2007,7 @@ void CustomController::motionGenerator()
 
 			///////////////////////HEAD/////////////////////////
 			Vector3d error_w_head = -DyrosMath::getPhi(head_transform_pre_desired_from_.linear(), master_head_pose_.linear());
-			Vector3d u_dot_head = master_head_vel_.segment(3, 3) + 50*error_w_head;
+			Vector3d u_dot_head = master_head_vel_.segment(3, 3) + 30*error_w_head;
 			J_temp.setZero(6, MODEL_DOF_VIRTUAL);
 			J_head.setZero(3, 2);
 			I3.setIdentity(3, 3);
@@ -2024,14 +2026,18 @@ void CustomController::motionGenerator()
 			motion_q_(23) = DyrosMath::minmax_cut(motion_q_(23), -0.90, 0.90);
 			motion_q_(24) = DyrosMath::minmax_cut(motion_q_(24), -0.60, 0.80);
 			motion_q_dot_.segment(23, 2).setZero();
-			// cout<< "head_transform_pre_desired_from_: \n" << head_transform_pre_desired_from_.linear() <<endl;
-			// cout<< "master_head_pose_: \n" << master_head_pose_.linear() <<endl;
-			// cout<< "master_head_pose_raw_: \n" << master_head_pose_raw_.linear() <<endl;
-			// cout<< "error_w_head: " << error_w_head <<endl;
-			// cout<< "u_dot_head: " << u_dot_head <<endl;
-			// cout<< "J_head: \n" << J_head <<endl;
-			// cout<<"motion_q_(23): "<<motion_q_(23)<<endl;
-			// cout<<"motion_q_(24): "<<motion_q_(24)<<endl;
+			// if( int(current_time_ * 10000)%1000 == 0)
+			// {
+				// cout<< "head_transform_pre_desired_from_: \n" << head_transform_pre_desired_from_.linear() <<endl;
+				// cout<< "master_head_pose_: \n" << master_head_pose_.linear() <<endl;
+				// cout<< "master_head_pose_raw_: \n" << master_head_pose_raw_.linear() <<endl;
+				// cout<< "error_w_head: " << error_w_head <<endl;
+				// cout<< "u_dot_head: " << u_dot_head <<endl;
+				// cout<< "J_head: \n" << J_head <<endl;
+				// cout<<"motion_q_(23): "<<motion_q_(23)<<endl;
+				// cout<<"motion_q_(24): "<<motion_q_(24)<<endl;	
+			// }
+			
 			// motion_q_(23) = (1-turning_phase_)*init_q_(23) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1.2; //yaw
 			// motion_q_(23) = 0; //yaw
 			// motion_q_(24) = 0; //pitch
@@ -2399,7 +2405,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 	}
 	
 	double w1 = 100;		//hand tracking
-	double w2 = 500;		//joint acc
+	double w2 = 700;		//joint acc
 	double w3 = 1;			//task space vel
 	double w4 = 10;			//joint vel
 	double w5 = 100;		//elbow oriention tracking
@@ -2648,7 +2654,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	}
 	
 	double w1 = 100;	//hand tracking
-	double w2 = 500;		//joint acc
+	double w2 = 700;		//joint acc
 	double w3 = 1;		//task space vel
 	double w4 = 10;		//joint vel
 	double w5 = 100;		//elbow position tracking
@@ -3151,8 +3157,8 @@ void CustomController::rawMasterPoseProcessing()
 	master_head_pose_raw_.linear() = DyrosMath::rotationCubic(current_time_, upperbody_command_time_, upperbody_command_time_ + 5, head_transform_pre_desired_from_.linear(), master_head_pose_raw_.linear());
 	master_upperbody_pose_raw_.linear() = DyrosMath::rotationCubic(current_time_, upperbody_command_time_, upperbody_command_time_ + 5, upperbody_transform_pre_desired_from_.linear(), master_upperbody_pose_raw_.linear());
 
-	master_lhand_pose_.translation() = 0.1*master_lhand_pose_raw_.translation() + 0.90*master_lhand_pose_pre_.translation();
-	master_rhand_pose_.translation() = 0.1*master_rhand_pose_raw_.translation() + 0.90*master_rhand_pose_pre_.translation();
+	master_lhand_pose_.translation() = 0.03*master_lhand_pose_raw_.translation() + 0.97*master_lhand_pose_pre_.translation();
+	master_rhand_pose_.translation() = 0.03*master_rhand_pose_raw_.translation() + 0.97*master_rhand_pose_pre_.translation();
 	master_lelbow_pose_.translation() = 0.1*master_lelbow_pose_raw_.translation() + 0.9*master_lelbow_pose_pre_.translation();
 	master_relbow_pose_.translation() = 0.1*master_relbow_pose_raw_.translation() + 0.9*master_relbow_pose_pre_.translation();
 	master_lshoulder_pose_.translation() = 0.1*master_lshoulder_pose_raw_.translation() + 0.9*master_lshoulder_pose_pre_.translation();
@@ -3173,14 +3179,14 @@ void CustomController::rawMasterPoseProcessing()
 	Eigen::AngleAxisd upperbody_ang_diff(master_upperbody_pose_raw_.linear()*master_upperbody_pose_pre_.linear().transpose());
 
 	Eigen::Matrix3d lhand_diff_m, rhand_diff_m, lelbow_diff_m, relbow_diff_m, lshoulder_diff_m, rshoulder_diff_m, head_diff_m, upperbody_diff_m;
-	lhand_diff_m = Eigen::AngleAxisd(lhand_ang_diff.angle()*0.1, lhand_ang_diff.axis());
-	rhand_diff_m = Eigen::AngleAxisd(rhand_ang_diff.angle()*0.1, rhand_ang_diff.axis());
-	lelbow_diff_m = Eigen::AngleAxisd(lelbow_ang_diff.angle()*0.1, lelbow_ang_diff.axis());
-	relbow_diff_m = Eigen::AngleAxisd(relbow_ang_diff.angle()*0.1, relbow_ang_diff.axis());
-	lshoulder_diff_m = Eigen::AngleAxisd(lshoulder_ang_diff.angle()*0.1, lshoulder_ang_diff.axis());
-	rshoulder_diff_m = Eigen::AngleAxisd(rshoulder_ang_diff.angle()*0.1, rshoulder_ang_diff.axis());
-	head_diff_m = Eigen::AngleAxisd(head_ang_diff.angle()*0.1, head_ang_diff.axis());
-	upperbody_diff_m = Eigen::AngleAxisd(upperbody_ang_diff.angle()*0.1, upperbody_ang_diff.axis());
+	lhand_diff_m = Eigen::AngleAxisd(lhand_ang_diff.angle()*0.03, lhand_ang_diff.axis());
+	rhand_diff_m = Eigen::AngleAxisd(rhand_ang_diff.angle()*0.03, rhand_ang_diff.axis());
+	lelbow_diff_m = Eigen::AngleAxisd(lelbow_ang_diff.angle()*0.03, lelbow_ang_diff.axis());
+	relbow_diff_m = Eigen::AngleAxisd(relbow_ang_diff.angle()*0.03, relbow_ang_diff.axis());
+	lshoulder_diff_m = Eigen::AngleAxisd(lshoulder_ang_diff.angle()*0.03, lshoulder_ang_diff.axis());
+	rshoulder_diff_m = Eigen::AngleAxisd(rshoulder_ang_diff.angle()*0.03, rshoulder_ang_diff.axis());
+	head_diff_m = Eigen::AngleAxisd(head_ang_diff.angle()*0.03, head_ang_diff.axis());
+	upperbody_diff_m = Eigen::AngleAxisd(upperbody_ang_diff.angle()*0.03, upperbody_ang_diff.axis());
 
 	master_lhand_pose_.linear() = lhand_diff_m*master_lhand_pose_pre_.linear();
 	master_rhand_pose_.linear() = rhand_diff_m*master_rhand_pose_pre_.linear();
@@ -3930,15 +3936,19 @@ void CustomController::hmdRawDataProcessing()
 	master_rshoulder_pose_raw_.linear() = hmd_rshoulder_pose_.linear()*hmd_rshoulder_pose_init_.linear().transpose()*robot_rshoulder_ori_init;
 
 	master_head_pose_raw_.translation().setZero();
-	master_head_pose_raw_.linear() = hmd_head_pose_.linear()*hmd_head_pose_init_.linear().transpose()*robot_head_ori_init;
+	// master_head_pose_raw_.linear() = hmd_head_pose_.linear()*hmd_head_pose_init_.linear().transpose()*robot_head_ori_init;
+	master_head_pose_raw_.linear() = hmd_head_pose_.linear();
 
 	master_upperbody_pose_raw_.translation().setZero();
 	Eigen::AngleAxisd chest_ang_diff(hmd_chest_pose_.linear()*hmd_chest_pose_init_.linear().transpose());
-	Eigen::Matrix3d chest_diff_m;
+	Eigen::Matrix3d chest_diff_m, shoulder_diff_m;
 	chest_diff_m = Eigen::AngleAxisd(chest_ang_diff.angle()*0.5, chest_ang_diff.axis());
 	master_upperbody_pose_raw_.linear() = chest_diff_m*robot_upperbody_ori_init;
 	// master_upperbody_pose_raw_.linear() = hmd_chest_pose_.linear()*hmd_chest_pose_init_.linear().transpose()*robot_upperbody_ori_init;
 	
+	shoulder_diff_m = Eigen::AngleAxisd(chest_ang_diff.angle()*0.8, chest_ang_diff.axis());
+	master_lshoulder_pose_raw_.linear() = shoulder_diff_m*robot_upperbody_ori_init;
+	master_rshoulder_pose_raw_.linear() = shoulder_diff_m*robot_upperbody_ori_init;
 
 	master_relative_lhand_pos_raw_ = hmd_lhand_pose_.translation() - hmd_rhand_pose_.translation();
 	master_relative_rhand_pos_raw_ = hmd_rhand_pose_.translation() - hmd_lhand_pose_.translation();
