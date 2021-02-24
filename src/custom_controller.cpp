@@ -398,8 +398,8 @@ void CustomController::setGains()
     joint_vel_limit_h_.resize(16);
     // joint_limit_l_ << -2.09, -M_PI, -1.9199, -M_PI*2/3, -2.8, -M_PI*2, -M_PI/2, -2.094, -1.54, -M_PI/2, -1.9199,  -M_PI*2/3,	0.15, -M_PI*2, -M_PI/2, -2.094;
     // joint_limit_h_ <<  1.54,  M_PI/2,  1.9199,  M_PI*2/3, -0.15,  M_PI*2,  M_PI/2,  2.094,  2.09,  M_PI,  1.9199,  M_PI*2/3,     2.8,  M_PI*2,  M_PI/2,  2.094;
-	joint_limit_l_ << -30*DEG2RAD, -170*DEG2RAD, -95*DEG2RAD, -M_PI, -2.7, -M_PI, -M_PI/2, -M_PI/3, 		-30*DEG2RAD, -80*DEG2RAD, -95*DEG2RAD, 	-M_PI, 	0.2, -M_PI, -M_PI/2, -M_PI/3;
-    joint_limit_h_ <<  30*DEG2RAD,  80*DEG2RAD,  95*DEG2RAD,  M_PI, -0.2,  M_PI,  M_PI/2,  M_PI/3,  		30*DEG2RAD,  170*DEG2RAD,  95*DEG2RAD,  	M_PI,  	2.7,  M_PI,  M_PI/2,  M_PI/3;
+	joint_limit_l_ << -30*DEG2RAD, -170*DEG2RAD, -95*DEG2RAD, -200*DEG2RAD, -2.7, -M_PI, -M_PI/2, -M_PI/3, 		-30*DEG2RAD, -70*DEG2RAD, -95*DEG2RAD, 	-200*DEG2RAD, 	0.2, -M_PI, -M_PI/2, -M_PI/3;
+    joint_limit_h_ <<  30*DEG2RAD,  70*DEG2RAD,  95*DEG2RAD,  200*DEG2RAD, -0.2,  M_PI,  M_PI/2,  M_PI/3,  		30*DEG2RAD,  170*DEG2RAD,  95*DEG2RAD,  200*DEG2RAD,  	2.7,  M_PI,  M_PI/2,  M_PI/3;
 	for(int i = 0; i<16; i++)
 	{
 		// joint_limit_l_(i) = joint_limit_l_(i) + 0.05;
@@ -969,7 +969,7 @@ void CustomController::initWalkingParameter()
 	robot_shoulder_width_ = 0.6;
 
 	robot_upperarm_max_l_ = 0.3376*1.0;
-	robot_lowerarm_max_l_ = 0.31967530867*1.0*cos(joint_limit_h_(4));
+	robot_lowerarm_max_l_ = 0.31967530867*0.98*cos(joint_limit_h_(4));
 	robot_arm_max_l_ = robot_upperarm_max_l_ + robot_lowerarm_max_l_;
 
 	hmd_check_pose_calibration_[0] = false;
@@ -1985,8 +1985,8 @@ void CustomController::motionGenerator()
 
 			motion_q_dot_.segment(23, 2) =  J_inv_head*u_dot_head;
 			motion_q_.segment(23, 2) = motion_q_pre_.segment(23, 2) + motion_q_dot_.segment(23, 2)*dt_;
-			motion_q_(23) = DyrosMath::minmax_cut(motion_q_(23), -0.90, 0.90);
-			motion_q_(24) = DyrosMath::minmax_cut(motion_q_(24), -0.60, 0.80);
+			motion_q_(23) = DyrosMath::minmax_cut(motion_q_(23), -30*DEG2RAD, 30*DEG2RAD);
+			motion_q_(24) = DyrosMath::minmax_cut(motion_q_(24), -60*DEG2RAD, 60*DEG2RAD);
 			motion_q_dot_.segment(23, 2).setZero();
 			// if( int(current_time_ * 10000)%1000 == 0)
 			// {
@@ -2370,13 +2370,14 @@ void CustomController::motionRetargeting_QPIK_larm()
 	double w2 = 500;		//joint acc
 	double w3 = 1;			//task space vel
 	double w4 = 10;			//joint vel
-	double w5 = 100;			//upperarm oriention tracking
+	double w5 = 50;			//upperarm oriention tracking
 	double w6 = 50;			//shoulder oriention tracking
 	
 	MatrixXd J_l_arm, J_l_upperarm, J_l_shoulder, J_temp1, J_temp2, J_temp3;
 	J_l_arm.setZero(control_size_hand, variable_size);
 	J_l_upperarm.setZero(control_size_upperarm, variable_size);
 	J_l_shoulder.setZero(control_size_shoulder, variable_size);
+
 	VectorXd u_dot_lhand, u_dot_lupperarm, u_dot_lshoulder; 
 	u_dot_lhand.setZero(control_size_hand);
 	u_dot_lupperarm.setZero(control_size_upperarm);
@@ -2428,6 +2429,9 @@ void CustomController::motionRetargeting_QPIK_larm()
 	error_w_lupperarm = lupperarm_transform_pre_desired_from_.linear()*error_w_lupperarm;
 
 	Vector3d error_w_lshoulder = -DyrosMath::getPhi(lacromion_transform_pre_desired_from_.linear(), master_lshoulder_pose_.linear());
+	error_w_lshoulder = lacromion_transform_pre_desired_from_.linear().transpose()*error_w_lshoulder;
+	error_w_lshoulder(0) = 0;
+	error_w_lshoulder = lacromion_transform_pre_desired_from_.linear()*error_w_lshoulder;
 
 	Vector3d error_v_lhand_rel = master_relative_lhand_pos_ + rhand_transform_pre_desired_from_.translation() - lhand_transform_pre_desired_from_.translation();
 
@@ -2437,11 +2441,11 @@ void CustomController::motionRetargeting_QPIK_larm()
 	for(int i = 0; i<3; i++)
 	{
 		// u_dot_lhand(i) = master_lhand_vel_(i) + 200*(1-hand_relative_p_gain*0.9)*error_v_lhand(i) + 400*hand_relative_p_gain*error_v_lhand_rel(i);	
-		u_dot_lhand(i) = master_lhand_vel_(i) + 200*error_v_lhand(i);	
-		u_dot_lhand(i+3) = master_lhand_vel_(i+3) + 50*error_w_lhand(i);
+		u_dot_lhand(i) = master_lhand_vel_(i) + 500*error_v_lhand(i);	
+		u_dot_lhand(i+3) = master_lhand_vel_(i+3) + 100*error_w_lhand(i);
 
-		u_dot_lupperarm(i) = master_lelbow_vel_(i+3) + 50*error_w_lupperarm(i);
-		u_dot_lshoulder(i) = master_lshoulder_vel_(i+3) + 50*error_w_lshoulder(i);
+		u_dot_lupperarm(i) = master_lelbow_vel_(i+3) + 100*error_w_lupperarm(i);
+		u_dot_lshoulder(i) = master_lshoulder_vel_(i+3) + 100*error_w_lshoulder(i);
 	}
 
 	Vector3d zero3;
@@ -2461,99 +2465,83 @@ void CustomController::motionRetargeting_QPIK_larm()
 	RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Left_Hand-6].id, zero3, J_temp3, false);
 	J_l_shoulder.block(0, 0, 3, 8) = J_temp3.block(0, 21, 3, 8);	//orientation
 
+
 	//// null space projection of elbow control////
-	MatrixXd N_1, J_pinv, J2_pinv, J_pinv_shoulder, I3, I6;
-	N_1.setZero(variable_size, variable_size);
-	I3.setIdentity(3, 3);
-	I6.setIdentity(6, 6);
-	J_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.000001).inverse();
-	// N_1 = I8 - (J_l_arm.completeOrthogonalDecomposition().pseudoInverse())*J_l_arm;
-	N_1 = I8 - (J_pinv)*J_l_arm;
-
-	J2_pinv = J_l_upperarm.transpose()*(J_l_upperarm*J_l_upperarm.transpose()+I3*0.000001).inverse();
-	u_dot_lupperarm = N_1*(J2_pinv)*u_dot_lupperarm;
-	
-	J_pinv_shoulder = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.000001).inverse();
-	// u_dot_lshoulder = J_l_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lshoulder;
-	u_dot_lshoulder = N_1*(J_pinv_shoulder)*u_dot_lshoulder;
-
-	// if(int(current_time_*1e8)%int(5e7) == 0)
-	// {
-	// 	cout<<"J1: \n"<<J_l_arm<<endl;
-	// 	cout<<"N1: \n"<<N_1<<endl;
-	// 	// cout<<"qdot2: \n"<<(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// 	cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// 	cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// 	cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// }
-
-	H1 = J_l_arm.transpose()*J_l_arm;
-	H2 = I8;
-	H3 = J_l_arm.transpose()*J_l_arm;
-	H4 = I8;
-	H5 = N_1.transpose()*N_1;
-	H6 = N_1.transpose()*N_1;
-
-	g1 = -J_l_arm.transpose()*u_dot_lhand;
-	g2 = -motion_q_dot_pre_.segment(15, 8);
-	g5 = -u_dot_lupperarm;
-	g6 = -u_dot_lshoulder;
-	////////////////////////////////////////////////////////
-	
-	//// null space projection of hand and elbow////
-	// MatrixXd N_1, N_2, J1_pinv, J2_pinv, J2N1, J2N1_pinv, J3N1N2, J3N1N2_pinv, I3, I6;
+	// MatrixXd N_1, J_pinv, J2_pinv, J_pinv_shoulder, I3, I6;
 	// N_1.setZero(variable_size, variable_size);
-	// N_2.setZero(variable_size, variable_size);
-	// J2N1.setZero(control_size_upperarm, variable_size);
-	// J2N1_pinv.setZero(variable_size, control_size_upperarm);
-	// J3N1N2.setZero(control_size_shoulder, variable_size);
-	// J3N1N2_pinv.setZero(variable_size, control_size_shoulder);
 	// I3.setIdentity(3, 3);
 	// I6.setIdentity(6, 6);
+	// J_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.000001).inverse();
+	// // N_1 = I8 - (J_l_arm.completeOrthogonalDecomposition().pseudoInverse())*J_l_arm;
+	// N_1 = I8 - (J_pinv)*J_l_arm;
 
-	// // J1_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.000001).inverse();
-	// J1_pinv = J_l_arm.completeOrthogonalDecomposition().pseudoInverse();
-	// N_1 = I8 - (J1_pinv)*J_l_arm;
-	// // J2_pinv = J_l_upperarm.transpose()*(J_l_upperarm*J_l_upperarm.transpose()+I3*0.000001).inverse();
-	// J2_pinv = J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse();
-	// N_2 = I8 - (J2_pinv)*J_l_upperarm;
+	// J2_pinv = J_l_upperarm.transpose()*(J_l_upperarm*J_l_upperarm.transpose()+I3*0.000001).inverse();
+	// u_dot_lupperarm = N_1*(J2_pinv)*u_dot_lupperarm;
+	
+	// J_pinv_shoulder = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.000001).inverse();
+	// // u_dot_lshoulder = J_l_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lshoulder;
+	// u_dot_lshoulder = N_1*(J_pinv_shoulder)*u_dot_lshoulder;
 
-	// J2N1 = J_l_upperarm*N_1;
-	// J2N1_pinv = J2N1.transpose()*(J2N1*J2N1.transpose()+I3*0.000001).inverse();
-	// // J2N1_pinv = J2N1.completeOrthogonalDecomposition().pseudoInverse();
-	// J3N1N2 = J_l_shoulder*N_1*N_2;
-	// J3N1N2_pinv = J3N1N2.transpose()*(J3N1N2*J3N1N2.transpose()+I3*0.000001).inverse();
-	// // J3N1N2_pinv = J3N1N2.completeOrthogonalDecomposition().pseudoInverse();
+	// // if(int(current_time_*1e8)%int(5e7) == 0)
+	// // {
+	// // 	cout<<"J1: \n"<<J_l_arm<<endl;
+	// // 	cout<<"N1: \n"<<N_1<<endl;
+	// // 	// cout<<"qdot2: \n"<<(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+	// // 	cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+	// // 	cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+	// // 	cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+	// // }
 
-	// u_dot_lupperarm = N_1*J2N1_pinv*u_dot_lupperarm;
-	// u_dot_lshoulder = N_1*N_2*J3N1N2_pinv*u_dot_lshoulder;
-
-	// H1 = J_l_arm.transpose()*J_l_arm;
-	// H2 = I8;
-	// H3 = J_l_arm.transpose()*J_l_arm;
+	// H1 = J_lu_dot_lupperarm_arm.transpose()*J_l_arm;
 	// H4 = I8;
-	// H5 = (N_1*J2N1_pinv*J_l_upperarm).transpose()*(N_1*J2N1_pinv*J_l_upperarm);
-	// H6 = (N_1*N_2*J3N1N2_pinv*J_l_shoulder).transpose()*(N_1*N_2*J3N1N2_pinv*J_l_shoulder);
+	// H5 = N_1.transpose()*N_1;
+	// H6 = N_1.transpose()*N_1;
 
 	// g1 = -J_l_arm.transpose()*u_dot_lhand;
 	// g2 = -motion_q_dot_pre_.segment(15, 8);
 	// g5 = -u_dot_lupperarm;
 	// g6 = -u_dot_lshoulder;
+	////////////////////////////////////////////////////////
+	
+	//// null space projection of hand and elbow////
+	MatrixXd N_1, N_2, J1_pinv, J2_pinv, J3_pinv, J2N1, J2N1_pinv, J3N1N2, J3N1N2_pinv, I3, I6;
+	N_1.setZero(variable_size, variable_size);
+	N_2.setZero(variable_size, variable_size);
+	J2N1.setZero(control_size_upperarm, variable_size);
+	// J2N1_pinv.setZero(variable_size, control_size_upperarm);
+	J3N1N2.setZero(control_size_shoulder, variable_size);
+	// J3N1N2_pinv.setZero(variable_size, control_size_shoulder);
+	I3.setIdentity(3, 3);
+	I6.setIdentity(6, 6);
 
-	// if(int(current_time_*1e4)%int(1e3) == 0)
-	// {
-	// 	cout<<"J1: \n"<<J_l_arm<<endl;
-	// 	cout<<"N1: \n"<<N_1<<endl;
-	// 	cout<<"N2: \n"<<N_2<<endl;
-	// 	cout<<"J2N1: \n"<<J2N1<<endl;
-	// 	cout<<"J2N1_pinv: \n"<<J2N1_pinv<<endl;
-	// 	cout<<"J3N1N2: \n"<<J3N1N2<<endl;
-	// 	cout<<"J3N1N2_pinv: \n"<<J3N1N2_pinv<<endl;
-	// 	// cout<<"qdot2: \n"<<(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// 	// cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// 	// cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// 	// cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
-	// }
+	J1_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.000001).inverse();
+	// J1_pinv = J_l_arm.completeOrthogonalDecomposition().pseudoInverse();
+	N_1 = I8 - (J1_pinv)*J_l_arm;
+	J2_pinv = J_l_upperarm.transpose()*(J_l_upperarm*J_l_upperarm.transpose()+I3*0.000001).inverse();
+	// J2_pinv = J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse();
+	N_2 = I8 - (J2_pinv)*J_l_upperarm;
+	J3_pinv = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.000001).inverse();
+	// J3_pinv = J_l_shoulder.completeOrthogonalDecomposition().pseudoInverse();
+
+	J2N1 = J_l_upperarm*N_1;
+	// J2N1_pinv = J2N1.transpose()*(J2N1*J2N1.transpose()+I3*0.000001).inverse();
+	// J2N1_pinv = J2N1.completeOrthogonalDecomposition().pseudoInverse();
+	J3N1N2 = J_l_shoulder*N_1*N_2;
+	// J3N1N2_pinv = J3N1N2.transpose()*(J3N1N2*J3N1N2.transpose()+I3*0.000001).inverse();
+	// J3N1N2_pinv = J3N1N2.completeOrthogonalDecomposition().pseudoInverse();
+
+	H1 = J_l_arm.transpose()*J_l_arm;
+	H2 = I8;
+	H3 = J_l_arm.transpose()*J_l_arm;
+	H4 = I8;
+	H5 = (J2N1).transpose()*(J2N1);
+	H6 = (J3N1N2).transpose()*(J3N1N2);
+
+	g1 = -J_l_arm.transpose()*u_dot_lhand;
+	g2 = -motion_q_dot_pre_.segment(15, 8);
+	g5 = -(J2N1).transpose()*J2N1*J2_pinv*u_dot_lupperarm;
+	g6 = -(J3N1N2).transpose()*J3N1N2*J3_pinv*u_dot_lshoulder;
+
 	////////////////////////////////////////////////////////////
 
 
@@ -2575,7 +2563,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 		// cout<<"J_l_arm: \n"<<J_l_arm<<endl;
 	}
 
-	double speed_reduce_rate= 100; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
+	double speed_reduce_rate= 20; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
 
 	for (int i=0; i< constraint_size1; i++)
 	{
@@ -2607,14 +2595,14 @@ void CustomController::motionRetargeting_QPIK_larm()
 
 	for (int i=0; i< 3; i++) //position velocity limit
 	{
-		lbA(i) = -1;
-		ubA(i) = 1;
+		lbA(i) = -10;
+		ubA(i) = 10;
 	}
 
 	for (int i=3; i< 6; i++)	//angular velocity limit
 	{
-		lbA(i) = -3;
-		ubA(i) = 3;
+		lbA(i) = -30;
+		ubA(i) = 30;
 	}
 
 	QP_qdot_larm.EnableEqualityCondition(0.0001);
@@ -2640,6 +2628,24 @@ void CustomController::motionRetargeting_QPIK_larm()
 		pd_control_mask_(15+i) = 1;
 	}
 
+
+	if(int(current_time_*1e4)%int(1e3) == 0)
+	{
+		// cout<<"J1: \n"<<J_l_arm<<endl;
+		// cout<<"N1: \n"<<N_1<<endl;
+		// cout<<"N2: \n"<<N_2<<endl;
+		// cout<<"J2N1: \n"<<J2N1<<endl;
+		// cout<<"J2N1_pinv: \n"<<J2N1_pinv<<endl;
+		// cout<<"J3N1N2: \n"<<J3N1N2<<endl;
+		// cout<<"J3N1N2_pinv: \n"<<J3N1N2_pinv<<endl;
+		cout<<"left 1st task error: \n"<< J_l_arm*q_dot_larm - u_dot_lhand<<endl;
+		cout<<"left 2nd task error: \n"<< J_l_upperarm*q_dot_larm - u_dot_lupperarm<<endl;
+		cout<<"left 3rd task error: \n"<< J_l_shoulder*q_dot_larm - u_dot_lshoulder<<endl;
+		// cout<<"qdot2: \n"<<(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+		// cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+		// cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+		// cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+	}
 
 	// motion_q_(15) = 0.3;
 	// pd_control_mask_(15) = 1;
@@ -2670,7 +2676,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	double w2 = 500;		//joint acc
 	double w3 = 1;			//task space vel
 	double w4 = 10;			//joint vel
-	double w5 = 100;		//elbow position tracking
+	double w5 = 50;		//elbow position tracking
 	double w6 = 50;			//shoulder oriention tracking
 
 	MatrixXd J_r_arm, J_r_upperarm, J_r_shoulder, J_temp1, J_temp2, J_temp3;
@@ -2730,6 +2736,9 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	error_w_rupperarm = rupperarm_transform_pre_desired_from_.linear()*error_w_rupperarm;
 
 	Vector3d error_w_rshoulder = -DyrosMath::getPhi(racromion_transform_pre_desired_from_.linear(), master_rshoulder_pose_.linear());
+	error_w_rshoulder = racromion_transform_pre_desired_from_.linear().transpose()*error_w_rshoulder;
+	error_w_rshoulder(0) = 0;
+	error_w_rshoulder = racromion_transform_pre_desired_from_.linear()*error_w_rshoulder;
 
 	Vector3d error_v_rhand_rel = master_relative_rhand_pos_ + lhand_transform_pre_desired_from_.translation() - rhand_transform_pre_desired_from_.translation();
 
@@ -2739,13 +2748,11 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	for(int i = 0; i<3; i++)
 	{
 		// u_dot_rhand(i) = master_rhand_vel_(i) + 400*(1-hand_relative_p_gain*0.9)*error_v_rhand(i) + 400*hand_relative_p_gain*error_v_rhand_rel(i);	
-		u_dot_rhand(i) = master_rhand_vel_(i) + 200*error_v_rhand(i);	
-		u_dot_rhand(i+3) = master_rhand_vel_(i+3) + 50*error_w_rhand(i);
+		u_dot_rhand(i) = master_rhand_vel_(i) + 500*error_v_rhand(i);	
+		u_dot_rhand(i+3) = master_rhand_vel_(i+3) + 100*error_w_rhand(i);
 
-		// u_dot_rupperarm(i) = master_relbow_vel_(i) + 250*error_v_relbow(i);
-		// u_dot_rupperarm(i+3) = master_relbow_vel_(i+3) + 50*error_w_relbow(i);
-		u_dot_rupperarm(i) = master_relbow_vel_(i+3) + 50*error_w_rupperarm(i);
-		u_dot_rshoulder(i) = master_rshoulder_vel_(i+3) + 50*error_w_rshoulder(i);
+		u_dot_rupperarm(i) = master_relbow_vel_(i+3) + 100*error_w_rupperarm(i);
+		u_dot_rshoulder(i) = master_rshoulder_vel_(i+3) + 100*error_w_rshoulder(i);
 	}
 
 	Vector3d zero3;
@@ -2766,47 +2773,92 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	J_r_shoulder.block(0, 0, 3, 8) = J_temp3.block(0, 31, 3, 8);	//orientation
 
 	// null space projection of upperarm
-	MatrixXd N_1, J_pinv, J_pinv_upperarm, J_pinv_shoulder, I6, I3;
+	// MatrixXd N_1, J_pinv, J_pinv_upperarm, J_pinv_shoulder, I6, I3;
+	// N_1.setZero(variable_size, variable_size);
+	// I6.setIdentity(6, 6);
+	// I3.setIdentity(3, 3);
+	// J_pinv = J_r_arm.transpose()*(J_r_arm*J_r_arm.transpose()+I6*0.000001).inverse();
+	// // N_1 = I8 - (J_r_arm.completeOrthogonalDecomposition().pseudoInverse())*J_r_arm;
+	// N_1 = I8 - (J_pinv)*J_r_arm;
+
+	// J_pinv_upperarm = J_r_upperarm.transpose()*(J_r_upperarm*J_r_upperarm.transpose()+I3*0.000001).inverse();
+	// // u_dot_rupperarm = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_rupperarm;
+
+	// J_pinv_shoulder = J_r_shoulder.transpose()*(J_r_shoulder*J_r_shoulder.transpose()+I3*0.000001).inverse();
+	// // u_dot_rshoulder = J_r_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_rshoulder;
+
+	// // if(int(current_time_*1e8)%int(5e7) == 0)
+	// // {
+	// // 	cout<<"J1: \n"<<J_l_arm<<endl;
+	// // 	cout<<"N1: \n"<<N_1<<endl;
+	// // 	// cout<<"qdot2: \n"<<(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
+	// // 	cout<<"N1 X qdot2: \n"<<N_1*(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
+	// // 	cout<<"J2 X N1 X qdot2: \n"<<J_l_elbow*N_1*(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
+	// // 	cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
+	// // }
+
+	// H1 = J_r_arm.transpose()*J_r_arm;
+	// H2 = I8;
+	// H3 = J_r_arm.transpose()*J_r_arm;
+	// H4 = I8;
+	// // H5 = I8;
+	// // H6 = I8;
+	// H5 = N_1.transpose()*N_1;
+	// H6 = N_1.transpose()*N_1;
+	// H = w1*H1 + w2*H2 + w3*H3 + w4*H4 + w5*H5 + w6*H6;
+
+	// g1 = -J_r_arm.transpose()*u_dot_rhand;
+	// g2 = -motion_q_dot_pre_.segment(25, 8);
+	// g5 = -N_1.transpose()*(J_pinv_upperarm)*u_dot_rupperarm;
+	// g6 = -N_1.transpose()*(J_pinv_shoulder)*u_dot_rshoulder;
+	// g = w1*g1 + w2*g2 + w5*g5 + w6*g6;
+
+	//// null space projection of hand and elbow////
+	MatrixXd N_1, N_2, J1_pinv, J2_pinv, J3_pinv, J2N1, J2N1_pinv, J3N1N2, J3N1N2_pinv, I3, I6;
 	N_1.setZero(variable_size, variable_size);
-	I6.setIdentity(6, 6);
+	N_2.setZero(variable_size, variable_size);
+	J2N1.setZero(control_size_upperarm, variable_size);
+	// J2N1_pinv.setZero(variable_size, control_size_upperarm);
+	J3N1N2.setZero(control_size_shoulder, variable_size);
+	// J3N1N2_pinv.setZero(variable_size, control_size_shoulder);
 	I3.setIdentity(3, 3);
-	J_pinv = J_r_arm.transpose()*(J_r_arm*J_r_arm.transpose()+I6*0.000001).inverse();
-	// N_1 = I8 - (J_r_arm.completeOrthogonalDecomposition().pseudoInverse())*J_r_arm;
-	N_1 = I8 - (J_pinv)*J_r_arm;
+	I6.setIdentity(6, 6);
 
-	J_pinv_upperarm = J_r_upperarm.transpose()*(J_r_upperarm*J_r_upperarm.transpose()+I3*0.000001).inverse();
-	// u_dot_rupperarm = J_r_elbow*N_1*(J_r_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_rupperarm;
-	u_dot_rupperarm = N_1*(J_pinv_upperarm)*u_dot_rupperarm;
+	J1_pinv = J_r_arm.transpose()*(J_r_arm*J_r_arm.transpose()+I6*0.000001).inverse();
+	// J1_pinv = J_r_arm.completeOrthogonalDecomposition().pseudoInverse();
+	N_1 = I8 - (J1_pinv)*J_r_arm;
+	J2_pinv = J_r_upperarm.transpose()*(J_r_upperarm*J_r_upperarm.transpose()+I3*0.000001).inverse();
+	// J2_pinv = J_r_upperarm.completeOrthogonalDecomposition().pseudoInverse();
+	N_2 = I8 - (J2_pinv)*J_r_upperarm;
+	J3_pinv = J_r_shoulder.transpose()*(J_r_shoulder*J_r_shoulder.transpose()+I3*0.000001).inverse();
+	// J3_pinv = J_l_shoulder.completeOrthogonalDecomposition().pseudoInverse();
 
-	J_pinv_shoulder = J_r_shoulder.transpose()*(J_r_shoulder*J_r_shoulder.transpose()+I3*0.000001).inverse();
-	// u_dot_rshoulder = J_r_shoulder*N_1*(J_r_shoulder.completeOrthogonalDecomposition().pseudoInverse())*u_dot_rshoulder;
-	u_dot_rshoulder = N_1*(J_pinv_shoulder)*u_dot_rshoulder;
-
-	// if(int(current_time_*1e8)%int(5e7) == 0)
-	// {
-	// 	cout<<"J1: \n"<<J_l_arm<<endl;
-	// 	cout<<"N1: \n"<<N_1<<endl;
-	// 	// cout<<"qdot2: \n"<<(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
-	// 	cout<<"N1 X qdot2: \n"<<N_1*(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
-	// 	cout<<"J2 X N1 X qdot2: \n"<<J_l_elbow*N_1*(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
-	// 	cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_elbow.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lelbow<<endl;
-	// }
+	J2N1 = J_r_upperarm*N_1;
+	// J2N1_pinv = J2N1.transpose()*(J2N1*J2N1.transpose()+I3*0.000001).inverse();
+	// J2N1_pinv = J2N1.completeOrthogonalDecomposition().pseudoInverse();
+	J3N1N2 = J_r_shoulder*N_1*N_2;
+	// J3N1N2_pinv = J3N1N2.transpose()*(J3N1N2*J3N1N2.transpose()+I3*0.000001).inverse();
+	// J3N1N2_pinv = J3N1N2.completeOrthogonalDecomposition().pseudoInverse();
 
 	H1 = J_r_arm.transpose()*J_r_arm;
 	H2 = I8;
 	H3 = J_r_arm.transpose()*J_r_arm;
 	H4 = I8;
-	// H5 = I8;
-	// H6 = I8;
-	H5 = N_1.transpose()*N_1;
-	H6 = N_1.transpose()*N_1;
-	H = w1*H1 + w2*H2 + w3*H3 + w4*H4 + w5*H5 + w6*H6;
+	H5 = (J2N1).transpose()*(J2N1);
+	H6 = (J3N1N2).transpose()*(J3N1N2);
 
 	g1 = -J_r_arm.transpose()*u_dot_rhand;
 	g2 = -motion_q_dot_pre_.segment(25, 8);
-	g5 = -u_dot_rupperarm;
-	g6 = -u_dot_rshoulder;
+	g5 = -(J2N1).transpose()*J2N1*J2_pinv*u_dot_rupperarm;
+	g6 = -(J3N1N2).transpose()*J3N1N2*J3_pinv*u_dot_rshoulder;
+
+	////////////////////////////////////////////////////////////
+
+
+	H = w1*H1 + w2*H2 + w3*H3 + w4*H4 + w5*H5 + w6*H6;
 	g = w1*g1 + w2*g2 + w5*g5 + w6*g6;
+
+
 
 	if( int(current_time_*1e4)%int(1e3) == 0)
 	{
@@ -2824,7 +2876,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 		// cout<<"J_r_arm: \n"<<J_r_arm<<endl;
 	}
 
-	double speed_reduce_rate= 100; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
+	double speed_reduce_rate= 20; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
 
 	for (int i=0; i< constraint_size1; i++)
 	{
@@ -2856,14 +2908,14 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	
 	for (int i=0; i< 3; i++) //position velocity limit
 	{
-		lbA(i) = -1;
-		ubA(i) = 1;
+		lbA(i) = -10;
+		ubA(i) = 10;
 	}
 
 	for (int i=3; i< 6; i++)	//angular velocity limit
 	{
-		lbA(i) = -3;
-		ubA(i) = 3;
+		lbA(i) = -30;
+		ubA(i) = 30;
 	}
 
 	QP_qdot_rarm.EnableEqualityCondition(0.0001);
@@ -2889,7 +2941,23 @@ void CustomController::motionRetargeting_QPIK_rarm()
 		pd_control_mask_(25+i) = 1;
 	}
 	
-
+	if(int(current_time_*1e4)%int(1e3) == 0)
+	{
+		// cout<<"J1: \n"<<J_l_arm<<endl;
+		// cout<<"N1: \n"<<N_1<<endl;
+		// cout<<"N2: \n"<<N_2<<endl;
+		// cout<<"J2N1: \n"<<J2N1<<endl;
+		// cout<<"J2N1_pinv: \n"<<J2N1_pinv<<endl;
+		// cout<<"J3N1N2: \n"<<J3N1N2<<endl;
+		// cout<<"J3N1N2_pinv: \n"<<J3N1N2_pinv<<endl;
+		cout<<"right 1st task error: \n"<< J_r_arm*q_dot_rarm - u_dot_rhand<<endl;
+		cout<<"right 2nd task error: \n"<< J_r_upperarm*q_dot_rarm - u_dot_rupperarm<<endl;
+		cout<<"right 3rd task error: \n"<< J_r_shoulder*q_dot_rarm - u_dot_rshoulder<<endl;
+		// cout<<"qdot2: \n"<<(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+		// cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+		// cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+		// cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+	}
 	// motion_q_(25) = -0.3;
 	// pd_control_mask_(25) = 1;
 
@@ -3829,6 +3897,16 @@ void CustomController::hmdRawDataProcessing()
 		hmd2robot_rhand_pos_mapping_ = hmd2robot_rhand_pos_mapping_.normalized()*robot_arm_max_l_;
 	}
 
+	if( hmd2robot_lhand_pos_mapping_.norm() < 0.1)
+	{
+		hmd2robot_lhand_pos_mapping_ = hmd2robot_lhand_pos_mapping_.normalized()*0.1;
+	}
+
+	if( hmd2robot_rhand_pos_mapping_.norm() < 0.1)
+	{
+		hmd2robot_rhand_pos_mapping_ = hmd2robot_rhand_pos_mapping_.normalized()*0.1;
+	}
+
 	// // left hand
 	// if( unit_vec_y_axis.transpose() * hmd_lhand_pose_.translation() >= hmd_shoulder_width_/2 )
 	// {
@@ -3976,10 +4054,10 @@ void CustomController::hmdRawDataProcessing()
 	if( int(current_time_*1e4)%int(1e3) == 0)
 	{
 		// cout<<"exo_suit_lhand_pose_init_.linear(): \n"<<exo_suit_lhand_pose_init_.linear()<<endl;
-		cout<<"master_lelbow_pose_raw_.linear(): \n"<<master_lelbow_pose_raw_.linear()<<endl;
-		cout<<"master_lelbow_pose_.linear(): \n"<<master_lelbow_pose_.linear()<<endl;
-		cout<<"master_relbow_pose_raw_.linear(): \n"<<master_relbow_pose_raw_.linear()<<endl;
-		cout<<"master_relbow_pose_.linear(): \n"<<master_relbow_pose_.linear()<<endl;
+		// cout<<"master_lelbow_pose_raw_.linear(): \n"<<master_lelbow_pose_raw_.linear()<<endl;
+		// cout<<"master_lelbow_pose_.linear(): \n"<<master_lelbow_pose_.linear()<<endl;
+		// cout<<"master_relbow_pose_raw_.linear(): \n"<<master_relbow_pose_raw_.linear()<<endl;
+		// cout<<"master_relbow_pose_.linear(): \n"<<master_relbow_pose_.linear()<<endl;
 		// cout<<"master_lhand_pose_raw_.translation(): \n"<<master_lhand_pose_raw_.translation()<<endl;
 		// cout<<"exo delta linear matrix: \n"<<exo_suit_lhand_pose_init_.linear().transpose()*exo_suit_lhand_pose_.linear()<<endl;
 
