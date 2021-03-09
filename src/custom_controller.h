@@ -724,6 +724,9 @@ public:
     
     Eigen::Vector3d hmd_lshoulder_center_pos_;
     Eigen::Vector3d hmd_rshoulder_center_pos_;
+
+    Eigen::Vector3d hmd_chest_2_lshoulder_center_pos_;
+    Eigen::Vector3d hmd_chest_2_rshoulder_center_pos_;
     ////////////EXOSUIT////////////
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;

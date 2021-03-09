@@ -3071,7 +3071,7 @@ void CustomController::poseCalibration()
 	// hmd_pelv_pose_.linear().setIdentity();
 
 	Eigen::Vector3d tracker_offset;
-	tracker_offset << -0.04, 0, 0;
+	tracker_offset << -0.05, 0, 0;
 
 	hmd_lhand_pose_.translation() += hmd_lhand_pose_.linear()*tracker_offset;
 	hmd_rhand_pose_.translation() += hmd_rhand_pose_.linear()*tracker_offset;
@@ -3080,16 +3080,13 @@ void CustomController::poseCalibration()
 	{
 		hmd_still_cali_lhand_pos_ = hmd_lhand_pose_.translation() - hmd_chest_pose_.translation();
 		hmd_still_cali_rhand_pos_ = hmd_rhand_pose_.translation() - hmd_chest_pose_.translation();
-		hmd_shoulder_width_ = (hmd_lhand_pose_.translation() - hmd_rhand_pose_.translation()).norm();
 
 		//20210209
 		hmd_still_cali_lhand_pos_ <<  -0.112291, 0.255385, -0.55650;
 		hmd_still_cali_rhand_pos_ <<   -0.0661023, -0.263583, -0.561731; 
-		hmd_shoulder_width_ = 0.521045;
 
 		cout<<"hmd_still_cali_lhand_pos_: "<<hmd_still_cali_lhand_pos_<<endl;
 		cout<<"hmd_still_cali_rhand_pos_: "<<hmd_still_cali_rhand_pos_<<endl;
-		cout<<"hmd_shoulder_width_: "<<hmd_shoulder_width_<<endl;
 
 		still_pose_cali_flag_ = true;
 	}
@@ -3148,11 +3145,29 @@ void CustomController::poseCalibration()
 		hmd_rarm_max_l_ += (hmd_rshoulder_center_pos_ - hmd_tpose_cali_rhand_pos_).norm();
 		hmd_rarm_max_l_ += (hmd_rshoulder_center_pos_ - hmd_forward_cali_rhand_pos_).norm();
 		hmd_rarm_max_l_ /= 3;
+
+		hmd_shoulder_width_ = (hmd_lshoulder_center_pos_ - hmd_rshoulder_center_pos_).norm();
+		hmd_shoulder_width_ = 0.521045;
+
 		// hmd_rarm_max_l_ = 0.54;
+		// double lalpha, ralpha;
+		// lalpha = (hmd_still_cali_lhand_pos_ - hmd_tpose_cali_lhand_pos_).norm();
+		// lalpha += (hmd_forward_cali_lhand_pos_ - hmd_tpose_cali_lhand_pos_).norm();
+		// lalpha += (hmd_still_cali_lhand_pos_ - hmd_forward_cali_lhand_pos_).norm();
+		// hmd_larm_max_l_ = lalpha/(3*sqrt(2));
+
+		// ralpha = (hmd_still_cali_rhand_pos_ - hmd_tpose_cali_rhand_pos_).norm();
+		// ralpha += (hmd_forward_cali_rhand_pos_ - hmd_tpose_cali_rhand_pos_).norm();
+		// ralpha += (hmd_still_cali_rhand_pos_ - hmd_forward_cali_rhand_pos_).norm();
+		// hmd_rarm_max_l_ = ralpha/(3*sqrt(2));
+
+		// hmd_lshoulder_center_pos_ = hmd_still_cali_lhand_pos_ - 
+
 		cout<<"hmd_lshoulder_center_pos_: "<<hmd_lshoulder_center_pos_<<endl;
 		cout<<"hmd_rshoulder_center_pos_: "<<hmd_rshoulder_center_pos_<<endl;
 		cout<<"hmd_larm_max_l_: "<<hmd_larm_max_l_<<endl;
 		cout<<"hmd_rarm_max_l_: "<<hmd_rarm_max_l_<<endl;
+		cout<<"hmd_shoulder_width_: "<<hmd_shoulder_width_<<endl;
 		hmd_check_pose_calibration_[3] = true;
 
 		calibration_x_l_scale_ = (hmd_forward_cali_lhand_pos_ - hmd_lshoulder_center_pos_).norm();
@@ -3161,11 +3176,14 @@ void CustomController::poseCalibration()
 		calibration_y_r_scale_ = (hmd_tpose_cali_rhand_pos_ - hmd_rshoulder_center_pos_).norm();
 		calibration_z_l_scale_ = (hmd_still_cali_lhand_pos_ - hmd_lshoulder_center_pos_).norm();
 		calibration_z_r_scale_ = (hmd_still_cali_rhand_pos_ - hmd_rshoulder_center_pos_).norm();
+
+		hmd_chest_2_lshoulder_center_pos_ = hmd_lshoulder_center_pos_ - hmd_chest_pose_.translation();
+		hmd_chest_2_rshoulder_center_pos_ = hmd_rshoulder_center_pos_ - hmd_chest_pose_.translation();
 	}
 
-	hmd_lshoulder_pose_.translation() = hmd_lshoulder_center_pos_;
+	hmd_lshoulder_pose_.translation() = hmd_chest_2_lshoulder_center_pos_ + hmd_chest_pose_.translation();
 	hmd_lshoulder_pose_.linear() = hmd_chest_pose_.linear();
-	hmd_rshoulder_pose_.translation() = hmd_rshoulder_center_pos_;
+	hmd_rshoulder_pose_.translation() = hmd_chest_2_rshoulder_center_pos_ + hmd_chest_pose_.translation();
 	hmd_rshoulder_pose_.linear() = hmd_chest_pose_.linear();
 }
 
@@ -3859,33 +3877,87 @@ void CustomController::hmdRawDataProcessing()
 	unit_vec_y_axis.setZero();
 	unit_vec_y_axis(1) = 1;
 
-	double x_ration, y_ration, z_ration;
-	hmd2robot_lhand_pos_mapping_ = hmd_lhand_pose_.translation() - hmd_lshoulder_pose_.translation();	
-	// hmd2robot_lhand_pos_mapping_ = (robot_arm_max_l_)/(hmd_larm_max_l_)*hmd2robot_lhand_pos_mapping_;
-	x_ration = hmd2robot_lhand_pos_mapping_(0)/(calibration_x_l_scale_);
-	y_ration = hmd2robot_lhand_pos_mapping_(1)/(calibration_y_l_scale_);
-	z_ration = hmd2robot_lhand_pos_mapping_(2)/(calibration_z_l_scale_);
-	x_ration = DyrosMath::minmax_cut(x_ration, -1, 1);
-	y_ration = DyrosMath::minmax_cut(y_ration, -1, 1);
-	z_ration = DyrosMath::minmax_cut(z_ration, -1, 1);
+	// double x_ratio, y_ratio, z_ratio;
+	// hmd2robot_lhand_pos_mapping_ = hmd_lhand_pose_.translation() - hmd_lshoulder_pose_.translation();	
+	// // hmd2robot_lhand_pos_mapping_ = (robot_arm_max_l_)/(hmd_larm_max_l_)*hmd2robot_lhand_pos_mapping_;
+	// x_ratio = hmd2robot_lhand_pos_mapping_(0)/(calibration_x_l_scale_);
+	// y_ratio = hmd2robot_lhand_pos_mapping_(1)/(calibration_y_l_scale_);
+	// z_ratio = hmd2robot_lhand_pos_mapping_(2)/(calibration_z_l_scale_);
+	// x_ratio = DyrosMath::minmax_cut(x_ratio, -1, 1);
+	// y_ratio = DyrosMath::minmax_cut(y_ratio, -1, 1);
+	// z_ratio = DyrosMath::minmax_cut(z_ratio, -1, 1);
 
-	hmd2robot_lhand_pos_mapping_(0) = (robot_arm_max_l_)*x_ration;
-	hmd2robot_lhand_pos_mapping_(1) = (robot_arm_max_l_)*y_ration;
-	hmd2robot_lhand_pos_mapping_(2) = (robot_arm_max_l_)*z_ration;
+	// hmd2robot_lhand_pos_mapping_(0) = (robot_arm_max_l_)*x_ratio;
+	// hmd2robot_lhand_pos_mapping_(1) = (robot_arm_max_l_)*y_ratio;
+	// hmd2robot_lhand_pos_mapping_(2) = (robot_arm_max_l_)*z_ratio;
 
-	hmd2robot_rhand_pos_mapping_ = hmd_rhand_pose_.translation() - hmd_rshoulder_pose_.translation();	
-	// hmd2robot_rhand_pos_mapping_ = (robot_arm_max_l_)/(hmd_rarm_max_l_)*hmd2robot_rhand_pos_mapping_;
+	// hmd2robot_rhand_pos_mapping_ = hmd_rhand_pose_.translation() - hmd_rshoulder_pose_.translation();	
+	// // hmd2robot_rhand_pos_mapping_ = (robot_arm_max_l_)/(hmd_rarm_max_l_)*hmd2robot_rhand_pos_mapping_;
 
-	x_ration = hmd2robot_rhand_pos_mapping_(0)/(calibration_x_r_scale_);
-	y_ration = hmd2robot_rhand_pos_mapping_(1)/(calibration_y_r_scale_);
-	z_ration = hmd2robot_rhand_pos_mapping_(2)/(calibration_z_r_scale_);
-	x_ration = DyrosMath::minmax_cut(x_ration, -1, 1);
-	y_ration = DyrosMath::minmax_cut(y_ration, -1, 1);
-	z_ration = DyrosMath::minmax_cut(z_ration, -1, 1);
+	// x_ratio = hmd2robot_rhand_pos_mapping_(0)/(calibration_x_r_scale_);
+	// y_ratio = hmd2robot_rhand_pos_mapping_(1)/(calibration_y_r_scale_);
+	// z_ratio = hmd2robot_rhand_pos_mapping_(2)/(calibration_z_r_scale_);
+	// x_ratio = DyrosMath::minmax_cut(x_ratio, -1, 1);
+	// y_ratio = DyrosMath::minmax_cut(y_ratio, -1, 1);
+	// z_ratio = DyrosMath::minmax_cut(z_ratio, -1, 1);
 
-	hmd2robot_rhand_pos_mapping_(0) = (robot_arm_max_l_)*x_ration;
-	hmd2robot_rhand_pos_mapping_(1) = (robot_arm_max_l_)*y_ration;
-	hmd2robot_rhand_pos_mapping_(2) = (robot_arm_max_l_)*z_ration;
+	// hmd2robot_rhand_pos_mapping_(0) = (robot_arm_max_l_)*x_ratio;
+	// hmd2robot_rhand_pos_mapping_(1) = (robot_arm_max_l_)*y_ratio;
+	// hmd2robot_rhand_pos_mapping_(2) = (robot_arm_max_l_)*z_ratio;
+
+
+	///////////////////////////////////MAPPING TEST///////////////////////////////
+	Vector3d robot_still_pose_lhand, robot_t_pose_lhand, robot_forward_pose_lhand, robot_still_pose_rhand, robot_t_pose_rhand, robot_forward_pose_rhand;
+	Vector4d lhand_mapping_vector, rhand_mapping_vector;
+	MatrixXd lhand_master_ref_stack, lhand_robot_ref_stack, rhand_master_ref_stack, rhand_robot_ref_stack;
+	lhand_master_ref_stack.setZero(3,4);
+	lhand_robot_ref_stack.setZero(3,4);
+	rhand_master_ref_stack.setZero(3,4);
+	rhand_robot_ref_stack.setZero(3,4);
+
+	robot_still_pose_lhand.setZero();
+	robot_t_pose_lhand.setZero();
+	robot_forward_pose_lhand.setZero();
+	robot_still_pose_rhand.setZero();
+	robot_t_pose_rhand.setZero();
+	robot_forward_pose_rhand.setZero();
+	
+	robot_still_pose_lhand(2) += -(robot_arm_max_l_);
+	robot_t_pose_lhand(1) += (robot_arm_max_l_);
+	robot_forward_pose_lhand(0) += (robot_arm_max_l_);
+
+	robot_still_pose_rhand(2) += -(robot_arm_max_l_);
+	robot_t_pose_rhand(1) += -(robot_arm_max_l_);
+	robot_forward_pose_rhand(0) += (robot_arm_max_l_);
+
+	lhand_master_ref_stack.block(0, 0, 3, 1) = hmd_still_cali_lhand_pos_ - hmd_lshoulder_center_pos_;
+	lhand_master_ref_stack.block(0, 1, 3, 1) = hmd_tpose_cali_lhand_pos_ - hmd_lshoulder_center_pos_;
+	lhand_master_ref_stack.block(0, 2, 3, 1) = hmd_forward_cali_lhand_pos_ - hmd_lshoulder_center_pos_;
+	lhand_master_ref_stack.block(0, 3, 3, 1) = hmd_rshoulder_center_pos_ - hmd_lshoulder_center_pos_;
+
+	lhand_robot_ref_stack.block(0, 0, 3, 1) = robot_still_pose_lhand;
+	lhand_robot_ref_stack.block(0, 1, 3, 1) = robot_t_pose_lhand;
+	lhand_robot_ref_stack.block(0, 2, 3, 1) = robot_forward_pose_lhand;
+	lhand_robot_ref_stack(1, 3) = -robot_shoulder_width_;
+
+	lhand_mapping_vector = lhand_master_ref_stack.completeOrthogonalDecomposition().pseudoInverse()*(hmd_lhand_pose_.translation() - hmd_lshoulder_pose_.translation());
+
+	hmd2robot_lhand_pos_mapping_ = lhand_robot_ref_stack*lhand_mapping_vector;
+
+	rhand_master_ref_stack.block(0, 0, 3, 1) = hmd_still_cali_rhand_pos_ - hmd_rshoulder_center_pos_;
+	rhand_master_ref_stack.block(0, 1, 3, 1) = hmd_tpose_cali_rhand_pos_ - hmd_rshoulder_center_pos_;
+	rhand_master_ref_stack.block(0, 2, 3, 1) = hmd_forward_cali_rhand_pos_ - hmd_rshoulder_center_pos_;
+	rhand_master_ref_stack.block(0, 3, 3, 1) = hmd_lshoulder_center_pos_ - hmd_rshoulder_center_pos_;
+
+	rhand_robot_ref_stack.block(0, 0, 3, 1) = robot_still_pose_rhand;
+	rhand_robot_ref_stack.block(0, 1, 3, 1) = robot_t_pose_rhand;
+	rhand_robot_ref_stack.block(0, 2, 3, 1) = robot_forward_pose_rhand;
+	rhand_robot_ref_stack(1, 3) = robot_shoulder_width_;
+
+	rhand_mapping_vector = rhand_master_ref_stack.completeOrthogonalDecomposition().pseudoInverse()*(hmd_rhand_pose_.translation() - hmd_rshoulder_pose_.translation());
+
+	hmd2robot_rhand_pos_mapping_ = rhand_robot_ref_stack*rhand_mapping_vector;
+	///////////////////////////////////////////////////////////////////////////////
 
 	if( hmd2robot_lhand_pos_mapping_.norm() > robot_arm_max_l_)
 	{
@@ -3906,7 +3978,7 @@ void CustomController::hmdRawDataProcessing()
 	{
 		hmd2robot_rhand_pos_mapping_ = hmd2robot_rhand_pos_mapping_.normalized()*0.1;
 	}
-
+	
 	// // left hand
 	// if( unit_vec_y_axis.transpose() * hmd_lhand_pose_.translation() >= hmd_shoulder_width_/2 )
 	// {
@@ -3914,7 +3986,6 @@ void CustomController::hmdRawDataProcessing()
 	// 	hmd2robot_lhand_pos_mapping_ = (robot_arm_max_l_)/(hmd_larm_max_l_)*hmd2robot_lhand_pos_mapping_;
 	// 	hmd2robot_lhand_pos_mapping_ -= double(unit_vec_y_axis.transpose() * hmd2robot_lhand_pos_mapping_)*unit_vec_y_axis;
 	// 	hmd2robot_lhand_pos_mapping_ += ( (robot_arm_max_l_)/(hmd_larm_max_l_)*(unit_vec_y_axis.transpose()*hmd_lhand_pose_.translation() - hmd_shoulder_width_/2) + robot_shoulder_width_/2 )*unit_vec_y_axis;
-	
 	// }
 	// else if ( (unit_vec_y_axis.transpose() * hmd_lhand_pose_.translation() >= -hmd_shoulder_width_/2)&&(unit_vec_y_axis.transpose() * hmd_lhand_pose_.translation() < hmd_shoulder_width_/2))
 	// {
@@ -4009,13 +4080,15 @@ void CustomController::hmdRawDataProcessing()
 	// hmd2robot_lelbow_pos_mapping_ = robot_init_elbow_pos + delta_hmd2robot_lelbow_pos_maping;
 	// hmd2robot_relbow_pos_mapping_ = robot_init_elbow_pos + delta_hmd2robot_relbow_pos_maping;
 
+
+
 	master_lhand_pose_raw_.translation() = larmbase_transform_pre_desired_from_.translation() + upperbody_transform_pre_desired_from_.linear()*robot_init_lshoulder_pos + hmd2robot_lhand_pos_mapping_;
-	// master_lhand_pose_raw_.linear() = hmd_lhand_pose_.linear()*hmd_lhand_pose_init_.linear().transpose()*robot_lhand_ori_init;
-	master_lhand_pose_raw_.linear() = hmd_lhand_pose_.linear()*DyrosMath::rotateWithZ(M_PI);
+	// master_lhand_pose_raw_.linear() = hmd_lhand_pose_.linear()*hmd_lhand_pose_init_.linear().transpose()*robot_lhand_ori_init;	//relative orientation
+	master_lhand_pose_raw_.linear() = hmd_lhand_pose_.linear()*DyrosMath::rotateWithZ(M_PI);	//absolute orientation
 
 	master_rhand_pose_raw_.translation() = rarmbase_transform_pre_desired_from_.translation() + upperbody_transform_pre_desired_from_.linear()*robot_init_rshoulder_pos + hmd2robot_rhand_pos_mapping_;
-	// master_rhand_pose_raw_.linear() = hmd_rhand_pose_.linear()*hmd_rhand_pose_init_.linear().transpose()*robot_rhand_ori_init;
-	master_rhand_pose_raw_.linear() = hmd_rhand_pose_.linear()*DyrosMath::rotateWithZ(M_PI);
+	// master_rhand_pose_raw_.linear() = hmd_rhand_pose_.linear()*hmd_rhand_pose_init_.linear().transpose()*robot_rhand_ori_init;	//relative orientation
+	master_rhand_pose_raw_.linear() = hmd_rhand_pose_.linear()*DyrosMath::rotateWithZ(M_PI);	//absolute orientation
 
 	// master_lelbow_pose_raw_.translation() = lshoulder_transform_pre_desired_from_.translation() + hmd2robot_lelbow_pos_mapping_;
 	master_lelbow_pose_raw_.translation().setZero();
