@@ -1921,11 +1921,11 @@ void CustomController::motionGenerator()
 			rawMasterPoseProcessing();
 
 			// motionRetargeting2();
-
+			std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 			motionRetargeting_QPIK_larm();
-
+			std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 			motionRetargeting_QPIK_rarm();
-
+			std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
 			///////////////////////WAIST/////////////////////////
 			Vector3d error_w_upperbody = -DyrosMath::getPhi(upperbody_transform_pre_desired_from_.linear(), master_upperbody_pose_.linear());
@@ -1988,8 +1988,8 @@ void CustomController::motionGenerator()
 			motion_q_(23) = DyrosMath::minmax_cut(motion_q_(23), -30*DEG2RAD, 30*DEG2RAD);
 			motion_q_(24) = DyrosMath::minmax_cut(motion_q_(24), -60*DEG2RAD, 60*DEG2RAD);
 			motion_q_dot_.segment(23, 2).setZero();
-			// if( int(current_time_ * 10000)%1000 == 0)
-			// {
+			if( int(current_time_ * 10000)%1000 == 0)
+			{
 				// cout<< "head_transform_pre_desired_from_: \n" << head_transform_pre_desired_from_.linear() <<endl;
 				// cout<< "master_head_pose_: \n" << master_head_pose_.linear() <<endl;
 				// cout<< "master_head_pose_raw_: \n" << master_head_pose_raw_.linear() <<endl;
@@ -1998,7 +1998,9 @@ void CustomController::motionGenerator()
 				// cout<< "J_head: \n" << J_head <<endl;
 				// cout<<"motion_q_(23): "<<motion_q_(23)<<endl;
 				// cout<<"motion_q_(24): "<<motion_q_(24)<<endl;	
-			// }
+				cout<<"qpik_larm_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;	
+				cout<<"qpik_rarm_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() <<endl;	
+			}
 			
 			// motion_q_(23) = (1-turning_phase_)*init_q_(23) + turning_phase_*turning_duration_*(-yaw_angular_vel_)*1.2; //yaw
 			// motion_q_(23) = 0; //yaw
@@ -2612,7 +2614,7 @@ void CustomController::motionRetargeting_QPIK_larm()
 
 	VectorXd q_dot_larm;
 
-	if(QP_qdot_larm.SolveQPoases(200, qpres))
+	if(QP_qdot_larm.SolveQPoases(100, qpres))
 	{
 		q_dot_larm = qpres.segment(0, variable_size);
 	}
@@ -2638,9 +2640,9 @@ void CustomController::motionRetargeting_QPIK_larm()
 		// cout<<"J2N1_pinv: \n"<<J2N1_pinv<<endl;
 		// cout<<"J3N1N2: \n"<<J3N1N2<<endl;
 		// cout<<"J3N1N2_pinv: \n"<<J3N1N2_pinv<<endl;
-		cout<<"left 1st task error: \n"<< J_l_arm*q_dot_larm - u_dot_lhand<<endl;
-		cout<<"left 2nd task error: \n"<< J_l_upperarm*q_dot_larm - u_dot_lupperarm<<endl;
-		cout<<"left 3rd task error: \n"<< J_l_shoulder*q_dot_larm - u_dot_lshoulder<<endl;
+		// cout<<"left 1st task error: \n"<< J_l_arm*q_dot_larm - u_dot_lhand<<endl;
+		// cout<<"left 2nd task error: \n"<< J_l_upperarm*q_dot_larm - u_dot_lupperarm<<endl;
+		// cout<<"left 3rd task error: \n"<< J_l_shoulder*q_dot_larm - u_dot_lshoulder<<endl;
 		// cout<<"qdot2: \n"<<(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
 		// cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
 		// cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
@@ -2908,14 +2910,14 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	
 	for (int i=0; i< 3; i++) //position velocity limit
 	{
-		lbA(i) = -10;
-		ubA(i) = 10;
+		lbA(i) = -1;
+		ubA(i) = 1;
 	}
 
 	for (int i=3; i< 6; i++)	//angular velocity limit
 	{
-		lbA(i) = -30;
-		ubA(i) = 30;
+		lbA(i) = -3;
+		ubA(i) = 3;
 	}
 
 	QP_qdot_rarm.EnableEqualityCondition(0.0001);
@@ -2925,7 +2927,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 
 	VectorXd q_dot_rarm;
 
-	if(QP_qdot_rarm.SolveQPoases(200, qpres))
+	if(QP_qdot_rarm.SolveQPoases(100, qpres))
 	{
 		q_dot_rarm = qpres.segment(0, variable_size);
 	}
@@ -2950,9 +2952,9 @@ void CustomController::motionRetargeting_QPIK_rarm()
 		// cout<<"J2N1_pinv: \n"<<J2N1_pinv<<endl;
 		// cout<<"J3N1N2: \n"<<J3N1N2<<endl;
 		// cout<<"J3N1N2_pinv: \n"<<J3N1N2_pinv<<endl;
-		cout<<"right 1st task error: \n"<< J_r_arm*q_dot_rarm - u_dot_rhand<<endl;
-		cout<<"right 2nd task error: \n"<< J_r_upperarm*q_dot_rarm - u_dot_rupperarm<<endl;
-		cout<<"right 3rd task error: \n"<< J_r_shoulder*q_dot_rarm - u_dot_rshoulder<<endl;
+		// cout<<"right 1st task error: \n"<< J_r_arm*q_dot_rarm - u_dot_rhand<<endl;
+		// cout<<"right 2nd task error: \n"<< J_r_upperarm*q_dot_rarm - u_dot_rupperarm<<endl;
+		// cout<<"right 3rd task error: \n"<< J_r_shoulder*q_dot_rarm - u_dot_rshoulder<<endl;
 		// cout<<"qdot2: \n"<<(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
 		// cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
 		// cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
