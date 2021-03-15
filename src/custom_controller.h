@@ -8,7 +8,7 @@
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
 
-const int FILE_CNT = 12;
+const int FILE_CNT = 13;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
@@ -24,7 +24,8 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/8_shoulder_.txt",
     "/home/dg/data/tocabi_cc/9_acromion_.txt",
     "/home/dg/data/tocabi_cc/10_hmd_.txt",
-    "/home/dg/data/tocabi_cc/11_tracker_.txt"
+    "/home/dg/data/tocabi_cc/11_tracker_.txt",
+    "/home/dg/data/tocabi_cc/12_qpik_.txt"
 };
 
 class CustomController
@@ -79,6 +80,8 @@ public:
     void motionRetargeting2();
     void motionRetargeting_QPIK_larm();
     void motionRetargeting_QPIK_rarm();
+    void motionRetargeting_QPIK_wholebody();
+    void motionRetargeting_HQPIK();
     void rawMasterPoseProcessing();
     void exoSuitRawDataProcessing();
     void azureKinectRawDataProcessing();
@@ -863,6 +866,15 @@ public:
     Eigen::Vector3d kinect2robot_lelbow_pos_mapping_init_;
     Eigen::Vector3d kinect2robot_relbow_pos_mapping_init_;    
     //////////////////////////////////
+    
+    ///////////QPIK///////////////////////////
+    Eigen::Vector6d lhand_vel_error_;
+    Eigen::Vector6d rhand_vel_error_;
+    Eigen::Vector3d lelbow_vel_error_;
+    Eigen::Vector3d relbow_vel_error_;
+    Eigen::Vector3d lacromion_vel_error_;
+    Eigen::Vector3d racromion_vel_error_;
+    //////////////////////////////////////////
 
     //fallDetection variables
     Eigen::VectorQd fall_init_q_;
