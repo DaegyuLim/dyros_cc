@@ -1934,11 +1934,8 @@ void CustomController::motionGenerator()
 		{
 			rawMasterPoseProcessing();
 			// motionRetargeting2();
-			std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 			motionRetargeting_QPIK_larm();
-			std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 			motionRetargeting_QPIK_rarm();
-			std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
 			///////////////////////WAIST/////////////////////////
 			Vector3d error_w_upperbody = -DyrosMath::getPhi(upperbody_transform_pre_desired_from_.linear(), master_upperbody_pose_.linear());
@@ -2366,6 +2363,8 @@ void CustomController::motionRetargeting2()
 
 void CustomController::motionRetargeting_QPIK_larm()
 {
+	
+	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
 	/////////////////////////////////ARM///////////////////////////////////////////
 	const int variable_size = 8;
@@ -2382,12 +2381,12 @@ void CustomController::motionRetargeting_QPIK_larm()
 		first_loop_larm_ = false;
 	}
 	
-	double w1 = 200;		//hand tracking
+	double w1 = 1e4;		//hand tracking
 	double w2 = 0.002;			//joint acc
 	double w3 = 1;			//task space vel
 	double w4 = 30;			//joint vel
-	double w5 = 50;			//upperarm oriention tracking
-	double w6 = 50;			//shoulder oriention tracking
+	double w5 = 1e2;			//upperarm oriention tracking
+	double w6 = 1;			//shoulder oriention tracking
 	
 	MatrixXd J_l_arm, J_l_upperarm, J_l_shoulder, J_temp1, J_temp2, J_temp3;
 	J_l_arm.setZero(control_size_hand, variable_size);
@@ -2483,47 +2482,68 @@ void CustomController::motionRetargeting_QPIK_larm()
 
 	
 	//// null space projection of hand and elbow////
-	MatrixXd N_1, N_2, J1_pinv, J2_pinv, J3_pinv, J2N1, J2N1_pinv, J3N1N2, J3N1N2_pinv, I3, I6;
+	MatrixXd J1, J2, J3, N_1, N2_aug, J2_aug, J2_aug_pinv, J1_pinv, J2_pinv, J3_pinv, J2N1, J2N1_pinv, J3N2_aug, J3N2_aug_pinv, I3, I6;
+	MatrixXd q1_dot_star, q2_dot_star;
+	J1.setZero(control_size_hand, variable_size);
+	J2.setZero(control_size_upperarm, variable_size);
+	J3.setZero(control_size_shoulder, variable_size);
+
 	N_1.setZero(variable_size, variable_size);
-	N_2.setZero(variable_size, variable_size);
+	N2_aug.setZero(variable_size, variable_size);
+	J2_aug.setZero(control_size_hand+control_size_upperarm, variable_size);
+	J2_aug_pinv.setZero(variable_size, control_size_hand+control_size_upperarm);
 	J2N1.setZero(control_size_upperarm, variable_size);
 	J2N1_pinv.setZero(variable_size, control_size_upperarm);
-	J3N1N2.setZero(control_size_shoulder, variable_size);
-	J3N1N2_pinv.setZero(variable_size, control_size_shoulder);
+	J3N2_aug.setZero(control_size_shoulder, variable_size);
+	J3N2_aug_pinv.setZero(variable_size, control_size_shoulder);
 	I3.setIdentity(3, 3);
 	I6.setIdentity(6, 6);
+	J1 = J_l_arm;
+	J2 = J_l_upperarm;
+	J3 = J_l_shoulder;
 
-	J1_pinv = J_l_arm.transpose()*(J_l_arm*J_l_arm.transpose()+I6*0.000001).inverse();
+	J1_pinv = J1.transpose()*(J1*J1.transpose()+I6*0.000001).inverse();
 	// J1_pinv = J_l_arm.completeOrthogonalDecomposition().pseudoInverse();
 	N_1 = I8 - (J1_pinv)*J_l_arm;
-	J2_pinv = J_l_upperarm.transpose()*(J_l_upperarm*J_l_upperarm.transpose()+I3*0.000001).inverse();
+	q1_dot_star = J1_pinv*u_dot_lhand;
+
+	J2_pinv = J2.transpose()*(J2*J2.transpose()+I3*0.000001).inverse();
 	// J2_pinv = J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse();
-	N_2 = I8 - (J2_pinv)*J_l_upperarm;
-	J3_pinv = J_l_shoulder.transpose()*(J_l_shoulder*J_l_shoulder.transpose()+I3*0.000001).inverse();
+	J2_aug.block(0, 0, control_size_hand, variable_size) = J1;
+	J2_aug.block(control_size_hand, 0, control_size_upperarm, variable_size) = J2;
+
+	std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();	
+
+	J2_aug_pinv = J2_aug.transpose()*(J2_aug*J2_aug.transpose()+I3*0.000001).inverse();
+	std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();	
+	N2_aug = I8 - (J2_aug_pinv)*J2_aug;
+	J3_pinv = J3.transpose()*(J3*J3.transpose()+I3*0.000001).inverse();
 	// J3_pinv = J_l_shoulder.completeOrthogonalDecomposition().pseudoInverse();
 
-	J2N1 = J_l_upperarm*N_1;
+	J2N1 = J2*N_1;
 	J2N1_pinv = J2N1.transpose()*(J2N1*J2N1.transpose()+I3*0.000001).inverse();
 	// J2N1_pinv = J2N1.completeOrthogonalDecomposition().pseudoInverse();
-	J3N1N2 = J_l_shoulder*N_1*N_2;
-	J3N1N2_pinv = J3N1N2.transpose()*(J3N1N2*J3N1N2.transpose()+I3*0.000001).inverse();
+	q2_dot_star = q1_dot_star + J2N1_pinv*(u_dot_lupperarm - J2*q1_dot_star);
+
+	J3N2_aug = J_l_shoulder*N2_aug;
+	// J3N2_aug_pinv = J3N2_aug.transpose()*(J3N2_aug*J3N2_aug.transpose()+I3*0.000001).inverse();
 	// J3N1N2_pinv = J3N1N2.completeOrthogonalDecomposition().pseudoInverse();
 
-	H1 = J_l_arm.transpose()*J_l_arm;
+	H1 = J1.transpose()*J1;
 	H2 = I8*(1/dt_)*(1/dt_);
-	H3 = J_l_arm.transpose()*J_l_arm;
+	H3 = J1.transpose()*J1;
 	H4 = I8;
 	H5 = (J2N1).transpose()*(J2N1);
-	H6 = (J3N1N2).transpose()*(J3N1N2);
+	H6 = (J3N2_aug).transpose()*(J3N2_aug);
 	// H5 = (J2N1*J2_pinv*J_l_upperarm).transpose()*(J2N1*J2_pinv*J_l_upperarm);
 	// H6 = (J3N1N2*J3_pinv*J_l_shoulder).transpose()*(J3N1N2*J3_pinv*J_l_shoulder);
 	// H5 = (N_1*J2N1_pinv*J_l_upperarm).transpose()*(N_1*J2N1_pinv*J_l_upperarm);
 	// H6 = (N_1*N_2*J3N1N2_pinv*J_l_shoulder).transpose()*(N_1*N_2*J3N1N2_pinv*J_l_shoulder);
 
-	g1 = -J_l_arm.transpose()*u_dot_lhand;
+	g1 = -J1.transpose()*u_dot_lhand;
 	g2 = -motion_q_dot_pre_.segment(15, 8)*(1/dt_)*(1/dt_);
-	g5 = -(J2N1).transpose()*J2N1*J2_pinv*u_dot_lupperarm;
-	g6 = -(J3N1N2).transpose()*J3N1N2*J3_pinv*u_dot_lshoulder;
+	g5 = -(J2N1).transpose()*(u_dot_lupperarm -J2*q1_dot_star);
+	g6 = -(J3N2_aug).transpose()*( u_dot_lshoulder - J3*q2_dot_star);
 	// g5 = -(N_1*J2N1_pinv*J_l_upperarm).transpose()*N_1*J2N1_pinv*u_dot_lupperarm;
 	// g6 = -(N_1*N_2*J3N1N2_pinv*J_l_shoulder).transpose()*N_1*N_2*J3N1N2_pinv*u_dot_lshoulder;
 	// g5 = -(J2N1*J2_pinv*J_l_upperarm).transpose()*J2N1*J2_pinv*u_dot_lupperarm;
@@ -2597,16 +2617,17 @@ void CustomController::motionRetargeting_QPIK_larm()
 	QP_qdot_larm.UpdateSubjectToX(lb, ub);
 
 	VectorXd q_dot_larm;
-
+	std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();	
 	if(QP_qdot_larm.SolveQPoases(100, qpres))
 	{
 		q_dot_larm = qpres.segment(0, variable_size);
+		std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();	
 	}
 	else
 	{
 		q_dot_larm.setZero(variable_size);
 	}
-
+	
 	for(int i =0; i<variable_size; i++)
 	{
 		motion_q_dot_(15+i) = q_dot_larm(i);
@@ -2631,6 +2652,12 @@ void CustomController::motionRetargeting_QPIK_larm()
 		// cout<<"N1 X qdot2: \n"<<N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
 		// cout<<"J2 X N1 X qdot2: \n"<<J_l_upperarm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
 		// cout<<"J1 X N1 X qdot2: \n"<<J_l_arm*N_1*(J_l_upperarm.completeOrthogonalDecomposition().pseudoInverse())*u_dot_lupperarm<<endl;
+
+		cout<<"t2 - t1: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;
+		cout<<"t3 - t2: "<< std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() <<endl;
+		cout<<"t4 - t3: "<< std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count() <<endl;
+		cout<<"t5 - t4: "<< std::chrono::duration_cast<std::chrono::microseconds>(t5 - t4).count() <<endl;
+		cout<<"t5 - t1: "<< std::chrono::duration_cast<std::chrono::microseconds>(t5 - t1).count() <<endl;
 	}
 
 	lhand_vel_error_ = J_l_arm*q_dot_larm - u_dot_lhand;
@@ -2802,8 +2829,7 @@ void CustomController::motionRetargeting_QPIK_rarm()
 	g5 = -(J2N1).transpose()*J2N1*J2_pinv*u_dot_rupperarm;
 	g6 = -(J3N1N2).transpose()*J3N1N2*J3_pinv*u_dot_rshoulder;
 
-	////////////////////////////////////////////////////////////
-
+	////////////////////////////////////////////////////////////                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
 
 	H = w1*H1 + w2*H2 + w3*H3 + w4*H4 + w5*H5 + w6*H6;
 	g = w1*g1 + w2*g2 + w5*g5 + w6*g6;
