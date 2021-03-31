@@ -50,6 +50,8 @@ public:
     CQuadraticProgram QP_qdot;
     CQuadraticProgram QP_qdot_larm;
     CQuadraticProgram QP_qdot_rarm;
+    CQuadraticProgram QP_qdot_upperbody;
+    CQuadraticProgram QP_qdot_wholebody;
 
     void setGains();
     //////////dg custom controller functions////////
@@ -80,6 +82,7 @@ public:
     void motionRetargeting2();
     void motionRetargeting_QPIK_larm();
     void motionRetargeting_QPIK_rarm();
+    void motionRetargeting_QPIK_upperbody();
     void motionRetargeting_QPIK_wholebody();
     void motionRetargeting_HQPIK();
     void rawMasterPoseProcessing();
@@ -560,6 +563,7 @@ public:
     //MotionRetargeting variables
     int upperbody_mode_recieved_;
     double upperbody_command_time_;
+    Eigen::VectorQd upperbody_mode_q_init_;
 
     Eigen::Isometry3d master_lhand_pose_raw_;
     Eigen::Isometry3d master_rhand_pose_raw_;
@@ -646,7 +650,7 @@ public:
     double robot_shoulder_width_;
     ////////////HMD + VIVE TRACKER////////////
     bool hmd_init_pose_calibration_;
-    double hmd_init_pose_cali_time_;
+    // double hmd_init_pose_cali_time_;
 
     bool hmd_tracker_status_raw_;   //1: good, 0: bad
     bool hmd_tracker_status_;   //1: good, 0: bad
@@ -901,4 +905,5 @@ private:
     Eigen::Vector8d integral;
     bool first_loop_larm_;
     bool first_loop_rarm_;
+    bool first_loop_upperbody_;
 };
