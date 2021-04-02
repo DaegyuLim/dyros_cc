@@ -52,6 +52,11 @@ public:
     CQuadraticProgram QP_qdot_rarm;
     CQuadraticProgram QP_qdot_upperbody;
     CQuadraticProgram QP_qdot_wholebody;
+    CQuadraticProgram QP_qdot_hqpik[4];
+    CQuadraticProgram QP_qdot_hqpik2;
+    CQuadraticProgram QP_qdot_hqpik3;
+    CQuadraticProgram QP_qdot_hqpik4;
+
 
     void setGains();
     //////////dg custom controller functions////////
@@ -880,6 +885,28 @@ public:
     Eigen::Vector3d racromion_vel_error_;
     //////////////////////////////////////////
 
+    /////////////HQPIK//////////////////////////
+    const int hierarchy_num_ = 4;
+    const int variable_size_ = 21;
+	const int constraint_size1_ = 21;	//[lb <=	x	<= 	ub] form constraints
+	const int constraint_size2_[4] = {0, 3+12, 3+14+0, 3+14+4+0};	//[lb <=	Ax 	<=	ub] or [Ax = b]
+	const int control_size_[4] = {3, 14, 4, 4};		//1: upperbody, 2: head + hand, 3: upperarm, 4: shoulder
+
+    double w1_;
+    double w2_;
+    double w3_;
+    double w4_;
+    double w5_;
+    double w6_;
+    
+    Eigen::MatrixXd H_, g_, A_, ub,lb, ubA, lbA;
+    Eigen::MatrixXd J_hqpik_[4], J_temp_;
+    Eigen::VectorXd u_dot_[4], qpres_;
+
+    double equality_condition_eps_;
+    double damped_puedoinverse_eps_;
+    ///////////////////////////////////////////////////
+
     //fallDetection variables
     Eigen::VectorQd fall_init_q_;
     double fall_start_time_;
@@ -906,4 +933,5 @@ private:
     bool first_loop_larm_;
     bool first_loop_rarm_;
     bool first_loop_upperbody_;
+    bool first_loop_hqpik_;
 };
