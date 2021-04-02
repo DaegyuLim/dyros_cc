@@ -64,6 +64,7 @@ CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), 
     first_loop_larm_ = true;
 	first_loop_rarm_ = true;
 	first_loop_upperbody_ = true;
+	first_loop_hqpik_ = true;
 }
 
 void CustomController::setGains()
@@ -3338,14 +3339,117 @@ void CustomController::motionRetargeting_QPIK_wholebody()
 
 void CustomController::motionRetargeting_HQPIK()
 {
-	const int variable_size = 21;
-	const int constraint_size1 = 21;	//[lb <=	x	<= 	ub] form constraints
-	const int constraint_size2 = 12;	//[lb <=	Ax 	<=	ub] from constraints
-	const int control_size_hand = 12;		//1
-	const int control_size_upperbody = 3;	//1
-	const int control_size_head = 2;		//2
-	const int control_size_upperarm = 4; 	//3
-	const int control_size_shoulder = 4;	//4
+	// const int variable_size_ = 21;
+	// const int constraint_size1_ = 21;	//[lb <=	x	<= 	ub] form constraints
+	// const int constraint_size2_[4] = {0, 3+12, 3+14+0, 3+14+4+0};	//[lb <=	Ax 	<=	ub] or [Ax = b]
+	// const int control_size_[4] = {3, 14, 4, 4};		//1: upperbody, 2: head + hand, 3: upperarm, 4: shoulder
+
+	if(first_loop_hqpik_)
+    {	
+		for (int i = 0; i<hierarchy_num_; i++)
+		{
+			QP_qdot_hqpik[i].InitializeProblemSize(variable_size_, constraint_size2_[i]);
+			J_hqpik_[i].setZero(control_size_[i], variable_size_);
+			u_dot_[i].setZero(control_size_[i]);
+
+			ubA.setZero(constraint_size2_[i]);
+			lbA.setZero(constraint_size2_[i]);
+		}
+
+		H_.setZero(variable_size_, variable_size_);
+		g_.setZero(variable_size_);
+
+		ub.setZero(constraint_size1_);
+		lb.setZero(constraint_size1_);
+
+		w1_ = 5000;		//upperbody tracking
+		w2_ = 2500;			//hand & head
+		w3_ = 50;			//upperarm
+		w4_ = 1;			//shoulder
+		w5_ = 50;			//kinematic energy
+		w6_ = 0.002;		//acceleration
+
+		equality_condition_eps_ = 1E-6;
+		damped_puedoinverse_eps_ = 1E-4;
+
+		first_loop_hqpik_ = false;
+	}
+	
+	VectorQVQd q_desired_pre;
+	q_desired_pre.setZero();
+	q_desired_pre(39) = 1;
+	q_desired_pre.segment(6, MODEL_DOF) = pre_desired_q_;
+	Vector3d zero3;
+	zero3.setZero();
+	J_temp_.setZero(6, MODEL_DOF_VIRTUAL);
+
+	RigidBodyDynamics::CalcPointJacobian6D(model_d_, q_desired_pre, rd_.link_[Upper_Body].id, zero3, J_temp_, false);
+	J_hqpik_[0].block(0, 0, 3, variable_size_) = J_temp_.block(0, 18, 3, variable_size_);	//orientation
+
+	Vector3d error_w_upperbody = -DyrosMath::getPhi(upperbody_transform_pre_desired_from_.linear(), master_upperbody_pose_.linear());
+	u_dot_[0] = 50*error_w_upperbody;
+
+	MatrixXd H1, H2, H3;
+	VectorXd g1, g2, g3;
+
+	H1 = J_hqpik_[0].transpose()*J_hqpik_[0];
+	H2 = Eigen::MatrixXd::Identity(21, 21);
+	H3 = Eigen::MatrixXd::Identity(21, 21)*(1/dt_)*(1/dt_);
+
+	g1 = -J_hqpik_[0].transpose()*u_dot_[0];
+	g2.setZero();
+	g3 = -motion_q_dot_pre_.segment(12, variable_size_)*(1/dt_)*(1/dt_);
+
+	H_ = w1_*H1 + w2_*H2 + w3_*H3;
+	g_ = w1_*g1 + w2_*g2 + w3_*g3;
+
+	double speed_reduce_rate= 20; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
+
+	for (int i=0; i< constraint_size1_; i++)
+	{
+		lb(i) = max(speed_reduce_rate*(joint_limit_l_(i+12) - current_q_(i+12)), joint_vel_limit_l_(i+12));
+		ub(i) = min(speed_reduce_rate*(joint_limit_h_(i+12) - current_q_(i+12)), joint_vel_limit_h_(i+12));
+	}
+
+	A_.setZero(constraint_size2_[0], variable_size_);
+
+	for(int i = 0; i<constraint_size2_[0]; i++)
+	{
+		for(int j=0 ;j<variable_size_; j++)
+		{
+			if( abs(A_(i, j)) < 1e-3)
+			{	
+				if(A_(i,j) > 0)
+				{
+					A_(i, j) = 1e-3;
+				}
+				else
+				{
+					A_(i, j) = -1e-3;
+				}
+			}
+		}
+	}
+
+	QP_qdot_hqpik[0].EnableEqualityCondition(equality_condition_eps_);
+	QP_qdot_hqpik[0].UpdateMinProblem(H_, g_);
+	QP_qdot_hqpik[0].DeleteSubjectToAx();
+	// QP_qdot_upperbody.UpdateSubjectToAx(A_, lbA, ubA);
+	QP_qdot_hqpik[0].UpdateSubjectToX(lb, ub);
+
+
+	// for( int i=0; i < hierarchy_num_; i ++ )
+	// {
+	// 	if(i == 0)
+	// 	{
+
+	// 	}
+	// 	else if()
+	// 	{
+
+	// 	}
+	// }
+
 }
 
 void CustomController::poseCalibration()
