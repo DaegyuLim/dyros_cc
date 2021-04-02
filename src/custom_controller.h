@@ -899,7 +899,7 @@ public:
     double w5_;
     double w6_;
     
-    Eigen::MatrixXd H_, g_, A_, ub,lb, ubA, lbA;
+    Eigen::MatrixXd H_, g_, ub,lb, ubA, lbA;
     Eigen::MatrixXd J_hqpik_[4], J_temp_;
     Eigen::VectorXd u_dot_[4], qpres_;
 
