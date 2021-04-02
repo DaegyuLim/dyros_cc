@@ -453,7 +453,6 @@ void CustomController::setGains()
 	joint_limit_l_(32) = -60	*DEG2RAD;
 	joint_limit_h_(32) =  60	*DEG2RAD;
 
-	
 
 	//LEG
 	for (int i =0; i<12; i++)
@@ -2458,7 +2457,7 @@ void CustomController::motionRetargeting2()
 void CustomController::motionRetargeting_QPIK_larm()
 {
 	
-	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+	// std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 	/////////////////////////////////ARM///////////////////////////////////////////
 	const int variable_size = 8;
 	const int constraint_size1 = 8;	//[lb <=	x	<= 	ub] form constraints
@@ -2694,13 +2693,13 @@ void CustomController::motionRetargeting_QPIK_larm()
 	QP_qdot_larm.UpdateSubjectToX(lb, ub);
 
 	VectorXd q_dot_larm;
-	std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();	
-	std::chrono::steady_clock::time_point t5;	
+	// std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();	
+	// std::chrono::steady_clock::time_point t5;	
 
-	if(QP_qdot_larm.SolveQPoases(100, qpres, true))
+	if(QP_qdot_larm.SolveQPoases(100, qpres))
 	{
 		q_dot_larm = qpres.segment(0, variable_size);
-		t5 = std::chrono::steady_clock::now();
+		// t5 = std::chrono::steady_clock::now();
 	}
 	else
 	{
