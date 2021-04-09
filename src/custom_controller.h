@@ -32,6 +32,7 @@ class CustomController
 {
 public:
     std::ofstream file[FILE_CNT];
+    std::fstream calibration_log_file_[4];
 
     CustomController(DataContainer &dc,RobotData &rd);
     Eigen::VectorQd getControl();
@@ -52,7 +53,7 @@ public:
     CQuadraticProgram QP_qdot_rarm;
     CQuadraticProgram QP_qdot_upperbody;
     CQuadraticProgram QP_qdot_wholebody;
-    CQuadraticProgram QP_qdot_hqpik[4];
+    std::vector<CQuadraticProgram> QP_qdot_hqpik;
     CQuadraticProgram QP_qdot_hqpik2;
     CQuadraticProgram QP_qdot_hqpik3;
     CQuadraticProgram QP_qdot_hqpik4;
@@ -95,6 +96,10 @@ public:
     void azureKinectRawDataProcessing();
     void hmdRawDataProcessing();
     void poseCalibration();
+    
+    void getTranslationDataFromText(std::fstream &text_file, Eigen::Vector3d &trans);
+    void getMatrix3dDataFromText(std::fstream &text_file, Eigen::Matrix3d &mat);
+    void getIsometry3dDataFromText(std::fstream &text_file, Eigen::Isometry3d &isom);
 
     //preview related functions
     void getComTrajectory_Preview();
@@ -674,10 +679,11 @@ public:
     double hmd_rarm_max_l_;
     double hmd_shoulder_width_;
 
-    bool hmd_check_pose_calibration_[4];   // 0: still cali, 1: T pose cali, 2: Forward Stretch cali, 3: Calibration is completed
+    bool hmd_check_pose_calibration_[5];   // 0: still cali, 1: T pose cali, 2: Forward Stretch cali, 3: Calibration is completed, 4: read calibration from log file
     bool still_pose_cali_flag_;
     bool t_pose_cali_flag_;
     bool forward_pose_cali_flag_;
+    bool read_cali_log_flag_;
 
     Eigen::Isometry3d hmd_head_pose_raw_;
     Eigen::Isometry3d hmd_lshoulder_pose_raw_;
@@ -709,6 +715,16 @@ public:
     Eigen::Isometry3d hmd_chest_pose_;
     Eigen::Isometry3d hmd_pelv_pose_;
 
+    Eigen::Isometry3d hmd_head_pose_pre_;
+    Eigen::Isometry3d hmd_lshoulder_pose_pre_;
+    Eigen::Isometry3d hmd_lupperarm_pose_pre_;
+    Eigen::Isometry3d hmd_lhand_pose_pre_;
+    Eigen::Isometry3d hmd_rshoulder_pose_pre_;
+    Eigen::Isometry3d hmd_rupperarm_pose_pre_;
+    Eigen::Isometry3d hmd_rhand_pose_pre_;
+    Eigen::Isometry3d hmd_chest_pose_pre_;
+    Eigen::Isometry3d hmd_pelv_pose_pre_;
+
     Eigen::Isometry3d hmd_head_pose_init_;  
     Eigen::Isometry3d hmd_lshoulder_pose_init_; 
     Eigen::Isometry3d hmd_lupperarm_pose_init_;
@@ -739,6 +755,17 @@ public:
 
     Eigen::Vector3d hmd_chest_2_lshoulder_center_pos_;
     Eigen::Vector3d hmd_chest_2_rshoulder_center_pos_;
+
+    Eigen::Vector6d hmd_head_vel_;
+    Eigen::Vector6d hmd_lshoulder_vel_;
+    Eigen::Vector6d hmd_lupperarm_vel_;
+    Eigen::Vector6d hmd_lhand_vel_;
+    Eigen::Vector6d hmd_rshoulder_vel_;
+    Eigen::Vector6d hmd_rupperarm_vel_;
+    Eigen::Vector6d hmd_rhand_vel_;
+    Eigen::Vector6d hmd_chest_vel_;
+    Eigen::Vector6d hmd_pelv_vel_; 
+
     ////////////EXOSUIT////////////
     bool exo_suit_init_pose_calibration_;
     double exo_suit_init_pose_cali_time_;
@@ -889,7 +916,7 @@ public:
     const int hierarchy_num_ = 4;
     const int variable_size_ = 21;
 	const int constraint_size1_ = 21;	//[lb <=	x	<= 	ub] form constraints
-	const int constraint_size2_[4] = {0, 3+12, 3+14+0, 3+14+4+0};	//[lb <=	Ax 	<=	ub] or [Ax = b]
+	const int constraint_size2_[4] = {12, 15, 17, 21};	//[lb <=	Ax 	<=	ub] or [Ax = b]
 	const int control_size_[4] = {3, 14, 4, 4};		//1: upperbody, 2: head + hand, 3: upperarm, 4: shoulder
 
     double w1_;
@@ -899,10 +926,12 @@ public:
     double w5_;
     double w6_;
     
-    Eigen::MatrixXd H_, g_, ub,lb, ubA, lbA;
+    Eigen::MatrixXd H_[4], A_hqpik_[4];
     Eigen::MatrixXd J_hqpik_[4], J_temp_;
-    Eigen::VectorXd u_dot_[4], qpres_;
+    Eigen::VectorXd g_[4], u_dot_[4], qpres_, ub_[4],lb_[4], ubA_[4], lbA_[4];
+    Eigen::VectorXd q_dot_hqpik_[4];
 
+    int last_solved_hierarchy_num_;
     double equality_condition_eps_;
     double damped_puedoinverse_eps_;
     ///////////////////////////////////////////////////
