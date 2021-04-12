@@ -28,13 +28,15 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/12_qpik_.txt"
 };
 
+const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
+
 class CustomController
 {
 public:
     std::ofstream file[FILE_CNT];
-    std::fstream calibration_log_file_[4];
-
-    CustomController(DataContainer &dc,RobotData &rd);
+    std::ofstream calibration_log_file_ofstream_[4];
+    std::ifstream calibration_log_file_ifstream_[4];
+    CustomController(DataContainer &dc,RobotData &rd);  
     Eigen::VectorQd getControl();
 
     void taskCommandToCC(TaskCommand tc_);
@@ -53,7 +55,7 @@ public:
     CQuadraticProgram QP_qdot_rarm;
     CQuadraticProgram QP_qdot_upperbody;
     CQuadraticProgram QP_qdot_wholebody;
-    std::vector<CQuadraticProgram> QP_qdot_hqpik;
+    std::vector<CQuadraticProgram> QP_qdot_hqpik_;
     CQuadraticProgram QP_qdot_hqpik2;
     CQuadraticProgram QP_qdot_hqpik3;
     CQuadraticProgram QP_qdot_hqpik4;
@@ -97,9 +99,9 @@ public:
     void hmdRawDataProcessing();
     void poseCalibration();
     
-    void getTranslationDataFromText(std::fstream &text_file, Eigen::Vector3d &trans);
-    void getMatrix3dDataFromText(std::fstream &text_file, Eigen::Matrix3d &mat);
-    void getIsometry3dDataFromText(std::fstream &text_file, Eigen::Isometry3d &isom);
+    void getTranslationDataFromText(std::ifstream &text_file, Eigen::Vector3d &trans);
+    void getMatrix3dDataFromText(std::ifstream &text_file, Eigen::Matrix3d &mat);
+    void getIsometry3dDataFromText(std::ifstream &text_file, Eigen::Isometry3d &isom);
 
     //preview related functions
     void getComTrajectory_Preview();
@@ -765,143 +767,6 @@ public:
     Eigen::Vector6d hmd_rhand_vel_;
     Eigen::Vector6d hmd_chest_vel_;
     Eigen::Vector6d hmd_pelv_vel_; 
-
-    ////////////EXOSUIT////////////
-    bool exo_suit_init_pose_calibration_;
-    double exo_suit_init_pose_cali_time_;
-
-    double exo_larm_max_l_;
-    double exo_rarm_max_l_;
-    double exo_lelbow_max_l_;
-    double exo_relbow_max_l_;
-    double exo_shoulder_width_;
-
-    Eigen::Vector3d exo_suit_head_pos_raw_;   
-    Eigen::Vector3d exo_suit_lshoulder_pos_raw_;
-    Eigen::Vector3d exo_suit_lupperarm_pos_raw_;
-    Eigen::Vector3d exo_suit_llowerarm_pos_raw_;
-    Eigen::Vector3d exo_suit_lhand_pos_raw_;
-    Eigen::Vector3d exo_suit_rshoulder_pos_raw_;
-    Eigen::Vector3d exo_suit_rupperarm_pos_raw_;
-    Eigen::Vector3d exo_suit_rlowerarm_pos_raw_;
-    Eigen::Vector3d exo_suit_rhand_pos_raw_;
-    Eigen::Vector3d exo_suit_pelv_pos_raw_;
-    Eigen::Vector3d exo_suit_upperbody_pos_raw_;
-
-    Eigen::Quaterniond exo_suit_head_q_raw_;   
-    Eigen::Quaterniond exo_suit_lshoulder_q_raw_;
-    Eigen::Quaterniond exo_suit_lupperarm_q_raw_;
-    Eigen::Quaterniond exo_suit_llowerarm_q_raw_;
-    Eigen::Quaterniond exo_suit_lhand_q_raw_;
-    Eigen::Quaterniond exo_suit_rshoulder_q_raw_;
-    Eigen::Quaterniond exo_suit_rupperarm_q_raw_;
-    Eigen::Quaterniond exo_suit_rlowerarm_q_raw_;
-    Eigen::Quaterniond exo_suit_rhand_q_raw_;
-    Eigen::Quaterniond exo_suit_pelv_q_raw_;
-    Eigen::Quaterniond exo_suit_upperbody_q_raw_;
-
-    Eigen::Isometry3d exo_suit_head_pose_;   
-    Eigen::Isometry3d exo_suit_lshoulder_pose_;
-    Eigen::Isometry3d exo_suit_lupperarm_pose_;
-    Eigen::Isometry3d exo_suit_llowerarm_pose_;
-    Eigen::Isometry3d exo_suit_lhand_pose_;
-    Eigen::Isometry3d exo_suit_rshoulder_pose_;
-    Eigen::Isometry3d exo_suit_rupperarm_pose_;
-    Eigen::Isometry3d exo_suit_rlowerarm_pose_;
-    Eigen::Isometry3d exo_suit_rhand_pose_;
-    Eigen::Isometry3d exo_suit_pelv_pose_;
-    Eigen::Isometry3d exo_suit_upperbody_pose_;
-
-    Eigen::Isometry3d exo_suit_head_pose_init_;   
-    Eigen::Isometry3d exo_suit_lshoulder_pose_init_;
-    Eigen::Isometry3d exo_suit_lupperarm_pose_init_;
-    Eigen::Isometry3d exo_suit_llowerarm_pose_init_;
-    Eigen::Isometry3d exo_suit_lhand_pose_init_;
-    Eigen::Isometry3d exo_suit_rshoulder_pose_init_;
-    Eigen::Isometry3d exo_suit_rupperarm_pose_init_;
-    Eigen::Isometry3d exo_suit_rlowerarm_pose_init_;
-    Eigen::Isometry3d exo_suit_rhand_pose_init_;
-    Eigen::Isometry3d exo_suit_pelv_pose_init_;
-    Eigen::Isometry3d exo_suit_upperbody_pose_init_;
-
-    Eigen::Vector3d exo2robot_lhand_pos_mapping_;
-	Eigen::Vector3d exo2robot_rhand_pos_mapping_;
-    Eigen::Vector3d exo2robot_lelbow_pos_mapping_;
-    Eigen::Vector3d exo2robot_relbow_pos_mapping_;
-
-    Eigen::Vector3d exo2robot_lhand_pos_mapping_init_;
-    Eigen::Vector3d exo2robot_rhand_pos_mapping_init_;
-    Eigen::Vector3d exo2robot_lelbow_pos_mapping_init_;
-    Eigen::Vector3d exo2robot_relbow_pos_mapping_init_;
-    //////////////////////////////////
-    ////////////AZURE KINECT////////////
-    bool azure_kinect_init_pose_calibration_;
-    double azure_kinect_init_pose_cali_time_;
-
-    double kinect_larm_max_l_;
-    double kinect_rarm_max_l_;
-    double kinect_lelbow_max_l_;
-    double kinect_relbow_max_l_;
-    double kinect_shoulder_width_;
-
-    Eigen::Vector3d azure_kinect_head_pos_raw_;   
-    Eigen::Vector3d azure_kinect_lshoulder_pos_raw_;
-    Eigen::Vector3d azure_kinect_lelbow_pos_raw_;
-    Eigen::Vector3d azure_kinect_lwrist_pos_raw_;
-    Eigen::Vector3d azure_kinect_lhand_pos_raw_;
-    Eigen::Vector3d azure_kinect_rshoulder_pos_raw_;
-    Eigen::Vector3d azure_kinect_relbow_pos_raw_;
-    Eigen::Vector3d azure_kinect_rwrist_pos_raw_;
-    Eigen::Vector3d azure_kinect_rhand_pos_raw_;
-    Eigen::Vector3d azure_kinect_pelv_pos_raw_;
-    Eigen::Vector3d azure_kinect_upperbody_pos_raw_;
-
-    Eigen::Quaterniond azure_kinect_head_q_raw_;   
-    Eigen::Quaterniond azure_kinect_lshoulder_q_raw_;
-    Eigen::Quaterniond azure_kinect_lelbow_q_raw_;
-    Eigen::Quaterniond azure_kinect_lwrist_q_raw_;
-    Eigen::Quaterniond azure_kinect_lhand_q_raw_;
-    Eigen::Quaterniond azure_kinect_rshoulder_q_raw_;
-    Eigen::Quaterniond azure_kinect_relbow_q_raw_;
-    Eigen::Quaterniond azure_kinect_rwrist_q_raw_;
-    Eigen::Quaterniond azure_kinect_rhand_q_raw_;
-    Eigen::Quaterniond azure_kinect_pelv_q_raw_;
-    Eigen::Quaterniond azure_kinect_upperbody_q_raw_;
-
-    Eigen::Isometry3d azure_kinect_head_pose_;   
-    Eigen::Isometry3d azure_kinect_lshoulder_pose_;
-    Eigen::Isometry3d azure_kinect_lelbow_pose_;
-    Eigen::Isometry3d azure_kinect_lwrist_pose_;
-    Eigen::Isometry3d azure_kinect_lhand_pose_;
-    Eigen::Isometry3d azure_kinect_rshoulder_pose_;
-    Eigen::Isometry3d azure_kinect_relbow_pose_;
-    Eigen::Isometry3d azure_kinect_rwrist_pose_;
-    Eigen::Isometry3d azure_kinect_rhand_pose_;
-    Eigen::Isometry3d azure_kinect_pelv_pose_;
-    Eigen::Isometry3d azure_kinect_upperbody_pose_;
-
-    Eigen::Isometry3d azure_kinect_head_pose_init_;   
-    Eigen::Isometry3d azure_kinect_lshoulder_pose_init_;
-    Eigen::Isometry3d azure_kinect_lelbow_pose_init_;
-    Eigen::Isometry3d azure_kinect_lwrist_pose_init_;
-    Eigen::Isometry3d azure_kinect_lhand_pose_init_;
-    Eigen::Isometry3d azure_kinect_rshoulder_pose_init_;
-    Eigen::Isometry3d azure_kinect_relbow_pose_init_;
-    Eigen::Isometry3d azure_kinect_rwrist_pose_init_;
-    Eigen::Isometry3d azure_kinect_rhand_pose_init_;
-    Eigen::Isometry3d azure_kinect_pelv_pose_init_;
-    Eigen::Isometry3d azure_kinect_upperbody_pose_init_;
-
-    Eigen::Vector3d kinect2robot_lhand_pos_mapping_;
-	Eigen::Vector3d kinect2robot_rhand_pos_mapping_;
-    Eigen::Vector3d kinect2robot_lelbow_pos_mapping_;
-    Eigen::Vector3d kinect2robot_relbow_pos_mapping_;
-
-    Eigen::Vector3d kinect2robot_lhand_pos_mapping_init_;
-    Eigen::Vector3d kinect2robot_rhand_pos_mapping_init_;
-    Eigen::Vector3d kinect2robot_lelbow_pos_mapping_init_;
-    Eigen::Vector3d kinect2robot_relbow_pos_mapping_init_;    
-    //////////////////////////////////
     
     ///////////QPIK///////////////////////////
     Eigen::Vector6d lhand_vel_error_;
