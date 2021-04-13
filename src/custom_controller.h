@@ -8,7 +8,7 @@
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
 
-const int FILE_CNT = 13;
+const int FILE_CNT = 14;
 
 const std::string FILE_NAMES[FILE_CNT] =
 {
@@ -25,7 +25,8 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/9_acromion_.txt",
     "/home/dg/data/tocabi_cc/10_hmd_.txt",
     "/home/dg/data/tocabi_cc/11_tracker_.txt",
-    "/home/dg/data/tocabi_cc/12_qpik_.txt"
+    "/home/dg/data/tocabi_cc/12_qpik_.txt",
+    "/home/dg/data/tocabi_cc/13_tracker_vel_.txt"
 };
 
 const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
@@ -98,7 +99,8 @@ public:
     void azureKinectRawDataProcessing();
     void hmdRawDataProcessing();
     void poseCalibration();
-    
+    void abruptMotionFilter();
+
     void getTranslationDataFromText(std::ifstream &text_file, Eigen::Vector3d &trans);
     void getMatrix3dDataFromText(std::ifstream &text_file, Eigen::Matrix3d &mat);
     void getIsometry3dDataFromText(std::ifstream &text_file, Eigen::Isometry3d &isom);
@@ -767,6 +769,13 @@ public:
     Eigen::Vector6d hmd_rhand_vel_;
     Eigen::Vector6d hmd_chest_vel_;
     Eigen::Vector6d hmd_pelv_vel_; 
+    
+    int hmd_head_abrupt_motion_count_;
+    int hmd_lupperarm_abrupt_motion_count_;
+    int hmd_lhand_abrupt_motion_count_;
+    int hmd_rupperarm_abrupt_motion_count_;
+    int hmd_rhand_abrupt_motion_count_;
+    int hmd_chest_abrupt_motion_count_;
     
     ///////////QPIK///////////////////////////
     Eigen::Vector6d lhand_vel_error_;

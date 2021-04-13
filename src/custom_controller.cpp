@@ -955,7 +955,7 @@ void CustomController::initWalkingParameter()
 	com_vel_desired_pre_.setZero();
 	com_acc_desired_pre_.setZero();
 	
-	pre_time_ = rd_.control_time_;
+	pre_time_ = rd_.control_time_ - 0.001;
 	pre_desired_q_ = rd_.q_;
 	last_desired_q_ = rd_.q_;
 
@@ -1062,6 +1062,13 @@ void CustomController::initWalkingParameter()
 	hmd_tracker_status_ = true;
 	hmd_tracker_status_pre_ = true;
 	
+	hmd_head_abrupt_motion_count_=0;	
+	hmd_lupperarm_abrupt_motion_count_=0;
+	hmd_lhand_abrupt_motion_count_=0;
+	hmd_rupperarm_abrupt_motion_count_=0;
+	hmd_rhand_abrupt_motion_count_=0;
+	hmd_chest_abrupt_motion_count_=0;
+
 	last_solved_hierarchy_num_ = hierarchy_num_ -1;
 }
 
@@ -2048,7 +2055,6 @@ void CustomController::motionGenerator()
 			std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 			motionRetargeting_QPIK_larm();
 			motionRetargeting_QPIK_rarm();
-			std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 			///////////////////////WAIST/////////////////////////
 			Vector3d error_w_upperbody = -DyrosMath::getPhi(upperbody_transform_pre_desired_from_.linear(), master_upperbody_pose_.linear());
 			Vector3d u_dot_upperbody = master_upperbody_vel_.segment(3, 3) + 100*error_w_upperbody;
@@ -2110,7 +2116,9 @@ void CustomController::motionGenerator()
 			motion_q_(23) = DyrosMath::minmax_cut(motion_q_(23), -30*DEG2RAD, 30*DEG2RAD);
 			motion_q_(24) = DyrosMath::minmax_cut(motion_q_(24), -60*DEG2RAD, 60*DEG2RAD);
 			motion_q_dot_.segment(23, 2).setZero();
-			if( int(current_time_ * 10000)%1000 == 0)
+			std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+			if( int(current_time_ * 10000)%10000 == 0)
 			{
 				// cout<< "head_transform_pre_desired_from_: \n" << head_transform_pre_desired_from_.linear() <<endl;
 				// cout<< "master_head_pose_: \n" << master_head_pose_.linear() <<endl;
@@ -3724,83 +3732,6 @@ void CustomController::poseCalibration()
 			hmd_pelv_pose_			=	hmd_pelv_pose_raw_;
 		}
 
-		//Check Abrupt Movement of trackers
-		hmd_head_vel_.segment(0, 3) = (hmd_head_pose_.translation() - hmd_head_pose_pre_.translation())/dt_;
-		hmd_lshoulder_vel_.segment(0, 3) = (hmd_lshoulder_pose_.translation() - hmd_lshoulder_pose_pre_.translation())/dt_;
-		hmd_lupperarm_vel_.segment(0, 3) = (hmd_lupperarm_pose_.translation() - hmd_lupperarm_pose_pre_.translation())/dt_;
-		hmd_lhand_vel_.segment(0, 3) = (hmd_lhand_pose_.translation() - hmd_lhand_pose_pre_.translation())/dt_;
-		hmd_rshoulder_vel_.segment(0, 3) = (hmd_rshoulder_pose_.translation() - hmd_rshoulder_pose_pre_.translation())/dt_;
-		hmd_rupperarm_vel_.segment(0, 3) = (hmd_rupperarm_pose_.translation() - hmd_rupperarm_pose_pre_.translation())/dt_;
-		hmd_rhand_vel_.segment(0, 3) = (hmd_rhand_pose_.translation() - hmd_rhand_pose_pre_.translation())/dt_;
-		hmd_chest_vel_.segment(0, 3) = (hmd_chest_pose_.translation() - hmd_chest_pose_pre_.translation())/dt_;
-		hmd_pelv_vel_.segment(0, 3) = (hmd_pelv_pose_.translation() - hmd_pelv_pose_pre_.translation())/dt_;
-
-		Eigen::AngleAxisd ang_temp_1(hmd_head_pose_.linear()*hmd_head_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_2(hmd_lshoulder_pose_.linear()*hmd_lshoulder_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_3(hmd_lupperarm_pose_.linear()*hmd_lupperarm_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_4(hmd_lhand_pose_.linear()*hmd_lhand_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_5(hmd_rshoulder_pose_.linear()*hmd_rshoulder_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_6(hmd_rupperarm_pose_.linear()*hmd_rupperarm_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_7(hmd_rhand_pose_.linear()*hmd_rhand_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_8(hmd_chest_pose_.linear()*hmd_chest_pose_pre_.linear().transpose());
-		Eigen::AngleAxisd ang_temp_9(hmd_pelv_pose_.linear()*hmd_pelv_pose_pre_.linear().transpose());
-
-		hmd_head_vel_.segment(3, 3) = ang_temp_1.axis()*ang_temp_1.angle()/dt_;
-		hmd_lshoulder_vel_.segment(3, 3) = ang_temp_2.axis()*ang_temp_2.angle()/dt_;
-		hmd_lupperarm_vel_.segment(3, 3) = ang_temp_3.axis()*ang_temp_3.angle()/dt_;
-		hmd_lhand_vel_.segment(3, 3) = ang_temp_4.axis()*ang_temp_4.angle()/dt_;
-		hmd_rshoulder_vel_.segment(3, 3) = ang_temp_5.axis()*ang_temp_5.angle()/dt_;
-		hmd_rupperarm_vel_.segment(3, 3) = ang_temp_6.axis()*ang_temp_6.angle()/dt_;
-		hmd_rhand_vel_.segment(3, 3) = ang_temp_7.axis()*ang_temp_7.angle()/dt_;
-		hmd_chest_vel_.segment(3, 3) = ang_temp_8.axis()*ang_temp_8.angle()/dt_;
-		hmd_pelv_vel_.segment(3, 3) = ang_temp_9.axis()*ang_temp_9.angle()/dt_;
-
-		// if(hmd_head_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the head tracker!"<<endl;
-		// 	hmd_head_pose_ =  hmd_head_pose_pre_;
-		// }
-		// if(hmd_lshoulder_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the lshoulder!"<<endl;
-		// 	hmd_lshoulder_pose_ =  hmd_lshoulder_pose_pre_;
-		// }
-		// if(hmd_lupperarm_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the lupperarm tracker!"<<endl;
-		// 	hmd_lupperarm_pose_ =  hmd_lupperarm_pose_pre_;
-		// }
-		// if(hmd_lhand_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the lhand tracker!"<<endl;
-		// 	hmd_lhand_pose_ =  hmd_lhand_pose_pre_;
-		// }
-		// if(hmd_rshoulder_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the rshoulder!"<<endl;
-		// 	hmd_rshoulder_pose_ =  hmd_rshoulder_pose_pre_;
-		// }
-		// if(hmd_rupperarm_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the rupperarm tracker!"<<endl;
-		// 	hmd_rupperarm_pose_ =  hmd_rupperarm_pose_pre_;
-		// }
-		// if(hmd_rhand_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the rhand tracker!"<<endl;
-		// 	hmd_rhand_pose_ =  hmd_rhand_pose_pre_;
-		// }
-		// if(hmd_chest_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the chest tracker!"<<endl;
-		// 	hmd_chest_pose_ =  hmd_chest_pose_pre_;
-		// }
-		// if(hmd_pelv_vel_.norm() > 10)
-		// { 
-		// 	cout<<"abrupt movement is detected at the pelv tracker!"<<endl;
-		// 	hmd_pelv_pose_ =  hmd_pelv_pose_pre_;
-		// }
-
 	}
 	else	//false
 	{
@@ -3895,6 +3826,8 @@ void CustomController::poseCalibration()
 	hmd_lhand_pose_.translation() += hmd_lhand_pose_.linear()*tracker_offset;
 	hmd_rhand_pose_.translation() += hmd_rhand_pose_.linear()*tracker_offset;
 	
+
+
 
 	if( (hmd_check_pose_calibration_[0] == true) && (still_pose_cali_flag_ == false) )
 	{
@@ -4155,6 +4088,130 @@ void CustomController::poseCalibration()
 	hmd_rshoulder_pose_.translation() = hmd_chest_pose_.linear()*hmd_chest_pose_init_.linear().transpose()*hmd_chest_2_rshoulder_center_pos_ + hmd_chest_pose_.translation();
 	hmd_rshoulder_pose_.linear() = hmd_chest_pose_.linear();
 
+
+	//HMD Velocity
+	hmd_head_vel_.segment(0, 3) = (hmd_head_pose_.translation() - hmd_head_pose_pre_.translation())/dt_;
+	hmd_lshoulder_vel_.segment(0, 3) = (hmd_lshoulder_pose_.translation() - hmd_lshoulder_pose_pre_.translation())/dt_;
+	hmd_lupperarm_vel_.segment(0, 3) = (hmd_lupperarm_pose_.translation() - hmd_lupperarm_pose_pre_.translation())/dt_;
+	hmd_lhand_vel_.segment(0, 3) = (hmd_lhand_pose_.translation() - hmd_lhand_pose_pre_.translation())/dt_;
+	hmd_rshoulder_vel_.segment(0, 3) = (hmd_rshoulder_pose_.translation() - hmd_rshoulder_pose_pre_.translation())/dt_;
+	hmd_rupperarm_vel_.segment(0, 3) = (hmd_rupperarm_pose_.translation() - hmd_rupperarm_pose_pre_.translation())/dt_;
+	hmd_rhand_vel_.segment(0, 3) = (hmd_rhand_pose_.translation() - hmd_rhand_pose_pre_.translation())/dt_;
+	hmd_chest_vel_.segment(0, 3) = (hmd_chest_pose_.translation() - hmd_chest_pose_pre_.translation())/dt_;
+	hmd_pelv_vel_.segment(0, 3) = (hmd_pelv_pose_.translation() - hmd_pelv_pose_pre_.translation())/dt_;
+
+	Eigen::AngleAxisd ang_temp_1(hmd_head_pose_.linear()*hmd_head_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_2(hmd_lshoulder_pose_.linear()*hmd_lshoulder_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_3(hmd_lupperarm_pose_.linear()*hmd_lupperarm_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_4(hmd_lhand_pose_.linear()*hmd_lhand_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_5(hmd_rshoulder_pose_.linear()*hmd_rshoulder_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_6(hmd_rupperarm_pose_.linear()*hmd_rupperarm_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_7(hmd_rhand_pose_.linear()*hmd_rhand_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_8(hmd_chest_pose_.linear()*hmd_chest_pose_pre_.linear().transpose());
+	Eigen::AngleAxisd ang_temp_9(hmd_pelv_pose_.linear()*hmd_pelv_pose_pre_.linear().transpose());
+
+	hmd_head_vel_.segment(3, 3) = ang_temp_1.axis()*ang_temp_1.angle()/dt_;
+	hmd_lshoulder_vel_.segment(3, 3) = ang_temp_2.axis()*ang_temp_2.angle()/dt_;
+	hmd_lupperarm_vel_.segment(3, 3) = ang_temp_3.axis()*ang_temp_3.angle()/dt_;
+	hmd_lhand_vel_.segment(3, 3) = ang_temp_4.axis()*ang_temp_4.angle()/dt_;
+	hmd_rshoulder_vel_.segment(3, 3) = ang_temp_5.axis()*ang_temp_5.angle()/dt_;
+	hmd_rupperarm_vel_.segment(3, 3) = ang_temp_6.axis()*ang_temp_6.angle()/dt_;
+	hmd_rhand_vel_.segment(3, 3) = ang_temp_7.axis()*ang_temp_7.angle()/dt_;
+	hmd_chest_vel_.segment(3, 3) = ang_temp_8.axis()*ang_temp_8.angle()/dt_;
+	hmd_pelv_vel_.segment(3, 3) = ang_temp_9.axis()*ang_temp_9.angle()/dt_;
+
+}
+
+void CustomController::abruptMotionFilter()
+{
+	int maximum_data_cut_num = 5; 
+	bool verbose = 1;
+
+	if( (hmd_head_vel_.norm() > 30) && (hmd_head_abrupt_motion_count_ < maximum_data_cut_num) )
+	{ 
+		hmd_head_pose_ =  hmd_head_pose_pre_;
+		hmd_head_abrupt_motion_count_++;
+	}
+	else
+	{
+		if( (hmd_head_abrupt_motion_count_ != 0) && verbose )
+		{
+			cout<<"abrupt movement is detected at the head tracker! ("<<hmd_head_abrupt_motion_count_<<")"<<endl;
+		}
+		hmd_head_abrupt_motion_count_ = 0;
+	}
+
+	if( (hmd_lupperarm_vel_.norm() > 15) && (hmd_lupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
+	{ 
+		hmd_lupperarm_pose_ =  hmd_lupperarm_pose_pre_;
+		hmd_lupperarm_abrupt_motion_count_++;
+	}
+	else
+	{
+		if( (hmd_lupperarm_abrupt_motion_count_ != 0) && verbose )
+		{
+			cout<<"abrupt movement is detected at the lupperarm tracker! ("<<hmd_lupperarm_abrupt_motion_count_<<")"<<endl;
+		}
+		hmd_lupperarm_abrupt_motion_count_ = 0;
+	}
+
+	if( (hmd_lhand_vel_.norm() > 30) && (hmd_lhand_abrupt_motion_count_ < maximum_data_cut_num) )
+	{ 
+		
+		hmd_lhand_pose_ =  hmd_lhand_pose_pre_;
+		hmd_lhand_abrupt_motion_count_++;
+	}
+	else
+	{
+		if( (hmd_lhand_abrupt_motion_count_ != 0) && verbose )
+		{
+			cout<<"abrupt movement is detected at the lhand tracker! ("<<hmd_lhand_abrupt_motion_count_<<")"<<endl;
+		}
+		hmd_lhand_abrupt_motion_count_ = 0;
+	}
+
+	if( (hmd_rupperarm_vel_.norm() > 15) && (hmd_rupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
+	{ 
+		hmd_rupperarm_pose_ =  hmd_rupperarm_pose_pre_;
+		hmd_rupperarm_abrupt_motion_count_++;
+	}
+	else
+	{
+		if( (hmd_rupperarm_abrupt_motion_count_ != 0) && verbose )
+		{
+			cout<<"abrupt movement is detected at the rupperarm tracker! ("<<hmd_rupperarm_abrupt_motion_count_<<")"<<endl;
+		}
+		hmd_rupperarm_abrupt_motion_count_ = 0;
+	}
+
+	if( (hmd_rhand_vel_.norm() > 30)&& (hmd_rhand_abrupt_motion_count_ < maximum_data_cut_num) )
+	{ 
+		
+		hmd_rhand_pose_ =  hmd_rhand_pose_pre_;
+		hmd_rhand_abrupt_motion_count_++;
+	}
+	else
+	{
+		if( (hmd_rhand_abrupt_motion_count_ != 0) && verbose )
+		{
+			cout<<"abrupt movement is detected at the rhand tracker! ("<<hmd_rhand_abrupt_motion_count_<<")"<<endl;
+		}
+		hmd_rhand_abrupt_motion_count_ = 0;
+	}
+
+	if( (hmd_chest_vel_.norm() > 15) && (hmd_chest_abrupt_motion_count_ < maximum_data_cut_num) )
+	{ 
+		hmd_chest_pose_ =  hmd_chest_pose_pre_;
+		hmd_chest_abrupt_motion_count_++;
+	}
+	else
+	{
+		if( (hmd_chest_abrupt_motion_count_ != 0) && verbose )
+		{
+			cout<<"abrupt movement is detected at the chest tracker! ("<<hmd_chest_abrupt_motion_count_<<")"<<endl;
+		}
+		hmd_chest_abrupt_motion_count_ = 0;
+	}
 }
 
 void CustomController::getTranslationDataFromText(std::ifstream &text_file, Eigen::Vector3d &trans)
@@ -4216,7 +4273,8 @@ void CustomController::rawMasterPoseProcessing()
 
 		// hmd_shoulder_width_ = (hmd_lupperarm_pose_.translation() - hmd_rupperarm_pose_.translation()).norm();
 	}
-
+	
+	abruptMotionFilter();
 	hmdRawDataProcessing();
 	double fc_filter = 2.5; //hz
 
@@ -4525,8 +4583,8 @@ void CustomController::hmdRawDataProcessing()
 		// cout<<"master_relbow_pose_raw_.linear(): \n"<<master_relbow_pose_raw_.linear()<<endl;
 		// cout<<"left hand ori mat: \n"<<lhand_transform_current_from_global_.linear()<<endl;
 		// cout<<"command arm length: "<<(lshoulder_transform_current_from_global_.translation() - master_lhand_pose_.translation()).norm() <<endl;
-		cout<<"lhand_mapping_vector: "<<lhand_mapping_vector<<endl;
-		cout<<"rhand_mapping_vector: "<<rhand_mapping_vector<<endl;
+		// cout<<"lhand_mapping_vector: "<<lhand_mapping_vector<<endl;
+		// cout<<"rhand_mapping_vector: "<<rhand_mapping_vector<<endl;
 	}
 }
 
@@ -7217,15 +7275,15 @@ void CustomController::printOutTextFile()
 		<<lelbow_rpy_current_from_global_(0)<<"\t"<<lelbow_rpy_current_from_global_(1)<<"\t"<<lelbow_rpy_current_from_global_(2)<<"\t"<<relbow_rpy_current_from_global_(0)<<"\t"<<relbow_rpy_current_from_global_(1)<<"\t"<<relbow_rpy_current_from_global_(2)<<"\t"
 		<<lelbow_vel_current_from_global_(0)<<"\t"<<lelbow_vel_current_from_global_(1)<<"\t"<<lelbow_vel_current_from_global_(2)<<"\t"<<relbow_vel_current_from_global_(0)<<"\t"<<relbow_vel_current_from_global_(1)<<"\t"<<relbow_vel_current_from_global_(2)<<endl;
 
-		file[8]
-		<<lshoulder_transform_current_from_global_.translation()(0)<<"\t"<<lshoulder_transform_current_from_global_.translation()(1)<<"\t"<<lshoulder_transform_current_from_global_.translation()(2)<<"\t"<<rshoulder_transform_current_from_global_.translation()(0)<<"\t"<<rshoulder_transform_current_from_global_.translation()(1)<<"\t"<<rshoulder_transform_current_from_global_.translation()(2)<<"\t"
-		<<lshoulder_rpy_current_from_global_(0)<<"\t"<<lshoulder_rpy_current_from_global_(1)<<"\t"<<lshoulder_rpy_current_from_global_(2)<<"\t"<<rshoulder_rpy_current_from_global_(0)<<"\t"<<rshoulder_rpy_current_from_global_(1)<<"\t"<<rshoulder_rpy_current_from_global_(2)<<"\t"
-		<<lshoulder_vel_current_from_global_(0)<<"\t"<<lshoulder_vel_current_from_global_(1)<<"\t"<<lshoulder_vel_current_from_global_(2)<<"\t"<<rshoulder_vel_current_from_global_(0)<<"\t"<<rshoulder_vel_current_from_global_(1)<<"\t"<<rshoulder_vel_current_from_global_(2)<<endl;
+		// file[8]
+		// <<lshoulder_transform_current_from_global_.translation()(0)<<"\t"<<lshoulder_transform_current_from_global_.translation()(1)<<"\t"<<lshoulder_transform_current_from_global_.translation()(2)<<"\t"<<rshoulder_transform_current_from_global_.translation()(0)<<"\t"<<rshoulder_transform_current_from_global_.translation()(1)<<"\t"<<rshoulder_transform_current_from_global_.translation()(2)<<"\t"
+		// <<lshoulder_rpy_current_from_global_(0)<<"\t"<<lshoulder_rpy_current_from_global_(1)<<"\t"<<lshoulder_rpy_current_from_global_(2)<<"\t"<<rshoulder_rpy_current_from_global_(0)<<"\t"<<rshoulder_rpy_current_from_global_(1)<<"\t"<<rshoulder_rpy_current_from_global_(2)<<"\t"
+		// <<lshoulder_vel_current_from_global_(0)<<"\t"<<lshoulder_vel_current_from_global_(1)<<"\t"<<lshoulder_vel_current_from_global_(2)<<"\t"<<rshoulder_vel_current_from_global_(0)<<"\t"<<rshoulder_vel_current_from_global_(1)<<"\t"<<rshoulder_vel_current_from_global_(2)<<endl;
 
-		file[9]
-		<<lacromion_transform_current_from_global_.translation()(0)<<"\t"<<lacromion_transform_current_from_global_.translation()(1)<<"\t"<<lacromion_transform_current_from_global_.translation()(2)<<"\t"<<racromion_transform_current_from_global_.translation()(0)<<"\t"<<racromion_transform_current_from_global_.translation()(1)<<"\t"<<racromion_transform_current_from_global_.translation()(2)<<"\t"
-		<<lacromion_rpy_current_from_global_(0)<<"\t"<<lacromion_rpy_current_from_global_(1)<<"\t"<<lacromion_rpy_current_from_global_(2)<<"\t"<<racromion_rpy_current_from_global_(0)<<"\t"<<racromion_rpy_current_from_global_(1)<<"\t"<<racromion_rpy_current_from_global_(2)<<"\t"
-		<<lacromion_vel_current_from_global_(0)<<"\t"<<lacromion_vel_current_from_global_(1)<<"\t"<<lacromion_vel_current_from_global_(2)<<"\t"<<racromion_vel_current_from_global_(0)<<"\t"<<racromion_vel_current_from_global_(1)<<"\t"<<racromion_vel_current_from_global_(2)<<endl;
+		// file[9]
+		// <<lacromion_transform_current_from_global_.translation()(0)<<"\t"<<lacromion_transform_current_from_global_.translation()(1)<<"\t"<<lacromion_transform_current_from_global_.translation()(2)<<"\t"<<racromion_transform_current_from_global_.translation()(0)<<"\t"<<racromion_transform_current_from_global_.translation()(1)<<"\t"<<racromion_transform_current_from_global_.translation()(2)<<"\t"
+		// <<lacromion_rpy_current_from_global_(0)<<"\t"<<lacromion_rpy_current_from_global_(1)<<"\t"<<lacromion_rpy_current_from_global_(2)<<"\t"<<racromion_rpy_current_from_global_(0)<<"\t"<<racromion_rpy_current_from_global_(1)<<"\t"<<racromion_rpy_current_from_global_(2)<<"\t"
+		// <<lacromion_vel_current_from_global_(0)<<"\t"<<lacromion_vel_current_from_global_(1)<<"\t"<<lacromion_vel_current_from_global_(2)<<"\t"<<racromion_vel_current_from_global_(0)<<"\t"<<racromion_vel_current_from_global_(1)<<"\t"<<racromion_vel_current_from_global_(2)<<endl;
 
 		file[11]
 		<<hmd_lhand_pose_.translation()(0)<<"\t"<<hmd_lhand_pose_.translation()(1)<<"\t"<<hmd_lhand_pose_.translation()(2)<<"\t"<<hmd_rhand_pose_.translation()(0)<<"\t"<<hmd_rhand_pose_.translation()(1)<<"\t"<<hmd_rhand_pose_.translation()(2)<<"\t"
@@ -7250,6 +7308,19 @@ void CustomController::printOutTextFile()
 		<<rhand_vel_error_(0)<<"\t"<<rhand_vel_error_(1)<<"\t"<<rhand_vel_error_(2)<<"\t"<<rhand_vel_error_(3)<<"\t"<<rhand_vel_error_(4)<<"\t"<<rhand_vel_error_(5)<<"\t"
 		<<lelbow_vel_error_(0)<<"\t"<<lelbow_vel_error_(1)<<"\t"<<lelbow_vel_error_(2)<<"\t"<<relbow_vel_error_(0)<<"\t"<<relbow_vel_error_(1)<<"\t"<<relbow_vel_error_(2)<<"\t"
 		<<lacromion_vel_error_(0)<<"\t"<<lacromion_vel_error_(1)<<"\t"<<lacromion_vel_error_(2)<<"\t"<<racromion_vel_error_(0)<<"\t"<<racromion_vel_error_(1)<<"\t"<<racromion_vel_error_(2)<<endl;
+		
+
+		
+		file[13]
+		<<hmd_head_vel_(0)<<"\t"<<hmd_head_vel_(1)<<"\t"<<hmd_head_vel_(2)<<"\t"<<hmd_head_vel_(3)<<"\t"<<hmd_head_vel_(4)<<"\t"<<hmd_head_vel_(5)<<"\t"
+		<<hmd_lshoulder_vel_(0)<<"\t"<<hmd_lshoulder_vel_(1)<<"\t"<<hmd_lshoulder_vel_(2)<<"\t"<<hmd_lshoulder_vel_(3)<<"\t"<<hmd_lshoulder_vel_(4)<<"\t"<<hmd_lshoulder_vel_(5)<<"\t"
+		<<hmd_lupperarm_vel_(0)<<"\t"<<hmd_lupperarm_vel_(1)<<"\t"<<hmd_lupperarm_vel_(2)<<"\t"<<hmd_lupperarm_vel_(3)<<"\t"<<hmd_lupperarm_vel_(4)<<"\t"<<hmd_lupperarm_vel_(5)<<"\t"
+		<<hmd_lhand_vel_(0)<<"\t"<<hmd_lhand_vel_(1)<<"\t"<<hmd_lhand_vel_(2)<<"\t"<<hmd_lhand_vel_(3)<<"\t"<<hmd_lhand_vel_(4)<<"\t"<<hmd_lhand_vel_(5)<<"\t"
+		<<hmd_rshoulder_vel_(0)<<"\t"<<hmd_rshoulder_vel_(1)<<"\t"<<hmd_rshoulder_vel_(2)<<"\t"<<hmd_rshoulder_vel_(3)<<"\t"<<hmd_rshoulder_vel_(4)<<"\t"<<hmd_rshoulder_vel_(5)<<"\t"
+		<<hmd_rupperarm_vel_(0)<<"\t"<<hmd_rupperarm_vel_(1)<<"\t"<<hmd_rupperarm_vel_(2)<<"\t"<<hmd_rupperarm_vel_(3)<<"\t"<<hmd_rupperarm_vel_(4)<<"\t"<<hmd_rupperarm_vel_(5)<<"\t"
+		<<hmd_rhand_vel_(0)<<"\t"<<hmd_rhand_vel_(1)<<"\t"<<hmd_rhand_vel_(2)<<"\t"<<hmd_rhand_vel_(3)<<"\t"<<hmd_rhand_vel_(4)<<"\t"<<hmd_rhand_vel_(5)<<"\t"
+		<<hmd_chest_vel_(0)<<"\t"<<hmd_chest_vel_(1)<<"\t"<<hmd_chest_vel_(2)<<"\t"<<hmd_chest_vel_(3)<<"\t"<<hmd_chest_vel_(4)<<"\t"<<hmd_chest_vel_(5)<<"\t"
+		<<hmd_pelv_vel_(0)<<"\t"<<hmd_pelv_vel_(1)<<"\t"<<hmd_pelv_vel_(2)<<"\t"<<hmd_pelv_vel_(3)<<"\t"<<hmd_pelv_vel_(4)<<"\t"<<hmd_pelv_vel_(5)<<endl;
 
 	// }
 }
