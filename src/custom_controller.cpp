@@ -1031,6 +1031,22 @@ void CustomController::initWalkingParameter()
 	hmd_rhand_pose_.setIdentity();
 	hmd_chest_pose_.setIdentity();
 
+	hmd_pelv_pose_raw_.setIdentity();
+	hmd_lshoulder_pose_raw_.setIdentity();
+	hmd_lhand_pose_raw_.setIdentity();
+	hmd_rshoulder_pose_raw_.setIdentity();
+	hmd_rupperarm_pose_raw_.setIdentity();
+	hmd_rhand_pose_raw_.setIdentity();
+	hmd_chest_pose_raw_.setIdentity();
+	
+	hmd_pelv_pose_raw_last_.setIdentity();
+	hmd_lshoulder_pose_raw_last_.setIdentity();
+	hmd_lhand_pose_raw_last_.setIdentity();
+	hmd_rshoulder_pose_raw_last_.setIdentity();
+	hmd_rupperarm_pose_raw_last_.setIdentity();
+	hmd_rhand_pose_raw_last_.setIdentity();
+	hmd_chest_pose_raw_last_.setIdentity();
+
 	hmd_head_pose_pre_.setIdentity();
 	hmd_lshoulder_pose_pre_.setIdentity();
 	hmd_lupperarm_pose_pre_.setIdentity();
@@ -1042,7 +1058,7 @@ void CustomController::initWalkingParameter()
 	hmd_pelv_pose_pre_.setIdentity();
 
 	hmd_pelv_pose_init_.setIdentity();
-	tracker_status_changed_time_ = current_time_;
+	tracker_status_changed_time_ = current_time_-6;
 	hmd_tracker_status_ = true;
 	hmd_tracker_status_pre_ = true;
 	
@@ -3649,14 +3665,6 @@ void CustomController::poseCalibration()
 		{
 			tracker_status_changed_time_ = current_time_;
 			cout<<"tracker is attatched"<<endl;
-
-			// hmd_head_pose_raw_last_			=hmd_head_pose_;
-			// hmd_lupperarm_pose_raw_last_	=hmd_lupperarm_pose_;
-			// hmd_lhand_pose_raw_last_		=hmd_lhand_pose_;
-			// hmd_rupperarm_pose_raw_last_	=hmd_rupperarm_pose_;
-			// hmd_rhand_pose_raw_last_		=hmd_rhand_pose_;
-			// hmd_chest_pose_raw_last_		=hmd_chest_pose_;
-			// hmd_pelv_pose_raw_last_			=hmd_pelv_pose_;
 		}
 		
 		if( current_time_ - tracker_status_changed_time_ <= 5)
@@ -3697,6 +3705,11 @@ void CustomController::poseCalibration()
 			hmd_head_pose_.linear() = head_diff_m*hmd_head_pose_raw_last_.linear();
 			hmd_chest_pose_.linear() = upperbody_diff_m*hmd_chest_pose_raw_last_.linear();
 			hmd_pelv_pose_.linear() = pelv_diff_m*hmd_pelv_pose_raw_last_.linear();
+
+			if( int( (current_time_ - tracker_status_changed_time_)*10000 )%10000 == 10)
+				cout<<"Motion Tracking Resume!"<< (current_time_ - tracker_status_changed_time_)/5*100<< "%"<< endl;
+
+			
 		}
 		else
 		{
@@ -4205,7 +4218,7 @@ void CustomController::rawMasterPoseProcessing()
 	}
 
 	hmdRawDataProcessing();
-	double fc_filter = 3; //hz
+	double fc_filter = 2.5; //hz
 
 	for(int i=0; i<3; i++)
 	{
@@ -4487,11 +4500,11 @@ void CustomController::hmdRawDataProcessing()
 	master_upperbody_pose_raw_.translation().setZero();
 	Eigen::AngleAxisd chest_ang_diff(hmd_chest_pose_.linear()*hmd_chest_pose_init_.linear().transpose());
 	Eigen::Matrix3d chest_diff_m, shoulder_diff_m;
-	chest_diff_m = Eigen::AngleAxisd(chest_ang_diff.angle()*0.5, chest_ang_diff.axis());
+	chest_diff_m = Eigen::AngleAxisd(chest_ang_diff.angle()*1.0, chest_ang_diff.axis());
 	master_upperbody_pose_raw_.linear() = chest_diff_m*robot_upperbody_ori_init;
 	// master_upperbody_pose_raw_.linear() = hmd_chest_pose_.linear()*hmd_chest_pose_init_.linear().transpose()*robot_upperbody_ori_init;
 	
-	shoulder_diff_m = Eigen::AngleAxisd(chest_ang_diff.angle()*0.5, chest_ang_diff.axis());
+	shoulder_diff_m = Eigen::AngleAxisd(chest_ang_diff.angle()*1.0, chest_ang_diff.axis());
 	master_lshoulder_pose_raw_.linear() = shoulder_diff_m*robot_upperbody_ori_init;
 	master_rshoulder_pose_raw_.linear() = shoulder_diff_m*robot_upperbody_ori_init;
 
