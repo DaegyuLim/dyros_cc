@@ -478,289 +478,15 @@ void CustomController::computeSlow()
 {
 	if (tc.mode == 10)
 	{
-		//rd_.control_time_; current time
-		//rd_.link_[Right_Foot].Jac : current rightfoot jac
-		//rd_.q_dot_ : current q velocity
 
-		//rd_.link_[Right_Foot]
-
-		//ControlVal_=
-
-		wbc_.set_contact(rd_, 1, 1);
-
-		int task_number = 6;
-		rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
-		rd_.f_star.setZero(task_number);
-
-		rd_.J_task = rd_.link_[Pelvis].Jac;
-
-		if (tc.custom_taskgain)
-		{
-			rd_.link_[Pelvis].pos_p_gain = Vector3d::Ones() * tc.pos_p;
-			rd_.link_[Pelvis].pos_d_gain = Vector3d::Ones() * tc.pos_d;
-			rd_.link_[Pelvis].rot_p_gain = Vector3d::Ones() * tc.ang_p;
-			rd_.link_[Pelvis].rot_d_gain = Vector3d::Ones() * tc.ang_d;
-		}
-
-		rd_.link_[Pelvis].x_desired = tc.ratio * rd_.link_[Left_Foot].xpos + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos;
-		rd_.link_[Pelvis].x_desired(2) = tc.height + tc.ratio * rd_.link_[Left_Foot].xpos(2) + (1.0 - tc.ratio) * rd_.link_[Right_Foot].xpos(2);
-		rd_.link_[Pelvis].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
-
-		rd_.f_star = wbc_.getfstar6d(rd_, Pelvis);
-		ControlVal_ = wbc_.task_control_torque_QP(rd_, rd_.J_task, rd_.f_star);
 	}
 	else if (tc.mode == 11)
 	{
-        const int arm_task_number = 6;
-        const int arm_dof = 8;
-        ////////// Option 1: CoM Control //////////////////////
 
-        // wbc_.set_contact(rd_, 1, 1);
-        // int task_number = 6;
-        // rd_.J_task.setZero(task_number, MODEL_DOF_VIRTUAL);
-        // rd_.f_star.setZero(task_number);
-
-        // rd_.J_task = rd_.link_[COM_id].Jac;
-        // rd_.J_task.block(0, 0, 3, MODEL_DOF_VIRTUAL) = rd_.link_[COM_id].Jac_COM_p;
-        // rd_.J_task.block(0, 21, 3, arm_dof).setZero(); // Exclude Left Arm Jacobian
-        // rd_.J_task.block(0, 31, 3, arm_dof).setZero(); // Exclude Right Arm Jacobian
-
-        // rd_.link_[COM_id].x_desired = rd_.link_[COM_id].x_init;
-        // rd_.link_[COM_id].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
-
-        // rd_.f_star = wbc_.getfstar6d(rd_, COM_id);
-        // ControlVal_ = wbc_.task_control_torque_QP2(rd_, rd_.J_task, rd_.f_star);
-
-
-        ////////// Option 2: Without CoM Control, Only Gravty Compensation //////////////////////
-        ControlVal_ = wbc_.gravity_compensation_torque(rd_, false, false);
-
-        ///////// Jacobian based ik arm controller (Daegyu, Donghyeon)/////////////////
-        Eigen::Matrix6d RotRF2Pelvis;
-        RotRF2Pelvis.setZero();
-        RotRF2Pelvis.block(0, 0, 3, 3) = rd_.link_[Right_Foot].Rotm.transpose() * rd_.link_[Pelvis].Rotm;
-        RotRF2Pelvis.block(3, 3, 3, 3) = rd_.link_[Right_Foot].Rotm.transpose() * rd_.link_[Pelvis].Rotm;
-
-
-        Eigen::Matrix<double, 2*arm_task_number, 2*arm_dof> J_task_Arm;
-        J_task_Arm.setZero();
-        J_task_Arm.block(0, 0, arm_task_number, arm_dof) = RotRF2Pelvis * rd_.link_[Left_Hand].Jac.block(0,21,arm_task_number,arm_dof);
-        J_task_Arm.block(arm_task_number, arm_dof, arm_task_number, arm_dof) = RotRF2Pelvis * rd_.link_[Right_Hand].Jac.block(0,31,arm_task_number,arm_dof);
-        Eigen::Matrix<double, 2*arm_dof, 2*arm_task_number> J_task_inv;
-        J_task_inv = DyrosMath::pinv_SVD(J_task_Arm);
-
-        rd_.link_[Left_Hand].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
-        rd_.link_[Left_Hand].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time, false);
-
-        rd_.link_[Right_Hand].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
-        rd_.link_[Right_Hand].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time, false);
-        
-        Eigen::Vector12d x_dot_desired;
-        Eigen::Vector6d error_v;
-        Eigen::Vector6d error_w;                
-        Eigen::Vector6d k_pos;
-        Eigen::Vector6d k_rot;
-
-        for (int i = 0; i<6; i++)
-        {
-            k_pos(i) = 10;
-            k_rot(i) = 4;
-        }
-
-        error_v.segment<3>(0) = rd_.link_[Left_Hand].x_traj -  rd_.link_[Left_Hand].xpos;
-        error_v.segment<3>(3) = rd_.link_[Right_Hand].x_traj -  rd_.link_[Right_Hand].xpos;
-
-        error_w.segment<3>(0) = -DyrosMath::getPhi(rd_.link_[Left_Hand].Rotm, rd_.link_[Left_Hand].r_traj);
-        error_w.segment<3>(3) = -DyrosMath::getPhi(rd_.link_[Right_Hand].Rotm, rd_.link_[Right_Hand].r_traj);
-
-        for(int i = 0; i<3; i++)
-        {
-            x_dot_desired(i) = rd_.link_[Left_Hand].v_traj(i) + k_pos(i)*error_v(i); // linear velocity
-            x_dot_desired(i+3) = rd_.link_[Left_Hand].w_traj(i) + k_rot(i)*error_w(i);
-            x_dot_desired(i+6) = rd_.link_[Right_Hand].v_traj(i) + k_pos(i+3)*error_v(i+3); // linear velocity
-            x_dot_desired(i+9) = rd_.link_[Right_Hand].w_traj(i) + k_rot(i+3)*error_w(i+3);
-        }
-        for(int i=0; i<2; i++)
-        {
-            x_dot_desired.segment<6>(6*i) = RotRF2Pelvis * x_dot_desired.segment<6>(6*i);
-        }
-
-        VectorXd q_dot_arm;
-        q_dot_arm = J_task_inv*x_dot_desired;
-        for (int i=0; i<arm_dof; i++)
-        {
-            rd_.q_dot_desired_(15+i) = q_dot_arm(i);
-            rd_.q_dot_desired_(25+i) = q_dot_arm(i+arm_dof);
-        }
-        rd_.q_desired_.segment<8>(15) = rd_.q_.segment<8>(15) + rd_.q_dot_desired_.segment<8>(15)*(rd_.control_time_ - rd_.control_time_pre_);
-        rd_.q_desired_.segment<8>(25) = rd_.q_.segment<8>(25) + rd_.q_dot_desired_.segment<8>(25)*(rd_.control_time_ - rd_.control_time_pre_);
-
-        Eigen::MatrixXd kp(8,1);
-        Eigen::MatrixXd kv(8,1);
-        
-        for(int i = 0; i<8; i++)
-        {
-            kp(i) = kp_joint_(15+i);
-            kv(i) = kv_joint_(15+i);
-        }
-
-        for(int i = 0; i<8; i++)
-        {
-            ControlVal_(i+15) += kp(i)*(rd_.q_desired_(i+15) - rd_.q_(i+15)) + kv(i)*(rd_.q_dot_desired_(i+15) - rd_.q_dot_(i+15));
-            ControlVal_(i+25) += kp(i)*(rd_.q_desired_(i+25) - rd_.q_(i+25)) + kv(i)*(rd_.q_dot_desired_(i+25) - rd_.q_dot_(i+25));
-        }           
-        rd_.control_time_pre_ = rd_.control_time_;
 	}
 	else if (tc.mode == 12)
 	{
-        ControlVal_ = wbc_.gravity_compensation_torque(rd_, false, false);
-		
-        Eigen::Matrix6d RotRF2Pelvis;
-        RotRF2Pelvis.setZero();
-        RotRF2Pelvis.block(0, 0, 3, 3) = rd_.link_[Right_Foot].Rotm.transpose() * rd_.link_[Pelvis].Rotm;
-        RotRF2Pelvis.block(3, 3, 3, 3) = rd_.link_[Right_Foot].Rotm.transpose() * rd_.link_[Pelvis].Rotm;
-        const int arm_dof = 8;
-        const int waist_dof = 3;
-        const int arm_task_number = 6;
-        int variable_size = 2*8;
-        int constraint_size = 2*6; // task + joint vel limit
-        Eigen::Matrix<double, 2*arm_task_number, 2*arm_dof> J_task_Arm;
-        J_task_Arm.setZero();
-        J_task_Arm.block(0, 0, arm_task_number, arm_dof) = RotRF2Pelvis * rd_.link_[Left_Hand].Jac.block(0,21,arm_task_number,arm_dof);
-        J_task_Arm.block(arm_task_number, arm_dof, arm_task_number, arm_dof) = RotRF2Pelvis * rd_.link_[Right_Hand].Jac.block(0,31,arm_task_number,arm_dof);
 
-		rd_.link_[Left_Hand].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
-        rd_.link_[Left_Hand].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time, false);
-
-        rd_.link_[Right_Hand].Set_Trajectory_from_quintic(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time);
-        rd_.link_[Right_Hand].Set_Trajectory_rotation(rd_.control_time_, tc.command_time, tc.command_time + tc.traj_time, false);
-        Eigen::Vector12d x_dot_desired;
-        Eigen::Vector6d error_v;
-        Eigen::Vector6d error_w;                
-        Eigen::Vector6d k_pos;
-        Eigen::Vector6d k_rot;
-
-        for (int i = 0; i<6; i++)
-        {
-            k_pos(i) = 10;
-            k_rot(i) = 10;
-        }
-        
-        if (first_loop_larm_)
-        {
-			rd_.control_time_pre_ = rd_.control_time_;
-            q_virtual_clik_.setZero();
-			q_virtual_clik_ = rd_.q_virtual_;
-			// q_virtual_clik_.segment<MODEL_DOF>(6) = rd_.q_;
-            left_x_traj_pre_ = rd_.link_[Left_Hand].x_traj;
-            right_x_traj_pre_ = rd_.link_[Right_Hand].x_traj;
-            left_rotm_pre_ = rd_.link_[Left_Hand].r_traj;
-            right_rotm_pre_ = rd_.link_[Right_Hand].r_traj;
-			QP_qdot.InitializeProblemSize(variable_size, constraint_size);
-            first_loop_larm_ = false;
-			integral.setZero();
-        }
-
-        error_v.segment<3>(0) = rd_.link_[Left_Hand].x_traj -  left_x_traj_pre_;
-        error_v.segment<3>(3) = rd_.link_[Right_Hand].x_traj -  right_x_traj_pre_;
-
-        error_w.segment<3>(0) = -DyrosMath::getPhi(left_rotm_pre_, rd_.link_[Left_Hand].r_traj);
-        error_w.segment<3>(3) = -DyrosMath::getPhi(right_rotm_pre_, rd_.link_[Right_Hand].r_traj);
-
-        for(int i = 0; i<3; i++)
-        {
-            x_dot_desired(i) = rd_.link_[Left_Hand].v_traj(i) + k_pos(i)*error_v(i); // linear velocity
-            x_dot_desired(i+3) = rd_.link_[Left_Hand].w_traj(i) + k_rot(i)*error_w(i);
-            x_dot_desired(i+6) = rd_.link_[Right_Hand].v_traj(i) + k_pos(i+3)*error_v(i+3); // linear velocity
-            x_dot_desired(i+9) = rd_.link_[Right_Hand].w_traj(i) + k_rot(i+3)*error_w(i+3);
-        }
-        for(int i=0; i<2; i++)
-        {
-            x_dot_desired.segment<6>(6*i) = RotRF2Pelvis * x_dot_desired.segment<6>(6*i);
-        }
-        //QP initialize!
-        VectorXd g, lb, ub;
-        MatrixXd Weight_qdot;
-        g.setZero(variable_size);
-        lb.setZero(variable_size);
-        ub.setZero(variable_size);
-        Weight_qdot.setZero(variable_size,variable_size);
-
-        for(int i=0; i<variable_size; i++)
-        {
-			Weight_qdot(i,i) = 1.0;
-        }
-
-        double speed_reduce_rate=18; // when the current joint position is near joint limit (10 degree), joint limit condition is activated.
-
-        for (int i=0; i< arm_dof; i++)
-        {
-            lb(i) = max(speed_reduce_rate*(joint_limit_l_(i) - rd_.q_(i+15)), joint_vel_limit_l_(i));
-            lb(i+arm_dof) = max(speed_reduce_rate*(joint_limit_l_(i+arm_dof) - rd_.q_(i+25)), joint_vel_limit_l_(i+arm_dof));
-            ub(i) = min(speed_reduce_rate*(joint_limit_h_(i) - rd_.q_(i+15)), joint_vel_limit_h_(i));
-            ub(i+arm_dof) = min(speed_reduce_rate*(joint_limit_h_(i+arm_dof) - rd_.q_(i+25)), joint_vel_limit_h_(i+arm_dof));
-        }
-
-
-        QP_qdot.EnableEqualityCondition(0.0001);
-        QP_qdot.UpdateMinProblem(Weight_qdot, g);
-        QP_qdot.UpdateSubjectToAx(J_task_Arm, x_dot_desired, x_dot_desired);
-        QP_qdot.UpdateSubjectToX(lb, ub);
-        
-        VectorXd qpres;
-        VectorXd q_dot_arm;
-            
-        if (QP_qdot.SolveQPoases(200, qpres))
-        {
-            q_dot_arm = qpres.segment(0, variable_size);
-        }
-        else
-        {
-            q_dot_arm.setZero(variable_size);
-        }
-        
-        for (int i=0; i<arm_dof; i++)
-        {
-            rd_.q_dot_desired_(15+i) = q_dot_arm(i);
-            rd_.q_dot_desired_(25+i) = q_dot_arm(i+arm_dof);
-        }
-
-		integral.segment<8>(0) = integral.segment<8>(0) + rd_.q_dot_desired_.segment<8>(25)*(rd_.control_time_ - rd_.control_time_pre_);
-        q_virtual_clik_.segment<8>(21) = q_virtual_clik_.segment<8>(21) + rd_.q_dot_desired_.segment<8>(15)*(rd_.control_time_ - rd_.control_time_pre_);
-        q_virtual_clik_.segment<8>(31) = q_virtual_clik_.segment<8>(31) + rd_.q_dot_desired_.segment<8>(25)*(rd_.control_time_ - rd_.control_time_pre_);
-
-        Eigen::MatrixXd kp(8,1);
-        Eigen::MatrixXd kv(8,1);
-        
-        for(int i = 0; i<8; i++)
-        {
-            kp(i) = kp_joint_(15+i);		//60
-            kv(i) = kv_joint_(15+i);		//6
-        }
-
-		if( int(rd_.control_time_*10000)%1000 == 0)
-		{
-			cout<<"dT" << rd_.control_time_ - rd_.control_time_pre_<<endl;
-			cout<<"right_x_traj_pre_" << right_x_traj_pre_<<endl;
-			cout<<"rd_.link_[Right_Hand].x_traj" << rd_.link_[Right_Hand].x_traj(0)<<endl;
-			cout<<"x_dot_desired(6)" << x_dot_desired(6)<<endl;	
-			cout<<"q_virtual_clik_" << q_virtual_clik_.segment(31, 8)<<endl;
-			cout<<"integral" << integral.segment(0, 8)<<endl;
-
-			cout<<"\n"<<endl;	
-		}
-        for(int i = 0; i<8; i++)
-        {
-            ControlVal_(i+15) += kp(i)*(q_virtual_clik_(i+21) - rd_.q_(i+15)) + kv(i)*(rd_.q_dot_desired_(i+15) - rd_.q_dot_(i+15));
-            ControlVal_(i+25) += kp(i)*(q_virtual_clik_(i+31) - rd_.q_(i+25)) + kv(i)*(rd_.q_dot_desired_(i+25) - rd_.q_dot_(i+25));
-        }           
-
-		left_x_traj_pre_ =  RigidBodyDynamics::CalcBodyToBaseCoordinates( model_d_, q_virtual_clik_, rd_.link_[Left_Hand].id, Eigen::Vector3d::Zero(), true);
-		right_x_traj_pre_ =  RigidBodyDynamics::CalcBodyToBaseCoordinates( model_d_, q_virtual_clik_, rd_.link_[Right_Hand].id, Eigen::Vector3d::Zero(), true);
-		left_rotm_pre_ = (RigidBodyDynamics::CalcBodyWorldOrientation(model_d_, q_virtual_clik_, rd_.link_[Left_Hand].id, true)).transpose();
-        right_rotm_pre_ = (RigidBodyDynamics::CalcBodyWorldOrientation(model_d_, q_virtual_clik_, rd_.link_[Right_Hand].id, true)).transpose();
-
-        rd_.control_time_pre_ = rd_.control_time_;
 	}
 	else if (tc.mode == 13)
 	{
@@ -6015,10 +5741,16 @@ Eigen::VectorQd CustomController::ikBalanceControlCompute(WholebodyController &w
 
 	wbc.set_contact(rd_, 1, 1);
 	torque_g = wbc_.gravity_compensation_torque(rd_, false, false);
+	VectorQd cfrd_torque_g;
+	Vector12d redistribution_force;
+	double eta = 0;
+	
+	cfrd_torque_g = wbc_.contact_force_redistribution_torque_walking(rd_, torque_g, redistribution_force, eta, 1, 1);           
+
 
 	for(int i=0; i<12; i++)
 	{
-		torque_output(i) = pd_control_schedule*( kp_joint_(i)*(q_leg_desired(i) - current_q_(i)) - kv_joint_(i)*current_q_dot_(i) ) + torque_g(i);
+		torque_output(i) = pd_control_schedule*( kp_joint_(i)*(q_leg_desired(i) - current_q_(i)) - kv_joint_(i)*current_q_dot_(i) ) + torque_g(i) + cfrd_torque_g(i);
 	}
 	
 	return torque_output;
