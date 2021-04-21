@@ -473,6 +473,13 @@ void CustomController::setGains()
 		joint_vel_limit_l_(i) = -M_PI;
 		joint_vel_limit_h_(i) = M_PI;
 	}
+
+  //1st arm joint limit
+  joint_vel_limit_l_(15) = -M_PI/2;
+  joint_vel_limit_h_(15) = M_PI/2;
+
+  joint_vel_limit_l_(25) = -M_PI/2;
+  joint_vel_limit_h_(25) = M_PI/2;
 }
 
 Eigen::VectorQd CustomController::getControl()
@@ -616,7 +623,7 @@ void CustomController::computeSlow()
 		// Vector3d temp_elbow = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 		// Vector3d temp_hand = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-1].xpos - pelv_pos_current_);
 		}
-		printOutTextFile();
+		// printOutTextFile();
 	}
 }
 
@@ -795,7 +802,7 @@ void CustomController::initWalkingParameter()
 	hmd_pelv_pose_pre_.setIdentity();
 
 	hmd_pelv_pose_init_.setIdentity();
-	tracker_status_changed_time_ = current_time_-6;
+	tracker_status_changed_time_ = current_time_;
 	hmd_tracker_status_ = true;
 	hmd_tracker_status_pre_ = true;
 	
@@ -3494,6 +3501,16 @@ void CustomController::poseCalibration()
 			cout<<"tracker is attatched"<<endl;
 		}
 		
+    hmd_head_pose_			=	hmd_head_pose_raw_;
+    hmd_lshoulder_pose_		=	hmd_lshoulder_pose_raw_;
+    hmd_lupperarm_pose_		=	hmd_lupperarm_pose_raw_;
+    hmd_lhand_pose_			=	hmd_lhand_pose_raw_;
+    hmd_rshoulder_pose_		=	hmd_rshoulder_pose_raw_;
+    hmd_rupperarm_pose_		=	hmd_rupperarm_pose_raw_;
+    hmd_rhand_pose_			=	hmd_rhand_pose_raw_;
+    hmd_chest_pose_			=	hmd_chest_pose_raw_;
+    hmd_pelv_pose_			=	hmd_pelv_pose_raw_;
+    
 		if( current_time_ - tracker_status_changed_time_ <= 5)
 		{
 			double w = DyrosMath::cubic(current_time_, tracker_status_changed_time_, tracker_status_changed_time_+5, 0, 1, 0, 0);
@@ -3540,15 +3557,7 @@ void CustomController::poseCalibration()
 		}
 		else
 		{
-			hmd_head_pose_			=	hmd_head_pose_raw_;
-			hmd_lshoulder_pose_		=	hmd_lshoulder_pose_raw_;
-			hmd_lupperarm_pose_		=	hmd_lupperarm_pose_raw_;
-			hmd_lhand_pose_			=	hmd_lhand_pose_raw_;
-			hmd_rshoulder_pose_		=	hmd_rshoulder_pose_raw_;
-			hmd_rupperarm_pose_		=	hmd_rupperarm_pose_raw_;
-			hmd_rhand_pose_			=	hmd_rhand_pose_raw_;
-			hmd_chest_pose_			=	hmd_chest_pose_raw_;
-			hmd_pelv_pose_			=	hmd_pelv_pose_raw_;
+
 		}
 
 	}
@@ -3984,10 +3993,10 @@ void CustomController::poseCalibration()
 
 void CustomController::abruptMotionFilter()
 {
-	int maximum_data_cut_num = 3; 
-	bool verbose = 0;
+	int maximum_data_cut_num = 10; 
+	bool verbose = 1;
 
-	if( (hmd_head_vel_.norm() > 30) && (hmd_head_abrupt_motion_count_ < maximum_data_cut_num) )
+	if( (hmd_head_vel_.norm() > 10) && (hmd_head_abrupt_motion_count_ < maximum_data_cut_num) )
 	{ 
 		hmd_head_pose_ =  hmd_head_pose_pre_;
 		hmd_head_abrupt_motion_count_++;
@@ -4001,7 +4010,7 @@ void CustomController::abruptMotionFilter()
 		hmd_head_abrupt_motion_count_ = 0;
 	}
 
-	if( (hmd_lupperarm_vel_.norm() > 15) && (hmd_lupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
+	if( (hmd_lupperarm_vel_.norm() > 10) && (hmd_lupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
 	{ 
 		hmd_lupperarm_pose_ =  hmd_lupperarm_pose_pre_;
 		hmd_lupperarm_abrupt_motion_count_++;
@@ -4015,7 +4024,7 @@ void CustomController::abruptMotionFilter()
 		hmd_lupperarm_abrupt_motion_count_ = 0;
 	}
 
-	if( (hmd_lhand_vel_.norm() > 30) && (hmd_lhand_abrupt_motion_count_ < maximum_data_cut_num) )
+	if( (hmd_lhand_vel_.norm() > 10) && (hmd_lhand_abrupt_motion_count_ < maximum_data_cut_num) )
 	{ 
 		
 		hmd_lhand_pose_ =  hmd_lhand_pose_pre_;
@@ -4030,7 +4039,7 @@ void CustomController::abruptMotionFilter()
 		hmd_lhand_abrupt_motion_count_ = 0;
 	}
 
-	if( (hmd_rupperarm_vel_.norm() > 15) && (hmd_rupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
+	if( (hmd_rupperarm_vel_.norm() > 10) && (hmd_rupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
 	{ 
 		hmd_rupperarm_pose_ =  hmd_rupperarm_pose_pre_;
 		hmd_rupperarm_abrupt_motion_count_++;
@@ -4044,7 +4053,7 @@ void CustomController::abruptMotionFilter()
 		hmd_rupperarm_abrupt_motion_count_ = 0;
 	}
 
-	if( (hmd_rhand_vel_.norm() > 30)&& (hmd_rhand_abrupt_motion_count_ < maximum_data_cut_num) )
+	if( (hmd_rhand_vel_.norm() > 10)&& (hmd_rhand_abrupt_motion_count_ < maximum_data_cut_num) )
 	{ 
 		
 		hmd_rhand_pose_ =  hmd_rhand_pose_pre_;
@@ -4059,7 +4068,7 @@ void CustomController::abruptMotionFilter()
 		hmd_rhand_abrupt_motion_count_ = 0;
 	}
 
-	if( (hmd_chest_vel_.norm() > 15) && (hmd_chest_abrupt_motion_count_ < maximum_data_cut_num) )
+	if( (hmd_chest_vel_.norm() > 10) && (hmd_chest_abrupt_motion_count_ < maximum_data_cut_num) )
 	{ 
 		hmd_chest_pose_ =  hmd_chest_pose_pre_;
 		hmd_chest_abrupt_motion_count_++;
