@@ -8,6 +8,9 @@
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <std_msgs/String.h>
+#include <sstream>
+
 const int FILE_CNT = 14;
 
 const std::string FILE_NAMES[FILE_CNT] =
@@ -38,6 +41,7 @@ public:
     std::ofstream calibration_log_file_ofstream_[4];
     std::ifstream calibration_log_file_ifstream_[4];
     CustomController(DataContainer &dc,RobotData &rd);  
+    ~CustomController();
     Eigen::VectorQd getControl();
 
     void taskCommandToCC(TaskCommand tc_);
@@ -54,12 +58,10 @@ public:
     CQuadraticProgram QP_qdot;
     CQuadraticProgram QP_qdot_larm;
     CQuadraticProgram QP_qdot_rarm;
-    CQuadraticProgram QP_qdot_upperbody;
+    CQuadraticProgram QP_qdot_upperbody_;
     CQuadraticProgram QP_qdot_wholebody;
     std::vector<CQuadraticProgram> QP_qdot_hqpik_;
-    CQuadraticProgram QP_qdot_hqpik2;
-    CQuadraticProgram QP_qdot_hqpik3;
-    CQuadraticProgram QP_qdot_hqpik4;
+
 
 
     void setGains();
@@ -101,6 +103,8 @@ public:
     void poseCalibration();
     void abruptMotionFilter();
 
+    void masterTrajectoryTest();
+    
     void getTranslationDataFromText(std::ifstream &text_file, Eigen::Vector3d &trans);
     void getMatrix3dDataFromText(std::ifstream &text_file, Eigen::Matrix3d &mat);
     void getIsometry3dDataFromText(std::ifstream &text_file, Eigen::Isometry3d &isom);
@@ -152,8 +156,7 @@ public:
 
     ros::Subscriber vive_tracker_pose_calibration_sub;
 
-    ros::Subscriber exo_suit_sub;
-    ros::Subscriber azure_kinect_sub;
+    ros::Publisher calibration_state_pub;
 
     void WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg);
 
@@ -588,23 +591,23 @@ public:
     Eigen::Isometry3d master_rshoulder_pose_raw_;
     Eigen::Isometry3d master_upperbody_pose_raw_;
 
-    // Eigen::Isometry3d master_lhand_pose_raw_pre_;
-    // Eigen::Isometry3d master_rhand_pose_raw_pre_;
-    // Eigen::Isometry3d master_head_pose_raw_pre_;
-    // Eigen::Isometry3d master_lelbow_pose_raw_pre_;
-    // Eigen::Isometry3d master_relbow_pose_raw_pre_;
-    // Eigen::Isometry3d master_lshoulder_pose_raw_pre_;
-    // Eigen::Isometry3d master_rshoulder_pose_raw_pre_;
-    // Eigen::Isometry3d master_upperbody_pose_raw_pre_;
+    Eigen::Isometry3d master_lhand_pose_raw_pre_;
+    Eigen::Isometry3d master_rhand_pose_raw_pre_;
+    Eigen::Isometry3d master_head_pose_raw_pre_;
+    Eigen::Isometry3d master_lelbow_pose_raw_pre_;
+    Eigen::Isometry3d master_relbow_pose_raw_pre_;
+    Eigen::Isometry3d master_lshoulder_pose_raw_pre_;
+    Eigen::Isometry3d master_rshoulder_pose_raw_pre_;
+    Eigen::Isometry3d master_upperbody_pose_raw_pre_;
 
-    // Eigen::Isometry3d master_lhand_pose_raw_ppre_;
-    // Eigen::Isometry3d master_rhand_pose_raw_ppre_;
-    // Eigen::Isometry3d master_head_pose_raw_ppre_;
-    // Eigen::Isometry3d master_lelbow_pose_raw_ppre_;
-    // Eigen::Isometry3d master_relbow_pose_raw_ppre_;
-    // Eigen::Isometry3d master_lshoulder_pose_raw_ppre_;
-    // Eigen::Isometry3d master_rshoulder_pose_raw_ppre_;
-    // Eigen::Isometry3d master_upperbody_pose_raw_ppre_;
+    Eigen::Isometry3d master_lhand_pose_raw_ppre_;
+    Eigen::Isometry3d master_rhand_pose_raw_ppre_;
+    Eigen::Isometry3d master_head_pose_raw_ppre_;
+    Eigen::Isometry3d master_lelbow_pose_raw_ppre_;
+    Eigen::Isometry3d master_relbow_pose_raw_ppre_;
+    Eigen::Isometry3d master_lshoulder_pose_raw_ppre_;
+    Eigen::Isometry3d master_rshoulder_pose_raw_ppre_;
+    Eigen::Isometry3d master_upperbody_pose_raw_ppre_;
 
     Eigen::Isometry3d master_lhand_pose_;
     Eigen::Isometry3d master_rhand_pose_;
@@ -624,14 +627,14 @@ public:
     Eigen::Isometry3d master_rshoulder_pose_pre_;
     Eigen::Isometry3d master_upperbody_pose_pre_;
 
-    // Eigen::Isometry3d master_lhand_pose_ppre_;
-    // Eigen::Isometry3d master_rhand_pose_ppre_;
-    // Eigen::Isometry3d master_head_pose_ppre_;
-    // Eigen::Isometry3d master_lelbow_pose_ppre_;
-    // Eigen::Isometry3d master_relbow_pose_ppre_;
-    // Eigen::Isometry3d master_lshoulder_pose_ppre_;
-    // Eigen::Isometry3d master_rshoulder_pose_ppre_;
-    // Eigen::Isometry3d master_upperbody_pose_ppre_;
+    Eigen::Isometry3d master_lhand_pose_ppre_;
+    Eigen::Isometry3d master_rhand_pose_ppre_;
+    Eigen::Isometry3d master_head_pose_ppre_;
+    Eigen::Isometry3d master_lelbow_pose_ppre_;
+    Eigen::Isometry3d master_relbow_pose_ppre_;
+    Eigen::Isometry3d master_lshoulder_pose_ppre_;
+    Eigen::Isometry3d master_rshoulder_pose_ppre_;
+    Eigen::Isometry3d master_upperbody_pose_ppre_;
 
     Eigen::Vector6d master_lhand_vel_;
     Eigen::Vector6d master_rhand_vel_;
@@ -776,8 +779,18 @@ public:
     int hmd_rupperarm_abrupt_motion_count_;
     int hmd_rhand_abrupt_motion_count_;
     int hmd_chest_abrupt_motion_count_;
-    
+
     ///////////QPIK///////////////////////////
+    Eigen::Vector3d lhand_pos_error_;
+    Eigen::Vector3d rhand_pos_error_;
+    Eigen::Vector3d lhand_ori_error_;
+    Eigen::Vector3d rhand_ori_error_;
+
+    Eigen::Vector3d lelbow_ori_error_;
+    Eigen::Vector3d relbow_ori_error_;
+    Eigen::Vector3d lshoulder_ori_error_;
+    Eigen::Vector3d rshoulder_ori_error_;
+
     Eigen::Vector6d lhand_vel_error_;
     Eigen::Vector6d rhand_vel_error_;
     Eigen::Vector3d lelbow_vel_error_;
@@ -786,28 +799,58 @@ public:
     Eigen::Vector3d racromion_vel_error_;
     //////////////////////////////////////////
 
-    /////////////HQPIK//////////////////////////
-    const int hierarchy_num_ = 4;
-    const int variable_size_ = 21;
-	const int constraint_size1_ = 21;	//[lb <=	x	<= 	ub] form constraints
-	const int constraint_size2_[4] = {12, 15, 17, 21};	//[lb <=	Ax 	<=	ub] or [Ax = b]
-	const int control_size_[4] = {3, 14, 4, 4};		//1: upperbody, 2: head + hand, 3: upperarm, 4: shoulder
+    /////////////QPIK UPPERBODY /////////////////
+    const int hierarchy_num_upperbody_ = 4;
+    const int variable_size_upperbody_ = 21;
+	const int constraint_size1_upperbody_ = 21;	//[lb <=	x	<= 	ub] form constraints
+	const int constraint_size2_upperbody_ = 12;	//[lb <=	Ax 	<=	ub] from constraints
+   	const int control_size_upperbody_[4] = {3, 14, 4, 4};		//1: upperbody, 2: head + hand, 3: upperarm, 4: shoulder
 
-    double w1_;
-    double w2_;
-    double w3_;
-    double w4_;
-    double w5_;
-    double w6_;
+	// const int control_size_hand = 12;		//2
+	// const int control_size_upperbody = 3;	//1
+	// const int control_size_head = 2;		//2
+	// const int control_size_upperarm = 4; 	//3
+	// const int control_size_shoulder = 4;	//4
+
+    double w1_upperbody_;
+    double w2_upperbody_;
+    double w3_upperbody_;
+    double w4_upperbody_;
+    double w5_upperbody_;
+    double w6_upperbody_;
+
+    Eigen::MatrixXd H_upperbody_, A_upperbody_;
+    Eigen::MatrixXd J_upperbody_[4];
+    Eigen::VectorXd g_upperbody_, u_dot_upperbody_[4], qpres_upperbody_, ub_upperbody_, lb_upperbody_, ubA_upperbody_, lbA_upperbody_;
+    Eigen::VectorXd q_dot_upperbody_;
+
+    MatrixXd N1_upperbody_, N2_aug_upperbody_, N3_aug_upperbody_;
+    MatrixXd J2_aug_upperbody_, J2_aug_pinv_upperbody_, J3_aug_upperbody_, J3_aug_pinv_upperbody_, J1_pinv_upperbody_,  J2N1_upperbody_, J3N2_aug_upperbody_, J4N3_aug_upperbody_;
+    MatrixXd I3_upperbody_, I6_upperbody_, I15_upperbody_, I21_upperbody_;
+    /////////////////////////////////////////////
+
+    /////////////HQPIK//////////////////////////
+    const int hierarchy_num_hqpik_ = 4;
+    const int variable_size_hqpik_ = 21;
+	const int constraint_size1_hqpik_ = 21;	//[lb <=	x	<= 	ub] form constraints
+	const int constraint_size2_hqpik_[4] = {12, 15, 17, 21};	//[lb <=	Ax 	<=	ub] or [Ax = b]
+	const int control_size_hqpik_[4] = {3, 14, 4, 4};		//1: upperbody, 2: head + hand, 3: upperarm, 4: shoulder
+
+    double w1_hqpik_;
+    double w2_hqpik_;
+    double w3_hqpik_;
+    double w4_hqpik_;
+    double w5_hqpik_;
+    double w6_hqpik_;
     
-    Eigen::MatrixXd H_[4], A_hqpik_[4];
+    Eigen::MatrixXd H_hqpik_[4], A_hqpik_[4];
     Eigen::MatrixXd J_hqpik_[4], J_temp_;
-    Eigen::VectorXd g_[4], u_dot_[4], qpres_, ub_[4],lb_[4], ubA_[4], lbA_[4];
+    Eigen::VectorXd g_hqpik_[4], u_dot_hqpik_[4], qpres_hqpik_, ub_hqpik_[4],lb_hqpik_[4], ubA_hqpik_[4], lbA_hqpik_[4];
     Eigen::VectorXd q_dot_hqpik_[4];
 
     int last_solved_hierarchy_num_;
-    double equality_condition_eps_;
-    double damped_puedoinverse_eps_;
+    const double equality_condition_eps_ = 1e-6;
+    const double damped_puedoinverse_eps_ = 1e-5;
     ///////////////////////////////////////////////////
 
     //fallDetection variables
@@ -833,6 +876,7 @@ private:
 
     Eigen::VectorQVQd q_virtual_clik_;
     Eigen::Vector8d integral;
+
     bool first_loop_larm_;
     bool first_loop_rarm_;
     bool first_loop_upperbody_;
