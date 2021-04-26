@@ -183,7 +183,7 @@ void CustomController::setGains()
 	torque_task_max_(13) 	= 300;
 	torque_task_max_(14) 	= 300;
 
-	torque_task_max_(15) 	= 300;
+	torque_task_max_(15) 	= 100;
 	torque_task_max_(16) 	= 300;
 	torque_task_max_(17) 	= 300;
 	torque_task_max_(18) 	= 300;
@@ -195,7 +195,7 @@ void CustomController::setGains()
 	torque_task_max_(23) 	= 100;
 	torque_task_max_(24) 	= 100;
 
-	torque_task_max_(25) 	= 300;
+	torque_task_max_(25) 	= 100;
 	torque_task_max_(26) 	= 300;
 	torque_task_max_(27) 	= 300;
 	torque_task_max_(28) 	= 300;
@@ -475,11 +475,11 @@ void CustomController::setGains()
 	}
 
   //1st arm joint limit
-  joint_vel_limit_l_(15) = -M_PI/2;
-  joint_vel_limit_h_(15) = M_PI/2;
+  joint_vel_limit_l_(15) = -M_PI/3;
+  joint_vel_limit_h_(15) = M_PI/3;
 
-  joint_vel_limit_l_(25) = -M_PI/2;
-  joint_vel_limit_h_(25) = M_PI/2;
+  joint_vel_limit_l_(25) = -M_PI/3;
+  joint_vel_limit_h_(25) = M_PI/3;
 }
 
 Eigen::VectorQd CustomController::getControl()
@@ -598,7 +598,7 @@ void CustomController::computeSlow()
 		////////////////////////////////TORQUE LIMIT//////// //////////////////////
 		for (int i = 0; i < MODEL_DOF; i++)
 		{
-			torque_task_(i) = DyrosMath::minmax_cut(torque_task_(i), -300, 300);
+			torque_task_(i) = DyrosMath::minmax_cut(torque_task_(i), torque_task_min_(i), torque_task_max_(i));
 		}
 		///////////////////////////////////////////////////////////////////////////
         
@@ -623,7 +623,7 @@ void CustomController::computeSlow()
 		// Vector3d temp_elbow = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 		// Vector3d temp_hand = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-1].xpos - pelv_pos_current_);
 		}
-		// printOutTextFile();
+		printOutTextFile();
 	}
 }
 
@@ -803,8 +803,8 @@ void CustomController::initWalkingParameter()
 
 	hmd_pelv_pose_init_.setIdentity();
 	tracker_status_changed_time_ = current_time_;
-	hmd_tracker_status_ = true;
-	hmd_tracker_status_pre_ = true;
+	hmd_tracker_status_ = false;
+	hmd_tracker_status_pre_ = false;
 	
 	hmd_head_abrupt_motion_count_=0;	
 	hmd_lupperarm_abrupt_motion_count_=0;
@@ -812,6 +812,7 @@ void CustomController::initWalkingParameter()
 	hmd_rupperarm_abrupt_motion_count_=0;
 	hmd_rhand_abrupt_motion_count_=0;
 	hmd_chest_abrupt_motion_count_=0;
+	hmd_pelv_abrupt_motion_count_=0;	
 
 	last_solved_hierarchy_num_ = hierarchy_num_hqpik_ -1;
 }
@@ -1818,7 +1819,7 @@ void CustomController::motionGenerator()
 			
 			if( int(current_time_ * 10000)%10000 == 0)
 			{
-				cout<<"qpik_ub_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;	
+				// cout<<"qpik_ub_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;	
 			}
 		}
 	}
@@ -1924,7 +1925,7 @@ void CustomController::motionGenerator()
 				// cout<< "J_head: \n" << J_head <<endl;
 				// cout<<"motion_q_(23): "<<motion_q_(23)<<endl;
 				// cout<<"motion_q_(24): "<<motion_q_(24)<<endl;	
-				cout<<"qpik_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;	
+				// cout<<"qpik_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;	
 				// cout<<"qpik_rarm_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() <<endl;	
 			}
 			
@@ -1969,7 +1970,7 @@ void CustomController::motionGenerator()
 			
 			if( int(current_time_ * 10000)%10000 == 0)
 			{
-				cout<<"hqpik_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;	
+				// cout<<"hqpik_time: "<< std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() <<endl;	
 			}
 		}
 	}
@@ -3501,20 +3502,20 @@ void CustomController::poseCalibration()
 			cout<<"tracker is attatched"<<endl;
 		}
 		
-    hmd_head_pose_			=	hmd_head_pose_raw_;
-    hmd_lshoulder_pose_		=	hmd_lshoulder_pose_raw_;
-    hmd_lupperarm_pose_		=	hmd_lupperarm_pose_raw_;
-    hmd_lhand_pose_			=	hmd_lhand_pose_raw_;
-    hmd_rshoulder_pose_		=	hmd_rshoulder_pose_raw_;
-    hmd_rupperarm_pose_		=	hmd_rupperarm_pose_raw_;
-    hmd_rhand_pose_			=	hmd_rhand_pose_raw_;
-    hmd_chest_pose_			=	hmd_chest_pose_raw_;
-    hmd_pelv_pose_			=	hmd_pelv_pose_raw_;
-    
+		hmd_head_pose_			=	hmd_head_pose_raw_;
+		hmd_lshoulder_pose_		=	hmd_lshoulder_pose_raw_;
+		hmd_lupperarm_pose_		=	hmd_lupperarm_pose_raw_;
+		hmd_lhand_pose_			=	hmd_lhand_pose_raw_;
+		hmd_rshoulder_pose_		=	hmd_rshoulder_pose_raw_;
+		hmd_rupperarm_pose_		=	hmd_rupperarm_pose_raw_;
+		hmd_rhand_pose_			=	hmd_rhand_pose_raw_;
+		hmd_chest_pose_			=	hmd_chest_pose_raw_;
+		hmd_pelv_pose_			=	hmd_pelv_pose_raw_;
+
 		if( current_time_ - tracker_status_changed_time_ <= 5)
 		{
-			double w = DyrosMath::cubic(current_time_, tracker_status_changed_time_, tracker_status_changed_time_+5, 0, 1, 0, 0);
-			// double w = (current_time_ - tracker_status_changed_time_)/5;
+			// double w = DyrosMath::cubic(current_time_, tracker_status_changed_time_, tracker_status_changed_time_+5, 0, 1, 0, 0);
+			double w = (current_time_ - tracker_status_changed_time_)/5;
 			// w = DyrosMath::minmax_cut(w, 0, 1);
 
 			hmd_head_pose_.translation()		=	w*hmd_head_pose_raw_.translation() + (1-w)*hmd_head_pose_raw_last_.translation();
@@ -3550,7 +3551,7 @@ void CustomController::poseCalibration()
 			hmd_chest_pose_.linear() = upperbody_diff_m*hmd_chest_pose_raw_last_.linear();
 			hmd_pelv_pose_.linear() = pelv_diff_m*hmd_pelv_pose_raw_last_.linear();
 
-			if( int( (current_time_ - tracker_status_changed_time_)*10000 )%10000 == 10)
+			if( int( (current_time_ - tracker_status_changed_time_)*10000 )%5000 == 0)
 				cout<<"Motion Tracking Resume!"<< (current_time_ - tracker_status_changed_time_)/5*100<< "%"<< endl;
 
 			
@@ -3577,42 +3578,6 @@ void CustomController::poseCalibration()
 			hmd_pelv_pose_raw_last_			=hmd_pelv_pose_raw_;
 		}
 
-		// double w = DyrosMath::cubic(current_time_, tracker_status_changed_time_, tracker_status_changed_time_+5, 0, 1, 0, 0);
-		// double w = (current_time_ - tracker_status_changed_time_)/5;
-		// w = DyrosMath::minmax_cut(w, 0, 1);
-
-		// hmd_head_pose_.translation()		=	w*hmd_head_pose_init_.translation() + (1-w)*hmd_head_pose_raw_last_.translation();
-		// hmd_lupperarm_pose_.translation()	=	w*hmd_lupperarm_pose_init_.translation() + (1-w)*hmd_lupperarm_pose_raw_last_.translation();
-		// hmd_lhand_pose_.translation()		=	w*hmd_lhand_pose_init_.translation() + (1-w)*hmd_lhand_pose_raw_last_.translation();
-		// hmd_rupperarm_pose_.translation()	=	w*hmd_rupperarm_pose_init_.translation() + (1-w)*hmd_rupperarm_pose_raw_last_.translation();
-		// hmd_rhand_pose_.translation()		=	w*hmd_rhand_pose_init_.translation() + (1-w)*hmd_rhand_pose_raw_last_.translation();
-		// hmd_chest_pose_.translation()		=	w*hmd_chest_pose_init_.translation() + (1-w)*hmd_chest_pose_raw_last_.translation();
-		// hmd_pelv_pose_.translation()		=	w*hmd_pelv_pose_init_.translation() + (1-w)*hmd_pelv_pose_raw_last_.translation();
-
-		// Eigen::AngleAxisd head_ang_diff(hmd_head_pose_init_.linear()*hmd_head_pose_raw_last_.linear().transpose());
-		// Eigen::AngleAxisd lelbow_ang_diff(hmd_lupperarm_pose_init_.linear()*hmd_lupperarm_pose_raw_last_.linear().transpose());
-		// Eigen::AngleAxisd lhand_ang_diff(hmd_lhand_pose_init_.linear()*hmd_lhand_pose_raw_last_.linear().transpose());
-		// Eigen::AngleAxisd relbow_ang_diff(hmd_rupperarm_pose_init_.linear()*hmd_rupperarm_pose_raw_last_.linear().transpose());
-		// Eigen::AngleAxisd rhand_ang_diff(hmd_rhand_pose_init_.linear()*hmd_rhand_pose_raw_last_.linear().transpose());
-		// Eigen::AngleAxisd upperbody_ang_diff(hmd_chest_pose_init_.linear()*hmd_chest_pose_raw_last_.linear().transpose());
-		// Eigen::AngleAxisd pelv_ang_diff(hmd_pelv_pose_init_.linear()*hmd_pelv_pose_raw_last_.linear().transpose());
-
-		// Eigen::Matrix3d lhand_diff_m, rhand_diff_m, lelbow_diff_m, relbow_diff_m,  head_diff_m, upperbody_diff_m, pelv_diff_m;
-		// lhand_diff_m = Eigen::AngleAxisd(lhand_ang_diff.angle()*w, lhand_ang_diff.axis());
-		// rhand_diff_m = Eigen::AngleAxisd(rhand_ang_diff.angle()*w, rhand_ang_diff.axis());
-		// lelbow_diff_m = Eigen::AngleAxisd(lelbow_ang_diff.angle()*w, lelbow_ang_diff.axis());
-		// relbow_diff_m = Eigen::AngleAxisd(relbow_ang_diff.angle()*w, relbow_ang_diff.axis());
-		// head_diff_m = Eigen::AngleAxisd(head_ang_diff.angle()*w, head_ang_diff.axis());
-		// upperbody_diff_m = Eigen::AngleAxisd(upperbody_ang_diff.angle()*w, upperbody_ang_diff.axis());
-		// pelv_diff_m = Eigen::AngleAxisd(pelv_ang_diff.angle()*w, pelv_ang_diff.axis());
-
-		// hmd_lupperarm_pose_.linear() = lelbow_diff_m*hmd_lupperarm_pose_raw_last_.linear();
-		// hmd_lhand_pose_.linear() = lhand_diff_m*hmd_lhand_pose_raw_last_.linear();
-		// hmd_rupperarm_pose_.linear() = relbow_diff_m*hmd_rupperarm_pose_raw_last_.linear();
-		// hmd_rhand_pose_.linear() = rhand_diff_m*hmd_rhand_pose_raw_last_.linear();
-		// hmd_head_pose_.linear() = head_diff_m*hmd_head_pose_raw_last_.linear();
-		// hmd_chest_pose_.linear() = upperbody_diff_m*hmd_chest_pose_raw_last_.linear();
-		// hmd_pelv_pose_.linear() = pelv_diff_m*hmd_pelv_pose_raw_last_.linear();
 
 		hmd_head_pose_		= hmd_head_pose_raw_last_;
 		hmd_lupperarm_pose_	= hmd_lupperarm_pose_raw_last_;
@@ -3630,20 +3595,50 @@ void CustomController::poseCalibration()
 	}
 	
 
+	hmd_pelv_vel_.segment(0, 3) = (hmd_pelv_pose_.translation() - hmd_pelv_pose_pre_.translation())/dt_;
+	Eigen::AngleAxisd ang_temp (hmd_pelv_pose_.linear()*hmd_pelv_pose_pre_.linear().transpose());
+	hmd_pelv_vel_.segment(3, 3) = ang_temp.axis()*ang_temp.angle()/dt_;
+
+	bool fast_pelv_move = false;
+	bool far_pelv_move = false;
+	int maximum_data_cut_num = 5;
+	double pelv_max_vel = 5;
+	double pelv_pos_boundary = 0.5;
+
+	if( (hmd_check_pose_calibration_[3] == true) && (hmd_tracker_status_ == true) && ( current_time_ - tracker_status_changed_time_ > 5) )
+	{
+		hmd_pelv_pose_  = velocityFilter( hmd_pelv_pose_, hmd_pelv_pose_pre_, hmd_pelv_vel_, pelv_max_vel, hmd_pelv_abrupt_motion_count_, maximum_data_cut_num, fast_pelv_move);
+
+		if(fast_pelv_move)
+		{
+			cout<<"Fast Pelvis Movement is Detected! ("<< hmd_pelv_abrupt_motion_count_<<")"<<endl;
+		}
+
+		hmd_pelv_pose_.translation() = kinematicFilter(hmd_pelv_pose_.translation(), hmd_pelv_pose_pre_.translation(), hmd_pelv_pose_init_.translation(), pelv_pos_boundary, far_pelv_move);
+
+		if(far_pelv_move)
+		{
+			cout<<"WARNING: The Operator Has Left The Init Position!! \n" << "Robot is stopped (upperbody mode #3)"<<endl;
+		}
+	}
+
+
 
 	Eigen::Vector3d hmd_pelv_rpy;
 	Eigen::Matrix3d hmd_pelv_yaw_rot;
+	Eigen::Isometry3d hmd_pelv_pose_yaw_only;
+	hmd_pelv_pose_yaw_only.translation() = hmd_pelv_pose_.translation();
 	hmd_pelv_rpy = DyrosMath::rot2Euler(hmd_pelv_pose_.linear());
 	hmd_pelv_yaw_rot = DyrosMath::rotateWithZ(hmd_pelv_rpy(2));
-	hmd_pelv_pose_.linear() = hmd_pelv_yaw_rot;
+	hmd_pelv_pose_yaw_only.linear() = hmd_pelv_yaw_rot;
 
 	//coordinate conversion
-	hmd_head_pose_ = hmd_pelv_pose_.inverse()*hmd_head_pose_;
-	hmd_lupperarm_pose_ = hmd_pelv_pose_.inverse()*hmd_lupperarm_pose_;
-	hmd_lhand_pose_ = hmd_pelv_pose_.inverse()*hmd_lhand_pose_;
-	hmd_rupperarm_pose_ = hmd_pelv_pose_.inverse()*hmd_rupperarm_pose_;
-	hmd_rhand_pose_ = hmd_pelv_pose_.inverse()*hmd_rhand_pose_;
-	hmd_chest_pose_ = hmd_pelv_pose_.inverse()*hmd_chest_pose_;
+	hmd_head_pose_ = hmd_pelv_pose_yaw_only.inverse()*hmd_head_pose_;
+	hmd_lupperarm_pose_ = hmd_pelv_pose_yaw_only.inverse()*hmd_lupperarm_pose_;
+	hmd_lhand_pose_ = hmd_pelv_pose_yaw_only.inverse()*hmd_lhand_pose_;
+	hmd_rupperarm_pose_ = hmd_pelv_pose_yaw_only.inverse()*hmd_rupperarm_pose_;
+	hmd_rhand_pose_ = hmd_pelv_pose_yaw_only.inverse()*hmd_rhand_pose_;
+	hmd_chest_pose_ = hmd_pelv_pose_yaw_only.inverse()*hmd_chest_pose_;
 	// hmd_pelv_pose_.linear().setIdentity();
 
 
@@ -3868,7 +3863,7 @@ void CustomController::poseCalibration()
 		}
 		else
 		{
-			cout<<"HMD Init Pose File Is Not Opened!"<<endl;
+			cout<<"HMD Init Pose File Is NOT Opened!"<<endl;
 		}
 
 		// hmd_still_cali_lhand_pos_
@@ -3967,7 +3962,6 @@ void CustomController::poseCalibration()
 	hmd_rupperarm_vel_.segment(0, 3) = (hmd_rupperarm_pose_.translation() - hmd_rupperarm_pose_pre_.translation())/dt_;
 	hmd_rhand_vel_.segment(0, 3) = (hmd_rhand_pose_.translation() - hmd_rhand_pose_pre_.translation())/dt_;
 	hmd_chest_vel_.segment(0, 3) = (hmd_chest_pose_.translation() - hmd_chest_pose_pre_.translation())/dt_;
-	hmd_pelv_vel_.segment(0, 3) = (hmd_pelv_pose_.translation() - hmd_pelv_pose_pre_.translation())/dt_;
 
 	Eigen::AngleAxisd ang_temp_1(hmd_head_pose_.linear()*hmd_head_pose_pre_.linear().transpose());
 	Eigen::AngleAxisd ang_temp_2(hmd_lshoulder_pose_.linear()*hmd_lshoulder_pose_pre_.linear().transpose());
@@ -3977,7 +3971,6 @@ void CustomController::poseCalibration()
 	Eigen::AngleAxisd ang_temp_6(hmd_rupperarm_pose_.linear()*hmd_rupperarm_pose_pre_.linear().transpose());
 	Eigen::AngleAxisd ang_temp_7(hmd_rhand_pose_.linear()*hmd_rhand_pose_pre_.linear().transpose());
 	Eigen::AngleAxisd ang_temp_8(hmd_chest_pose_.linear()*hmd_chest_pose_pre_.linear().transpose());
-	Eigen::AngleAxisd ang_temp_9(hmd_pelv_pose_.linear()*hmd_pelv_pose_pre_.linear().transpose());
 
 	hmd_head_vel_.segment(3, 3) = ang_temp_1.axis()*ang_temp_1.angle()/dt_;
 	hmd_lshoulder_vel_.segment(3, 3) = ang_temp_2.axis()*ang_temp_2.angle()/dt_;
@@ -3987,99 +3980,119 @@ void CustomController::poseCalibration()
 	hmd_rupperarm_vel_.segment(3, 3) = ang_temp_6.axis()*ang_temp_6.angle()/dt_;
 	hmd_rhand_vel_.segment(3, 3) = ang_temp_7.axis()*ang_temp_7.angle()/dt_;
 	hmd_chest_vel_.segment(3, 3) = ang_temp_8.axis()*ang_temp_8.angle()/dt_;
-	hmd_pelv_vel_.segment(3, 3) = ang_temp_9.axis()*ang_temp_9.angle()/dt_;
 
+}
+
+Eigen::Vector3d CustomController::kinematicFilter(Eigen::Vector3d position_data, Eigen::Vector3d pre_position_data, Eigen::Vector3d reference_position, double boundary, bool &check_boundary)
+{
+	Eigen::Vector3d result;
+	check_boundary = (position_data - reference_position).norm() >= boundary;
+
+	if(check_boundary)
+	{
+		result = reference_position + boundary*(position_data - reference_position).normalized();
+		// result = pre_position_data;
+	}
+	else
+	{
+		result = position_data;
+	}
+
+	return result;
+}
+
+Eigen::Isometry3d CustomController::velocityFilter(Eigen::Isometry3d data, Eigen::Isometry3d pre_data, Eigen::Vector6d &vel_data, double max_vel, int &cur_iter, int max_iter, bool &check_velocity)
+{
+	Eigen::Isometry3d result;
+	result.setIdentity();
+	check_velocity = ( (vel_data).norm() > max_vel );
+	double cutoff_f = 1;
+	if( (check_velocity)&&(cur_iter < max_iter) )
+	{
+		result.translation() = DyrosMath::lpf<3>(data.translation(), pre_data.translation(), 1/dt_, cutoff_f);
+		Eigen::AngleAxisd ang_diff(data.linear()*pre_data.linear().transpose());
+		Eigen::Matrix3d diff_m;
+		diff_m = Eigen::AngleAxisd( DyrosMath::lpf(ang_diff.angle(), 0, 1/dt_, cutoff_f), ang_diff.axis() );
+		result.linear() = diff_m*pre_data.linear();
+		cur_iter++;
+		vel_data.setZero();
+		check_velocity = true;
+	}
+	else
+	{
+		result = data;
+		cur_iter = 0;
+		check_velocity = false;
+	}
+
+	return result;
 }
 
 void CustomController::abruptMotionFilter()
 {
-	int maximum_data_cut_num = 10; 
-	bool verbose = 1;
+	int maximum_data_cut_num = 5; 
+	bool verbose = 1; 
+	bool fast_head_move_flag = false;
+	bool fast_lupperarm_move_flag = false;
+	bool fast_lhand_move_flag = false;
+	bool fast_rupperarm_move_flag = false;
+	bool fast_rhand_move_flag = false;
+	bool fast_chest_move_flag = false;
 
-	if( (hmd_head_vel_.norm() > 10) && (hmd_head_abrupt_motion_count_ < maximum_data_cut_num) )
-	{ 
-		hmd_head_pose_ =  hmd_head_pose_pre_;
-		hmd_head_abrupt_motion_count_++;
-	}
-	else
+	double head_max_vel = 30;
+	double lupperarm_max_vel = 30;
+	double lhand_max_vel = 30;
+	double rupperarm_max_vel = 30;
+	double rhand_max_vel = 30;
+	double chest_max_vel = 30;
+
+	Vector6d hmd_lupperarm_angvel_only;
+	Vector6d hmd_rupperarm_angvel_only;
+	hmd_lupperarm_angvel_only.setZero();
+	hmd_lupperarm_angvel_only.segment(3, 3) = hmd_lupperarm_vel_.segment(3, 3);
+	hmd_rupperarm_angvel_only.setZero();
+	hmd_rupperarm_angvel_only.segment(3, 3) = hmd_rupperarm_vel_.segment(3, 3);
+
+	hmd_head_pose_  = velocityFilter( hmd_head_pose_, hmd_head_pose_pre_, hmd_head_vel_, head_max_vel, hmd_head_abrupt_motion_count_, maximum_data_cut_num, fast_head_move_flag);
+	// hmd_lupperarm_pose_  = velocityFilter( hmd_lupperarm_pose_, hmd_lupperarm_pose_pre_, hmd_lupperarm_angvel_only, lupperarm_max_vel, hmd_lupperarm_abrupt_motion_count_, maximum_data_cut_num, fast_lupperarm_move_flag);
+	hmd_lupperarm_pose_  = velocityFilter( hmd_lupperarm_pose_, hmd_lupperarm_pose_pre_, hmd_lupperarm_vel_, lupperarm_max_vel, hmd_lupperarm_abrupt_motion_count_, maximum_data_cut_num, fast_lupperarm_move_flag);
+	hmd_lhand_pose_  = velocityFilter( hmd_lhand_pose_, hmd_lhand_pose_pre_, hmd_lhand_vel_, lhand_max_vel, hmd_lhand_abrupt_motion_count_, maximum_data_cut_num, fast_lhand_move_flag);
+	// hmd_rupperarm_pose_  = velocityFilter( hmd_rupperarm_pose_, hmd_rupperarm_pose_pre_, hmd_rupperarm_angvel_only, rupperarm_max_vel, hmd_rupperarm_abrupt_motion_count_, maximum_data_cut_num, fast_rupperarm_move_flag);
+	hmd_rupperarm_pose_  = velocityFilter( hmd_rupperarm_pose_, hmd_rupperarm_pose_pre_, hmd_rupperarm_vel_, rupperarm_max_vel, hmd_rupperarm_abrupt_motion_count_, maximum_data_cut_num, fast_rupperarm_move_flag);
+	hmd_rhand_pose_  = velocityFilter( hmd_rhand_pose_, hmd_rhand_pose_pre_, hmd_rhand_vel_, rhand_max_vel, hmd_rhand_abrupt_motion_count_, maximum_data_cut_num, fast_rhand_move_flag);
+	hmd_chest_pose_  = velocityFilter( hmd_chest_pose_, hmd_chest_pose_pre_, hmd_chest_vel_, chest_max_vel, hmd_chest_abrupt_motion_count_, maximum_data_cut_num, fast_chest_move_flag);
+
+	if(verbose)
 	{
-		if( (hmd_head_abrupt_motion_count_ != 0) && verbose )
+		if( fast_head_move_flag )
 		{
 			cout<<"abrupt movement is detected at the head tracker! ("<<hmd_head_abrupt_motion_count_<<")"<<endl;
 		}
-		hmd_head_abrupt_motion_count_ = 0;
-	}
 
-	if( (hmd_lupperarm_vel_.norm() > 10) && (hmd_lupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
-	{ 
-		hmd_lupperarm_pose_ =  hmd_lupperarm_pose_pre_;
-		hmd_lupperarm_abrupt_motion_count_++;
-	}
-	else
-	{
-		if( (hmd_lupperarm_abrupt_motion_count_ != 0) && verbose )
+		if( fast_lupperarm_move_flag )
 		{
 			cout<<"abrupt movement is detected at the lupperarm tracker! ("<<hmd_lupperarm_abrupt_motion_count_<<")"<<endl;
 		}
-		hmd_lupperarm_abrupt_motion_count_ = 0;
-	}
 
-	if( (hmd_lhand_vel_.norm() > 10) && (hmd_lhand_abrupt_motion_count_ < maximum_data_cut_num) )
-	{ 
-		
-		hmd_lhand_pose_ =  hmd_lhand_pose_pre_;
-		hmd_lhand_abrupt_motion_count_++;
-	}
-	else
-	{
-		if( (hmd_lhand_abrupt_motion_count_ != 0) && verbose )
+		if( fast_lhand_move_flag )
 		{
 			cout<<"abrupt movement is detected at the lhand tracker! ("<<hmd_lhand_abrupt_motion_count_<<")"<<endl;
 		}
-		hmd_lhand_abrupt_motion_count_ = 0;
-	}
 
-	if( (hmd_rupperarm_vel_.norm() > 10) && (hmd_rupperarm_abrupt_motion_count_ < maximum_data_cut_num) )
-	{ 
-		hmd_rupperarm_pose_ =  hmd_rupperarm_pose_pre_;
-		hmd_rupperarm_abrupt_motion_count_++;
-	}
-	else
-	{
-		if( (hmd_rupperarm_abrupt_motion_count_ != 0) && verbose )
+		if( fast_rupperarm_move_flag )
 		{
 			cout<<"abrupt movement is detected at the rupperarm tracker! ("<<hmd_rupperarm_abrupt_motion_count_<<")"<<endl;
 		}
-		hmd_rupperarm_abrupt_motion_count_ = 0;
-	}
 
-	if( (hmd_rhand_vel_.norm() > 10)&& (hmd_rhand_abrupt_motion_count_ < maximum_data_cut_num) )
-	{ 
-		
-		hmd_rhand_pose_ =  hmd_rhand_pose_pre_;
-		hmd_rhand_abrupt_motion_count_++;
-	}
-	else
-	{
-		if( (hmd_rhand_abrupt_motion_count_ != 0) && verbose )
+		if( fast_rhand_move_flag )
 		{
 			cout<<"abrupt movement is detected at the rhand tracker! ("<<hmd_rhand_abrupt_motion_count_<<")"<<endl;
 		}
-		hmd_rhand_abrupt_motion_count_ = 0;
-	}
 
-	if( (hmd_chest_vel_.norm() > 10) && (hmd_chest_abrupt_motion_count_ < maximum_data_cut_num) )
-	{ 
-		hmd_chest_pose_ =  hmd_chest_pose_pre_;
-		hmd_chest_abrupt_motion_count_++;
-	}
-	else
-	{
-		if( (hmd_chest_abrupt_motion_count_ != 0) && verbose )
+		if( fast_chest_move_flag )
 		{
 			cout<<"abrupt movement is detected at the chest tracker! ("<<hmd_chest_abrupt_motion_count_<<")"<<endl;
 		}
-		hmd_chest_abrupt_motion_count_ = 0;
 	}
 }
 
@@ -4184,23 +4197,23 @@ void CustomController::rawMasterPoseProcessing()
 		master_upperbody_pose_raw_.linear() = DyrosMath::rotationCubic(current_time_, upperbody_command_time_, upperbody_command_time_ + 5, upperbody_transform_pre_desired_from_.linear(), master_upperbody_pose_raw_.linear());
 	}
 
-	master_lhand_pose_.translation() = DyrosMath::lpf<3>(master_lhand_pose_raw_.translation(), master_lhand_pose_pre_.translation(), 1/dt_, fc_filter);
-	master_rhand_pose_.translation() = DyrosMath::lpf<3>(master_rhand_pose_raw_.translation(), master_rhand_pose_pre_.translation(), 1/dt_, fc_filter);
-	master_lelbow_pose_.translation() = DyrosMath::lpf<3>(master_lelbow_pose_raw_.translation(), master_lelbow_pose_pre_.translation(), 1/dt_, fc_filter);
-	master_relbow_pose_.translation() = DyrosMath::lpf<3>(master_relbow_pose_raw_.translation(), master_relbow_pose_pre_.translation(), 1/dt_, fc_filter);
-	master_lshoulder_pose_.translation() = DyrosMath::lpf<3>(master_lshoulder_pose_raw_.translation(), master_lshoulder_pose_pre_.translation(), 1/dt_, fc_filter);
-	master_rshoulder_pose_.translation() = DyrosMath::lpf<3>(master_rshoulder_pose_raw_.translation(), master_rshoulder_pose_pre_.translation(), 1/dt_, fc_filter);
-	master_head_pose_.translation() = DyrosMath::lpf<3>(master_head_pose_raw_.translation(), master_head_pose_pre_.translation(), 1/dt_, fc_filter);
-	master_upperbody_pose_.translation() = DyrosMath::lpf<3>(master_upperbody_pose_raw_.translation(), master_upperbody_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_lhand_pose_.translation() = DyrosMath::lpf<3>(master_lhand_pose_raw_.translation(), master_lhand_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_rhand_pose_.translation() = DyrosMath::lpf<3>(master_rhand_pose_raw_.translation(), master_rhand_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_lelbow_pose_.translation() = DyrosMath::lpf<3>(master_lelbow_pose_raw_.translation(), master_lelbow_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_relbow_pose_.translation() = DyrosMath::lpf<3>(master_relbow_pose_raw_.translation(), master_relbow_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_lshoulder_pose_.translation() = DyrosMath::lpf<3>(master_lshoulder_pose_raw_.translation(), master_lshoulder_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_rshoulder_pose_.translation() = DyrosMath::lpf<3>(master_rshoulder_pose_raw_.translation(), master_rshoulder_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_head_pose_.translation() = DyrosMath::lpf<3>(master_head_pose_raw_.translation(), master_head_pose_pre_.translation(), 1/dt_, fc_filter);
+	// master_upperbody_pose_.translation() = DyrosMath::lpf<3>(master_upperbody_pose_raw_.translation(), master_upperbody_pose_pre_.translation(), 1/dt_, fc_filter);
 
-	// master_lhand_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_lhand_pose_raw_.translation(), master_lhand_pose_raw_pre_.translation(), master_lhand_pose_raw_ppre_.translation(), master_lhand_pose_pre_.translation(), master_lhand_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
-	// master_rhand_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_rhand_pose_raw_.translation(), master_rhand_pose_raw_pre_.translation(), master_rhand_pose_raw_ppre_.translation(), master_rhand_pose_pre_.translation(), master_rhand_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
-	// master_lelbow_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_lelbow_pose_raw_.translation(), master_lelbow_pose_raw_pre_.translation(), master_lelbow_pose_raw_ppre_.translation(), master_lelbow_pose_pre_.translation(), master_lelbow_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
-	// master_relbow_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_relbow_pose_raw_.translation(), master_relbow_pose_raw_pre_.translation(), master_relbow_pose_raw_ppre_.translation(), master_relbow_pose_pre_.translation(), master_relbow_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
-	// master_lshoulder_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_lshoulder_pose_raw_.translation(), master_lshoulder_pose_raw_pre_.translation(), master_lshoulder_pose_raw_ppre_.translation(), master_lshoulder_pose_pre_.translation(), master_lshoulder_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
-	// master_rshoulder_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_rshoulder_pose_raw_.translation(), master_rshoulder_pose_raw_pre_.translation(), master_rshoulder_pose_raw_ppre_.translation(), master_rshoulder_pose_pre_.translation(), master_rshoulder_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
-	// master_head_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_head_pose_raw_.translation(), master_head_pose_raw_pre_.translation(), master_head_pose_raw_ppre_.translation(), master_head_pose_pre_.translation(), master_head_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
-	// master_upperbody_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_upperbody_pose_raw_.translation(), master_upperbody_pose_raw_pre_.translation(), master_upperbody_pose_raw_ppre_.translation(), master_upperbody_pose_pre_.translation(), master_upperbody_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_lhand_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_lhand_pose_raw_.translation(), master_lhand_pose_raw_pre_.translation(), master_lhand_pose_raw_ppre_.translation(), master_lhand_pose_pre_.translation(), master_lhand_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_rhand_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_rhand_pose_raw_.translation(), master_rhand_pose_raw_pre_.translation(), master_rhand_pose_raw_ppre_.translation(), master_rhand_pose_pre_.translation(), master_rhand_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_lelbow_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_lelbow_pose_raw_.translation(), master_lelbow_pose_raw_pre_.translation(), master_lelbow_pose_raw_ppre_.translation(), master_lelbow_pose_pre_.translation(), master_lelbow_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_relbow_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_relbow_pose_raw_.translation(), master_relbow_pose_raw_pre_.translation(), master_relbow_pose_raw_ppre_.translation(), master_relbow_pose_pre_.translation(), master_relbow_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_lshoulder_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_lshoulder_pose_raw_.translation(), master_lshoulder_pose_raw_pre_.translation(), master_lshoulder_pose_raw_ppre_.translation(), master_lshoulder_pose_pre_.translation(), master_lshoulder_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_rshoulder_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_rshoulder_pose_raw_.translation(), master_rshoulder_pose_raw_pre_.translation(), master_rshoulder_pose_raw_ppre_.translation(), master_rshoulder_pose_pre_.translation(), master_rshoulder_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_head_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_head_pose_raw_.translation(), master_head_pose_raw_pre_.translation(), master_head_pose_raw_ppre_.translation(), master_head_pose_pre_.translation(), master_head_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
+	master_upperbody_pose_.translation() = DyrosMath::secondOrderLowPassFilter<3>(master_upperbody_pose_raw_.translation(), master_upperbody_pose_raw_pre_.translation(), master_upperbody_pose_raw_ppre_.translation(), master_upperbody_pose_pre_.translation(), master_upperbody_pose_ppre_.translation(), fc_filter, 1, 1/dt_);
 	
 	master_relative_lhand_pos_ = DyrosMath::lpf<3>(master_relative_lhand_pos_raw_, master_relative_lhand_pos_pre_, 1/dt_, fc_filter);
  	master_relative_rhand_pos_ = DyrosMath::lpf<3>(master_relative_rhand_pos_raw_, master_relative_rhand_pos_pre_, 1/dt_, fc_filter);
@@ -6321,7 +6334,7 @@ void CustomController::savePreData()
 	hmd_rupperarm_pose_pre_ = hmd_rupperarm_pose_;
 	hmd_rhand_pose_pre_ = hmd_rhand_pose_;
 	hmd_chest_pose_pre_ = hmd_chest_pose_;
-	hmd_pelv_pose_pre_ = hmd_chest_pose_;
+	hmd_pelv_pose_pre_ = hmd_pelv_pose_;
 }
 
 void CustomController::WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg)
@@ -6572,6 +6585,7 @@ void CustomController::PoseCalibrationCallback(const std_msgs::Int8 &msg)
 		t_pose_cali_flag_ = false;
 		forward_pose_cali_flag_ = false;
 		read_cali_log_flag_ = false;
+		hmd_check_pose_calibration_[3] = false;
 
 		hmd_init_pose_calibration_ = true;
 		cout<<"Pose Calibration is Reset."<<endl;
@@ -7301,7 +7315,8 @@ void CustomController::printOutTextFile()
 		<<hmd_head_pose_.translation()(0)<<"\t"<<hmd_head_pose_.translation()(1)<<"\t"<<hmd_head_pose_.translation()(2)<<"\t"
 		<<master_head_pose_raw_.translation()(0)<<"\t"<<master_head_pose_raw_.translation()(1)<<"\t"<<master_head_pose_raw_.translation()(2)<<"\t"
 		<<master_head_pose_.translation()(0)<<"\t"<<master_head_pose_.translation()(1)<<"\t"<<master_head_pose_.translation()(2)<<"\t"
-		<<master_head_rqy_(0)<<"\t"<<master_head_rqy_(1)<<"\t"<<master_head_rqy_(2)<<endl;
+		<<master_head_rqy_(0)<<"\t"<<master_head_rqy_(1)<<"\t"<<master_head_rqy_(2)<<"\t"
+		<<hmd_pelv_pose_.translation()(0)<<"\t"<<hmd_pelv_pose_.translation()(1)<<"\t"<<hmd_pelv_pose_.translation()(2)<<endl;
 
 		file[12]
 		<<lhand_pos_error_(0)<<"\t"<<lhand_pos_error_(1)<<"\t"<<lhand_pos_error_(2)<<"\t"<<rhand_pos_error_(0)<<"\t"<<rhand_pos_error_(1)<<"\t"<<rhand_pos_error_(2)<<"\t"

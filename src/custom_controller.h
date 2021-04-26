@@ -32,7 +32,8 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/13_tracker_vel_.txt"
 };
 
-const std::string calibration_folder_dir_ = "/home/dyros/data/vive_tracker/calibration_log/donghyun";
+// const std::string calibration_folder_dir_ = "/home/dyros/data/vive_tracker/calibration_log/donghyun";
+const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
 
 class CustomController
 {
@@ -102,6 +103,9 @@ public:
     void hmdRawDataProcessing();
     void poseCalibration();
     void abruptMotionFilter();
+    Eigen::Vector3d kinematicFilter(Eigen::Vector3d position_data, Eigen::Vector3d pre_position_data, Eigen::Vector3d reference_position, double boundary, bool &check_boundary);
+    Eigen::Isometry3d velocityFilter(Eigen::Isometry3d data, Eigen::Isometry3d pre_data, Eigen::Vector6d &vel_data, double max_vel, int &cur_iter, int max_iter, bool &check_velocity);
+    
 
     void masterTrajectoryTest();
     
@@ -763,6 +767,16 @@ public:
     Eigen::Vector3d hmd_chest_2_lshoulder_center_pos_;
     Eigen::Vector3d hmd_chest_2_rshoulder_center_pos_;
 
+    //global frame of vive tracker
+    Eigen::Vector6d hmd_head_vel_global_;
+    Eigen::Vector6d hmd_lupperarm_vel_global_;
+    Eigen::Vector6d hmd_lhand_vel_global_;
+    Eigen::Vector6d hmd_rupperarm_vel_global_;
+    Eigen::Vector6d hmd_rhand_vel_global_;
+    Eigen::Vector6d hmd_chest_vel_global_;
+    Eigen::Vector6d hmd_pelv_vel_global_; 
+
+    //pelvis frame
     Eigen::Vector6d hmd_head_vel_;
     Eigen::Vector6d hmd_lshoulder_vel_;
     Eigen::Vector6d hmd_lupperarm_vel_;
@@ -779,6 +793,7 @@ public:
     int hmd_rupperarm_abrupt_motion_count_;
     int hmd_rhand_abrupt_motion_count_;
     int hmd_chest_abrupt_motion_count_;
+    int hmd_pelv_abrupt_motion_count_;
 
     ///////////QPIK///////////////////////////
     Eigen::Vector3d lhand_pos_error_;
