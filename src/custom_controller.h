@@ -7,7 +7,6 @@
 #include "VR/matrix_3_4.h"
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
-
 #include <std_msgs/String.h>
 #include <sstream>
 
@@ -73,6 +72,7 @@ public:
     void motionGenerator();
     void getCOMTrajectory();
     void getSwingFootXYTrajectory(double phase, Eigen::Vector3d com_pos_current, Eigen::Vector3d com_vel_current, Eigen::Vector3d com_vel_desired);
+    void getSwingFootXYZTrajectory();
     void computeIk(Eigen::Isometry3d float_trunk_transform, Eigen::Isometry3d float_lleg_transform, Eigen::Isometry3d float_rleg_transform, Eigen::Vector12d& q_des);
 
     Eigen::VectorQd comVelocityControlCompute(WholebodyController &wbc);
@@ -247,7 +247,8 @@ public:
     double step_length_;
 
     double swing_foot_height_;
-    
+    double com_target_height_;
+
     double ankle2footcenter_offset_;
 
     double first_torque_supplier_;                         // this increase with cubic function from 0 to 1 during [program_start_time + program_ready_duration_, program_start_time + program_ready_duration_ + walking_control_transition_duration_]
@@ -259,7 +260,23 @@ public:
     Eigen::Vector3d com_acc_desired_;
     Eigen::Vector3d com_pos_current_;
     Eigen::Vector3d com_vel_current_;
-    Eigen::Vector3d com_acc_current_; 
+    Eigen::Vector3d com_acc_current_;
+    Eigen::Vector3d com_pos_current_pre_;
+    Eigen::Vector3d com_vel_current_pre_;
+    Eigen::Vector3d com_acc_current_pre_; 
+    Eigen::Vector3d com_pos_current_ppre_;
+    Eigen::Vector3d com_vel_current_ppre_;
+    Eigen::Vector3d com_acc_current_ppre_; 
+
+    Eigen::Vector3d com_vel_current_lpf_;
+    Eigen::Vector3d com_vel_current_lpf_pre_;
+    Eigen::Vector3d com_vel_current_lpf_ppre_;
+    
+    double com_vel_cutoff_freq_;
+    double wn_;
+
+    Eigen::Vector3d cp_current_;
+
     Eigen::Vector3d com_pos_init_;
     Eigen::Vector3d com_vel_init_;
     Eigen::Vector3d com_acc_init_;
@@ -275,13 +292,6 @@ public:
 
     Eigen::Vector3d com_vel_est1_;  // Jv*q_dot
     Eigen::Vector3d com_vel_est2_;  // Jv*q_dot + r X w_f
-    
-    Eigen::Vector3d com_pos_current_pelvis_;
-    Eigen::Vector3d com_vel_current_pelvis_; 
-    Eigen::Vector3d com_pos_init_pelvis_;
-    Eigen::Vector3d com_vel_init_pelvis_;
-    Eigen::Vector3d com_pos_desired_pre_pelvis_; 
-    Eigen::Vector3d com_vel_desired_pre_pelvis_;
 
     Eigen::Matrix3d kp_compos_; // 196(sim) (tune)
 	Eigen::Matrix3d kd_compos_;	 // 28(sim) (tune)
@@ -319,6 +329,8 @@ public:
     Eigen::VectorQd pre_q_;
     Eigen::VectorQd pre_desired_q_;
     Eigen::VectorQd last_desired_q_;
+    Eigen::VectorQVQd pre_desired_q_qvqd_;
+
 
     Eigen::VectorQd motion_q_;
     Eigen::VectorQd motion_q_dot_;
@@ -433,6 +445,8 @@ public:
 
     Eigen::Isometry3d upperbody_transform_pre_desired_from_;
     Eigen::Isometry3d head_transform_pre_desired_from_;
+    Eigen::Isometry3d lfoot_transform_pre_desired_from_;
+    Eigen::Isometry3d rfoot_transform_pre_desired_from_;
     Eigen::Isometry3d lhand_transform_pre_desired_from_;
     Eigen::Isometry3d rhand_transform_pre_desired_from_;
     Eigen::Isometry3d lelbow_transform_pre_desired_from_;
@@ -896,4 +910,9 @@ private:
     bool first_loop_rarm_;
     bool first_loop_upperbody_;
     bool first_loop_hqpik_;
+
+
+/////////////////////////////////////////////MJ CustomCuntroller//////////////////////////////////////////////
+
+
 };
