@@ -71,9 +71,13 @@ public:
     void walkingStateManager();
     void motionGenerator();
     void getCOMTrajectory();
+    void getLegIK();
     void getSwingFootXYTrajectory(double phase, Eigen::Vector3d com_pos_current, Eigen::Vector3d com_vel_current, Eigen::Vector3d com_vel_desired);
     void getSwingFootXYZTrajectory();
     void computeIk(Eigen::Isometry3d float_trunk_transform, Eigen::Isometry3d float_lleg_transform, Eigen::Isometry3d float_rleg_transform, Eigen::Vector12d& q_des);
+    
+    Eigen::VectorQd jointControl(WholebodyController &wbc, Eigen::VectorQd current_q, Eigen::VectorQd desired_q, Eigen::VectorQd current_q_dot, Eigen::VectorQd desired_q_dot, Eigen::VectorQd pd_mask);
+    Eigen::VectorQd gravityCompensator(WholebodyController &wbc, Eigen::VectorQd current_q);
 
     Eigen::VectorQd comVelocityControlCompute(WholebodyController &wbc);
     Eigen::VectorQd swingFootControlCompute(WholebodyController &wbc);
@@ -219,6 +223,9 @@ public:
     bool stop_walking_trigger_;                             // turns on when the robot's speed become zero and lands last foot step
     bool falling_detection_flag_;                           // turns on when the robot is falling and is considered that it can not recover balance.
 
+    int stop_walking_counter_;                              // Stepping number after walking speed command is zero
+    int max_stop_walking_num_;                              // maximum stepping number robot will walk after walking speed is commanded zero 
+
     double stance_start_time_;
     double program_start_time_;
     
@@ -232,7 +239,9 @@ public:
     double turning_duration_;
     double turning_phase_;
     double switching_phase_duration_;
-    
+    double dsp_duration_;
+    double dsp_ratio_;
+
     double current_time_;
     double pre_time_;
     double start_time_;
@@ -254,28 +263,21 @@ public:
     double first_torque_supplier_;                         // this increase with cubic function from 0 to 1 during [program_start_time + program_ready_duration_, program_start_time + program_ready_duration_ + walking_control_transition_duration_]
     double swingfoot_force_control_converter_;
     double swingfoot_highest_time_;
-    // CoM variables
+    
+    // CoM variables in global frame
     Eigen::Vector3d com_pos_desired_; 
     Eigen::Vector3d com_vel_desired_;
     Eigen::Vector3d com_acc_desired_;
     Eigen::Vector3d com_pos_current_;
     Eigen::Vector3d com_vel_current_;
     Eigen::Vector3d com_acc_current_;
-    Eigen::Vector3d com_pos_current_pre_;
-    Eigen::Vector3d com_vel_current_pre_;
-    Eigen::Vector3d com_acc_current_pre_; 
-    Eigen::Vector3d com_pos_current_ppre_;
-    Eigen::Vector3d com_vel_current_ppre_;
-    Eigen::Vector3d com_acc_current_ppre_; 
 
-    Eigen::Vector3d com_vel_current_lpf_;
-    Eigen::Vector3d com_vel_current_lpf_pre_;
-    Eigen::Vector3d com_vel_current_lpf_ppre_;
+
     
     double com_vel_cutoff_freq_;
     double wn_;
+    double com_mass_;
 
-    Eigen::Vector3d cp_current_;
 
     Eigen::Vector3d com_pos_init_;
     Eigen::Vector3d com_vel_init_;
@@ -286,6 +288,10 @@ public:
     Eigen::Vector3d com_pos_desired_last_; 
     Eigen::Vector3d com_vel_desired_last_;
     Eigen::Vector3d com_acc_desired_last_;
+    
+    Eigen::Vector3d com_pos_pre_desired_from_;
+    Eigen::Vector3d com_vel_pre_desired_from_;
+    Eigen::Vector3d com_acc_pre_desired_from_;
 
     Eigen::Vector3d com_pos_error_;
     Eigen::Vector3d com_vel_error_;
@@ -298,19 +304,20 @@ public:
 
     // Pevlis related variables
     Eigen::Vector3d pelv_pos_current_;
-    Eigen::Vector3d pelv_vel_current_;
+    Eigen::Vector6d pelv_vel_current_;
     Eigen::Vector3d pelv_angvel_current_;
     Eigen::Matrix3d pelv_rot_current_;
     Eigen::Vector3d pelv_rpy_current_;
     Eigen::Matrix3d pelv_rot_current_yaw_aline_;
-
     Eigen::Matrix3d pelv_yaw_rot_current_from_global_;
+    Eigen::Isometry3d pelv_transform_current_from_global_;
 
     Eigen::Vector3d pelv_pos_init_;
-    Eigen::Vector3d pelv_vel_init_;
+    Eigen::Vector6d pelv_vel_init_;
     Eigen::Matrix3d pelv_rot_init_;
     Eigen::Vector3d pelv_rpy_init_;
     Eigen::Matrix3d pelv_rot_init_yaw_aline_;
+    Eigen::Isometry3d pelv_transform_init_from_global_;
 
 	Eigen::Vector3d phi_pelv_;
 	Eigen::Vector3d torque_pelv_;
@@ -328,9 +335,11 @@ public:
     Eigen::VectorQd desired_q_ddot_;
     Eigen::VectorQd pre_q_;
     Eigen::VectorQd pre_desired_q_;
+    Eigen::VectorQd pre_desired_q_dot_;
     Eigen::VectorQd last_desired_q_;
     Eigen::VectorQVQd pre_desired_q_qvqd_;
-
+    Eigen::VectorVQd pre_desired_q_dot_vqd_;
+    Eigen::VectorVQd pre_desired_q_ddot_vqd_;
 
     Eigen::VectorQd motion_q_;
     Eigen::VectorQd motion_q_dot_;
@@ -367,8 +376,15 @@ public:
     Eigen::Vector6d swing_foot_acc_trajectory_from_global_;
     Eigen::Matrix3d swing_foot_rot_trajectory_from_global_;
 
+    Eigen::Vector3d swing_foot_pos_trajectory_from_support_;
+    Eigen::Vector6d swing_foot_vel_trajectory_from_support_;
+    Eigen::Vector6d swing_foot_acc_trajectory_from_support_;
+    Eigen::Matrix3d swing_foot_rot_trajectory_from_support_;
+
     Eigen::Isometry3d swing_foot_transform_init_;
+    Eigen::Vector3d swing_foot_rpy_init_;
     Eigen::Isometry3d support_foot_transform_init_;
+    Eigen::Vector3d support_foot_rpy_init_;
 
     Eigen::Isometry3d swing_foot_transform_current_;
     Eigen::Isometry3d support_foot_transform_current_;
@@ -473,7 +489,58 @@ public:
     Eigen::Vector6d lacromion_vel_current_from_global_;
     Eigen::Vector6d racromion_vel_current_from_global_;
 
+    Eigen::Isometry3d lfoot_transform_init_from_support_;
+    Eigen::Isometry3d rfoot_transform_init_from_support_;
+    Eigen::Isometry3d pelv_transform_init_from_support_;
+
+    Eigen::Isometry3d lfoot_transform_current_from_support_;
+    Eigen::Isometry3d rfoot_transform_current_from_support_;
+    Eigen::Isometry3d pelv_transform_current_from_support_;
+
+    Eigen::Vector6d lfoot_vel_current_from_support_;
+    Eigen::Vector6d rfoot_vel_current_from_support_;
+
+    Eigen::Isometry3d swing_foot_transform_init_from_support_;
+    Eigen::Vector3d swing_foot_rpy_init_from_support_;
+    Eigen::Isometry3d support_foot_transform_init_from_support_;
+    Eigen::Vector3d support_foot_rpy_init_from_support_;
+
+    Eigen::Isometry3d swing_foot_transform_current_from_support_;
+    Eigen::Isometry3d support_foot_transform_current_from_support_;
+
+    Eigen::Isometry3d swing_foot_transform_pre_from_support_;
+    Eigen::Isometry3d support_foot_transform_pre_from_support_;
+
     Eigen::Vector3d middle_of_both_foot_;
+    Eigen::Vector3d middle_of_both_foot_init_;
+
+    Eigen::Vector3d com_pos_init_from_support_;
+
+    Eigen::Vector3d com_pos_desired_from_support_; 
+    Eigen::Vector3d com_vel_desired_from_support_;
+    Eigen::Vector3d com_acc_desired_from_support_;
+    Eigen::Vector3d com_jerk_desired_from_support_;
+
+    Eigen::Vector3d com_pos_pre_desired_from_support_; 
+    Eigen::Vector3d com_vel_pre_desired_from_support_;
+    Eigen::Vector3d com_acc_pre_desired_from_support_;
+    Eigen::Vector3d com_jerk_pre_desired_from_support_;
+
+    Eigen::Vector3d com_pos_current_from_support_;
+    Eigen::Vector3d com_vel_current_from_support_;
+    Eigen::Vector3d com_acc_current_from_support_;
+    Eigen::Vector3d com_pos_pre_from_support_;
+    Eigen::Vector3d com_vel_pre_from_support_;
+    Eigen::Vector3d com_acc_pre_from_support_;
+    Eigen::Vector3d com_pos_ppre_from_support_;
+    Eigen::Vector3d com_vel_ppre_from_support_;
+    Eigen::Vector3d com_acc_ppre_from_support_;
+    
+    Eigen::Vector3d com_vel_current_lpf_from_support_;
+    Eigen::Vector3d com_vel_pre_lpf_from_support_;
+    Eigen::Vector3d com_vel_ppre_lpf_from_support_;
+
+    Eigen::Vector3d cp_current_from_suppport_;
 
     Eigen::Vector6d contact_force_lfoot_;
     Eigen::Vector6d contact_force_rfoot_;
