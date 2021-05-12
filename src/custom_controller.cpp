@@ -770,7 +770,7 @@ void CustomController::initWalkingParameter()
 	knee_target_angle_ = 0.6;                               //4.5degree
 	com_target_height_ = 0.71;
 
-	swingfoot_highest_time_ = 0.7;
+	swingfoot_highest_time_ = (1-dsp_ratio_)/2 + dsp_ratio_;
 	ankle2footcenter_offset_ = 0.02;
 	yaw_angular_vel_ = 0; //   rad/s
 	swing_foot_height_ = 0.04;
@@ -1533,7 +1533,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 	////// x axis is poining out from center of foot to the toe direction////////////// 
 	Vector3d swing_foot_rpy = DyrosMath::rot2Euler(support_foot_transform_current_.linear());
 	Isometry3d support_foot_transform_yaw_align = support_foot_transform_current_;
-	support_foot_transform_yaw_align.linear() = DyrosMath::rotateWithZ(-swing_foot_rpy(2))*support_foot_transform_current_.linear();
+	support_foot_transform_yaw_align.linear() = support_foot_transform_current_.linear();
 
 	support_foot_transform_current_from_support_ = support_foot_transform_yaw_align.inverse()*support_foot_transform_yaw_align;
 	swing_foot_transform_current_from_support_ = support_foot_transform_yaw_align.inverse()*swing_foot_transform_current_;
@@ -1796,7 +1796,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		swing_foot_rpy_init_ = DyrosMath::rot2Euler(swing_foot_transform_init_.linear());
 		support_foot_rpy_init_ = DyrosMath::rot2Euler(support_foot_transform_init_.linear());
 
-		init_q_ = current_q_;
+		// init_q_ = current_q_;
 		last_desired_q_ = desired_q_;
 		foot_lift_count_ = 0;
 
@@ -6147,7 +6147,15 @@ Eigen::VectorQd CustomController::jointControl(WholebodyController &wbc, Eigen::
 	torque_command.setZero();
 	torque_grav_ = gravityCompensator(wbc, current_q);
 
-	// desired_q = init_q_;
+	if(current_time_ < program_start_time_ + 0.2)
+	{
+		for(int i = 0; i<MODEL_DOF; i++)
+		{
+			desired_q(i) = DyrosMath::QuinticSpline(current_time_, program_start_time_, program_start_time_+2.0, init_q_(i), 0, 0, desired_q(i), 0, 0)(0);
+		}
+	}
+	
+
 	for (int i = 0; i < MODEL_DOF; i++)
 	{
 		torque_command(i) = (kp_joint_(i) * (desired_q(i) - current_q(i)) + kv_joint_(i) * (desired_q_dot(i) - current_q_dot(i)));
@@ -6235,8 +6243,8 @@ Eigen::VectorQd CustomController::gravityCompensator(WholebodyController &wbc, E
 				torque_g_ssp = wbc.gravity_compensation_torque(rd_);
 				
 				//real robot
-				// torque_g_ssp(1) = 1.4*torque_g_ssp(1);	
-				// torque_g_ssp(5) = 1.15*torque_g_ssp(5);
+				torque_g_ssp(1) = 1.4*torque_g_ssp(1);	
+				torque_g_ssp(5) = 1.15*torque_g_ssp(5);
 			}
 			else
 			{
@@ -6244,8 +6252,8 @@ Eigen::VectorQd CustomController::gravityCompensator(WholebodyController &wbc, E
 				torque_g_ssp = wbc.gravity_compensation_torque(rd_);
 
 				//real robot
-				// torque_g_ssp(7) = 1.4*torque_g_ssp(7);	
-				// torque_g_ssp(11) = 1.15*torque_g_ssp(11);
+				torque_g_ssp(7) = 1.4*torque_g_ssp(7);	
+				torque_g_ssp(11) = 1.15*torque_g_ssp(11);
 			}
 		}
 	}
@@ -7302,7 +7310,31 @@ void CustomController::getComTrajectory_Preview()
 		com_vel_desired_from_support_(i) = DyrosMath::minmax_cut(com_vel_desired_from_support_(i), com_vel_limit_(i), com_vel_limit_(i+3));
 		com_acc_desired_from_support_(i) = DyrosMath::minmax_cut(com_acc_desired_from_support_(i), com_acc_limit_(i), com_acc_limit_(i+3));
 	}
-
+	
+	if( (com_pos_desired_from_support_(0) == com_pos_limit_(0))||(com_pos_desired_from_support_(0) == com_pos_limit_(3)) )
+	{
+		cout<<"COM POS X IS OVER THE LIMIT"<<endl;
+	}
+	if( (com_pos_desired_from_support_(1) == com_pos_limit_(1))||(com_pos_desired_from_support_(1) == com_pos_limit_(4)) )
+	{
+		cout<<"COM POS Y IS OVER THE LIMIT"<<endl;
+	}
+	if( (com_vel_desired_from_support_(0) == com_vel_limit_(0))||(com_vel_desired_from_support_(0) == com_vel_limit_(3)) )
+	{
+		cout<<"COM VEL X IS OVER THE LIMIT"<<endl;
+	}
+	if( (com_vel_desired_from_support_(1) == com_vel_limit_(1))||(com_vel_desired_from_support_(1) == com_vel_limit_(4)) )
+	{
+		cout<<"COM VEL Y IS OVER THE LIMIT"<<endl;
+	}
+	if( (com_acc_desired_from_support_(0) == com_acc_limit_(0))||(com_acc_desired_from_support_(0) == com_acc_limit_(3)) )
+	{
+		cout<<"COM ACC X IS OVER THE LIMIT"<<endl;
+	}
+	if( (com_acc_desired_from_support_(1) == com_acc_limit_(1))||(com_acc_desired_from_support_(1) == com_acc_limit_(4)) )
+	{
+		cout<<"COM ACC Y IS OVER THE LIMIT"<<endl;
+	}
 
 	if( int(current_time_*10000)%1000 == 0 )
 	{
@@ -7314,7 +7346,7 @@ void CustomController::getComTrajectory_Preview()
 		// std::cout<<"com_pos_desired_preview_(1) :"<<com_pos_desired_preview_(1) <<std::endl;
 		// std::cout<<"com_vel_desired_preview_(1) :"<<com_vel_desired_preview_(1) <<std::endl;
 		// std::cout<<"com_acc_desired_preview_(1) :"<<com_acc_desired_preview_(1) <<std::endl;
-		std::cout<<"com_target_height_ :"<<com_target_height_ <<std::endl;
+		// std::cout<<"com_target_height_ :"<<com_target_height_ <<std::endl;
 	}
 }
 
@@ -7484,7 +7516,9 @@ void CustomController::preview_MJ(double dt, int NL, double x_i, double y_i, Eig
 	}
 
 	Eigen::Matrix1x3d C;
-	C(0,0) = 1; C(0,1) = 0; C(0,2) = -zc_/GRAVITY;
+	C(0,0) = 1; C(0,1) = 0; 
+	// C(0,2) = -zc_/GRAVITY;
+	C(0,2) = -0.71/9.81;	//mj gain
 
 	Eigen::VectorXd px, py;
 	px.resize(1); py.resize(1);
@@ -7948,10 +7982,10 @@ void CustomController::printOutTextFile()
 	// if (int( (current_time_ - program_start_time_) * 2000) % 1 == 0) // 2000 hz 
 	// if ((current_time_ - program_start_time_) >= 0.0)
 	// {
-		// file[0]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"
-		// <<foot_swing_trigger_<<"\t"<<first_step_trigger_<<"\t"<<start_walking_trigger_<<"\t"
-		// <<stop_walking_trigger_<<"\t"<<stance_start_time_<<"\t"<<walking_duration_<<"\t"
-		// <<turning_duration_<<"\t"<<turning_phase_<<"\t"<<knee_target_angle_<<endl;
+		file[0]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"
+		<<foot_swing_trigger_<<"\t"<<first_step_trigger_<<"\t"<<start_walking_trigger_<<"\t"
+		<<stop_walking_trigger_<<"\t"<<stance_start_time_<<"\t"<<walking_duration_<<"\t"
+		<<turning_duration_<<"\t"<<turning_phase_<<"\t"<<knee_target_angle_<<endl;
 
 		file[1]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"		//1
 		<<com_pos_current_from_support_(0)<<"\t"<<com_pos_current_from_support_(1)<<"\t"<<com_pos_current_from_support_(2)<<"\t"                  	//4
