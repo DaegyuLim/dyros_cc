@@ -31,7 +31,9 @@ const std::string FILE_NAMES[FILE_CNT] =
     "/home/dg/data/tocabi_cc/13_tracker_vel_.txt"
 };
 
+//real robot
 // const std::string calibration_folder_dir_ = "/home/dyros/data/vive_tracker/calibration_log/donghyun";
+//dg pc
 const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
 
 class CustomController
@@ -75,7 +77,7 @@ public:
     void getSwingFootXYTrajectory(double phase, Eigen::Vector3d com_pos_current, Eigen::Vector3d com_vel_current, Eigen::Vector3d com_vel_desired);
     void getSwingFootXYZTrajectory();
     void computeIk(Eigen::Isometry3d float_trunk_transform, Eigen::Isometry3d float_lleg_transform, Eigen::Isometry3d float_rleg_transform, Eigen::Vector12d& q_des);
-    
+    Eigen::VectorQd hipAngleCompensator(Eigen::VectorQd desired_q);
     Eigen::VectorQd jointControl(WholebodyController &wbc, Eigen::VectorQd current_q, Eigen::VectorQd desired_q, Eigen::VectorQd current_q_dot, Eigen::VectorQd desired_q_dot, Eigen::VectorQd pd_mask);
     Eigen::VectorQd gravityCompensator(WholebodyController &wbc, Eigen::VectorQd current_q);
 
@@ -381,6 +383,8 @@ public:
     Eigen::Vector6d swing_foot_acc_trajectory_from_support_;
     Eigen::Matrix3d swing_foot_rot_trajectory_from_support_;
 
+    Eigen::Vector3d swing_foot_pos_error_from_support_;
+
     Eigen::Isometry3d swing_foot_transform_init_;
     Eigen::Vector3d swing_foot_rpy_init_;
     Eigen::Isometry3d support_foot_transform_init_;
@@ -492,6 +496,11 @@ public:
     Eigen::Isometry3d lfoot_transform_init_from_support_;
     Eigen::Isometry3d rfoot_transform_init_from_support_;
     Eigen::Isometry3d pelv_transform_init_from_support_;
+    Eigen::Vector3d pelv_rpy_init_from_support_;
+
+    Eigen::Isometry3d lfoot_transform_start_from_support_;
+    Eigen::Isometry3d rfoot_transform_start_from_support_;
+    Eigen::Isometry3d pelv_transform_start_from_support_;
 
     Eigen::Isometry3d lfoot_transform_current_from_support_;
     Eigen::Isometry3d rfoot_transform_current_from_support_;
@@ -539,6 +548,10 @@ public:
     Eigen::Vector3d com_vel_current_lpf_from_support_;
     Eigen::Vector3d com_vel_pre_lpf_from_support_;
     Eigen::Vector3d com_vel_ppre_lpf_from_support_;
+
+    Eigen::Vector6d com_pos_limit_; //min x y z max x y z
+    Eigen::Vector6d com_vel_limit_;
+    Eigen::Vector6d com_acc_limit_;
 
     Eigen::Vector3d cp_current_from_suppport_;
 
