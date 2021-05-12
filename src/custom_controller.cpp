@@ -731,7 +731,7 @@ void CustomController::computeSlow()
 		// Vector3d temp_elbow = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 		// Vector3d temp_hand = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-1].xpos - pelv_pos_current_);
 		}
-		printOutTextFile();
+		// printOutTextFile();
 	}
 }
 
@@ -1399,8 +1399,8 @@ void CustomController::walkingStateManager()
 
 	if( int(current_time_*10000)%1000 == 0 )
 	{
-		cout<<"walking_phase: "<<walking_phase_<<endl;
-		cout<<"turning phase: "<<turning_phase_<<endl;
+		// cout<<"walking_phase: "<<walking_phase_<<endl;
+		// cout<<"turning phase: "<<turning_phase_<<endl;
 
 	}
 }
@@ -3886,7 +3886,7 @@ void CustomController::poseCalibration()
 	Eigen::Vector3d hmd_pelv_rpy;
 	Eigen::Matrix3d hmd_pelv_yaw_rot;
 	Eigen::Isometry3d hmd_pelv_pose_yaw_only;
-	hmd_pelv_pose_yaw_only.translation() = hmd_pelv_pose_.translation();
+	hmd_pelv_pose_yaw_only.translation() = hmd_pelv_pose_init_.translation();
 	hmd_pelv_rpy = DyrosMath::rot2Euler(hmd_pelv_pose_.linear());
 	hmd_pelv_yaw_rot = DyrosMath::rotateWithZ(hmd_pelv_rpy(2));
 	hmd_pelv_pose_yaw_only.linear() = hmd_pelv_yaw_rot;
@@ -4267,24 +4267,33 @@ Eigen::Isometry3d CustomController::velocityFilter(Eigen::Isometry3d data, Eigen
 	// check_velocity = ( (vel_data).norm() > max_vel );
 	check_velocity = ( data.translation() - pre_data.translation() ).norm() > max_vel/1700;
 
+	Eigen::AngleAxisd angle_diff(data.linear()*pre_data.linear().transpose());
+	bool check_orienation = ( angle_diff.angle() > 2*M_PI/1700 );
 	double cutoff_f = 1;
-	if( (check_velocity)&&(cur_iter < max_iter) )
+
+	result = data;
+
+	if( (check_velocity))
 	{
 		// result.translation() = DyrosMath::lpf<3>(data.translation(), pre_data.translation(), 1/dt_, cutoff_f);
 		// Eigen::AngleAxisd ang_diff(data.linear()*pre_data.linear().transpose());
 		// Eigen::Matrix3d diff_m;
 		// diff_m = Eigen::AngleAxisd( DyrosMath::lpf(ang_diff.angle(), 0, 1/dt_, cutoff_f), ang_diff.axis() );
 		// result.linear() = diff_m*pre_data.linear();
-		result = pre_data;
+		// result = pre_data;
+		result.translation() =  ( data.translation() - pre_data.translation() ).normalized()*max_vel/1700 + pre_data.translation();
+
 		cur_iter++;
 		vel_data.setZero();
 		check_velocity = true;
 	}
-	else
+
+	if( (check_orienation) )
 	{
-		result = data;
-		cur_iter = 0;
-		check_velocity = false;
+		Matrix3d rot;
+		rot = AngleAxisd(M_PI/1700, angle_diff.axis());
+		result.linear() = rot*pre_data.linear();
+		check_velocity = true;
 	}
 
 	return result;

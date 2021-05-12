@@ -34,7 +34,9 @@ const std::string FILE_NAMES[FILE_CNT] =
 //real robot
 // const std::string calibration_folder_dir_ = "/home/dyros/data/vive_tracker/calibration_log/donghyun";
 //dg pc
-const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
+// const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
+//remote comsimulation
+const std::string calibration_folder_dir_ = "/home/dyros_rm/DG/xprize/vive_tracker/calibration_log/donghyun";
 
 class CustomController
 {
