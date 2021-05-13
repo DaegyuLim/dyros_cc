@@ -15,20 +15,20 @@ const int FILE_CNT = 14;
 const std::string FILE_NAMES[FILE_CNT] =
 {
   ///change this directory when you use this code on the other computer///
-    "/home/dyros/data/tacabi_cc/0_flag_.txt",
-    "/home/dyros/data/tocabi_cc/1_com_.txt",
-    "/home/dyros/data/tocabi_cc/2_zmp_.txt",
-    "/home/dyros/data/tocabi_cc/3_foot_.txt",
-    "/home/dyros/data/tocabi_cc/4_torque_.txt",
-    "/home/dyros/data/tocabi_cc/5_joint_.txt",
-    "/home/dyros/data/tocabi_cc/6_hand_.txt",
-    "/home/dyros/data/tocabi_cc/7_elbow_.txt",
-    "/home/dyros/data/tocabi_cc/8_shoulder_.txt",
-    "/home/dyros/data/tocabi_cc/9_acromion_.txt",
-    "/home/dyros/data/tocabi_cc/10_hmd_.txt",
-    "/home/dyros/data/tocabi_cc/11_tracker_.txt",
-    "/home/dyros/data/tocabi_cc/12_qpik_.txt",
-    "/home/dyros/data/tocabi_cc/13_tracker_vel_.txt"
+    "/home/dg/data/tacabi_cc/0_flag_.txt",
+    "/home/dg/data/tocabi_cc/1_com_.txt",
+    "/home/dg/data/tocabi_cc/2_zmp_.txt",
+    "/home/dg/data/tocabi_cc/3_foot_.txt",
+    "/home/dg/data/tocabi_cc/4_torque_.txt",
+    "/home/dg/data/tocabi_cc/5_joint_.txt",
+    "/home/dg/data/tocabi_cc/6_hand_.txt",
+    "/home/dg/data/tocabi_cc/7_elbow_.txt",
+    "/home/dg/data/tocabi_cc/8_shoulder_.txt",
+    "/home/dg/data/tocabi_cc/9_acromion_.txt",
+    "/home/dg/data/tocabi_cc/10_hmd_.txt",
+    "/home/dg/data/tocabi_cc/11_tracker_.txt",
+    "/home/dg/data/tocabi_cc/12_qpik_.txt",
+    "/home/dg/data/tocabi_cc/13_tracker_vel_.txt"
 };
 
 //real robot
@@ -80,9 +80,10 @@ public:
     void getSwingFootXYZTrajectory();
     void computeIk(Eigen::Isometry3d float_trunk_transform, Eigen::Isometry3d float_lleg_transform, Eigen::Isometry3d float_rleg_transform, Eigen::Vector12d& q_des);
     Eigen::VectorQd hipAngleCompensator(Eigen::VectorQd desired_q);
-    Eigen::VectorQd jointControl(WholebodyController &wbc, Eigen::VectorQd current_q, Eigen::VectorQd desired_q, Eigen::VectorQd current_q_dot, Eigen::VectorQd desired_q_dot, Eigen::VectorQd pd_mask);
+    Eigen::VectorQd jointControl(WholebodyController &wbc, Eigen::VectorQd current_q, Eigen::VectorQd &desired_q, Eigen::VectorQd current_q_dot, Eigen::VectorQd &desired_q_dot, Eigen::VectorQd pd_mask);
     Eigen::VectorQd gravityCompensator(WholebodyController &wbc, Eigen::VectorQd current_q);
-
+    void cpCompensator();
+    
     Eigen::VectorQd comVelocityControlCompute(WholebodyController &wbc);
     Eigen::VectorQd swingFootControlCompute(WholebodyController &wbc);
     Eigen::VectorQd jointTrajectoryPDControlCompute(WholebodyController &wbc);
@@ -125,7 +126,7 @@ public:
     void getComTrajectory_Preview();
     void modifiedPreviewControl_MJ();
     void previewParam_MJ(double dt, int NL, double zc, Eigen::Matrix4d& K, Eigen::MatrixXd& Gi, Eigen::VectorXd& Gd, Eigen::MatrixXd& Gx, Eigen::MatrixXd& A, Eigen::VectorXd& B, Eigen::MatrixXd& C, Eigen::MatrixXd& D, Eigen::MatrixXd& A_bar, Eigen::VectorXd& B_bar);
-    void preview_MJ(double dt, int NL, double x_i, double y_i, Eigen::Vector3d xs, Eigen::Vector3d ys, double& UX, double& UY, Eigen::MatrixXd Gi, Eigen::VectorXd Gd, Eigen::MatrixXd Gx, Eigen::MatrixXd A, Eigen::VectorXd B, Eigen::Vector3d &XD, Eigen::Vector3d &YD);
+    void preview_MJ(double dt, int NL, double x_i, double y_i, Eigen::Vector3d xs, Eigen::Vector3d ys, double& UX, double& UY, Eigen::MatrixXd Gi, Eigen::VectorXd Gd, Eigen::MatrixXd Gx, Eigen::MatrixXd A, Eigen::VectorXd B, Eigen::MatrixXd C, Eigen::Vector3d &XD, Eigen::Vector3d &YD);
     Eigen::MatrixXd discreteRiccatiEquationPrev(Eigen::MatrixXd a, Eigen::MatrixXd b, Eigen::MatrixXd r, Eigen::MatrixXd q);
 
 
@@ -580,6 +581,8 @@ public:
 
     Eigen::Vector3d zmp_measured_lfoot_; //calc only left foot zmp with a F/T sensor
     Eigen::Vector3d zmp_measured_rfoot_;
+
+    Eigen::Vector3d zmp_current_by_com_from_support_;
 
     Eigen::Vector3d zmp_desired_from_global_;
     Eigen::Vector3d zmp_desired_pre_;
