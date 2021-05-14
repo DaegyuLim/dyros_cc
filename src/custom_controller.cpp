@@ -569,8 +569,8 @@ void CustomController::computeSlow()
 		getLegIK();
 		desired_q_dot_.setZero();
 		
-		desired_q_ = hipAngleCompensator(desired_q_);	//real robot
-
+		// desired_q_ = hipAngleCompensator(desired_q_);	//real robot
+		desired_q_ = init_q_;
 		torque_task_ += jointControl(wbc_, current_q_, desired_q_, current_q_dot_, desired_q_dot_, pd_control_mask_);
 
 		// torque_task_.segment(0, 12).setZero();
@@ -641,10 +641,10 @@ void CustomController::computeSlow()
 
 		//motion planing and control//
 		motionGenerator();
-		getZmpTrajectory();
-		getComTrajectory_Preview();
+		// getZmpTrajectory();
+		// getComTrajectory_Preview();
 		// getCOMTrajectory();
-		getSwingFootXYTrajectory(walking_phase_, com_pos_current_, com_vel_current_, com_vel_desired_);
+		// getSwingFootXYTrajectory(walking_phase_, com_pos_current_, com_vel_current_, com_vel_desired_);
 
 		if( (current_time_ ) >=  program_start_time_ + program_ready_duration_ )
 		{
@@ -1399,11 +1399,11 @@ void CustomController::walkingStateManager()
 	turning_phase_ = DyrosMath::minmax_cut(turning_phase_, 0, 1);
 	// walking_duration_ = walking_duration_cmd_  - 1.0*(abs(com_pos_error_(1)) + abs(com_vel_error_(1))*0.3) - 1.0*(abs(com_pos_error_(0)) + abs(com_vel_error_(0))*0.3);
 
-	if( true)
-	{
-		cout<<"walking_phase: "<<walking_phase_<<endl;
-		cout<<"turning phase: "<<turning_phase_<<endl;
-	}
+	// if( true)
+	// {
+	// 	cout<<"walking_phase: "<<walking_phase_<<endl;
+	// 	cout<<"turning phase: "<<turning_phase_<<endl;
+	// }
 }
 
 bool CustomController::balanceTrigger(Eigen::Vector2d com_pos_2d, Eigen::Vector2d com_vel_2d)
@@ -4303,7 +4303,7 @@ Eigen::Isometry3d CustomController::velocityFilter(Eigen::Isometry3d data, Eigen
 void CustomController::abruptMotionFilter()
 {
 	int maximum_data_cut_num = 200; 
-	bool verbose = 1; 
+	bool verbose = 0; 
 	bool fast_head_move_flag = false;
 	bool fast_lupperarm_move_flag = false;
 	bool fast_lhand_move_flag = false;
@@ -6271,8 +6271,8 @@ Eigen::VectorQd CustomController::gravityCompensator(WholebodyController &wbc, E
 				torque_g_ssp = wbc.gravity_compensation_torque(rd_);
 				
 				//real robot
-				// torque_g_ssp(1) = 1.4*torque_g_ssp(1);	
-				// torque_g_ssp(5) = 1.15*torque_g_ssp(5);
+				torque_g_ssp(1) = 1.4*torque_g_ssp(1);	
+				torque_g_ssp(5) = 1.15*torque_g_ssp(5);
 			}
 			else
 			{
@@ -6280,8 +6280,8 @@ Eigen::VectorQd CustomController::gravityCompensator(WholebodyController &wbc, E
 				torque_g_ssp = wbc.gravity_compensation_torque(rd_);
 
 				//real robot
-				// torque_g_ssp(7) = 1.4*torque_g_ssp(7);	
-				// torque_g_ssp(11) = 1.15*torque_g_ssp(11);
+				torque_g_ssp(7) = 1.4*torque_g_ssp(7);	
+				torque_g_ssp(11) = 1.15*torque_g_ssp(11);
 			}
 		}
 	}
@@ -6535,6 +6535,9 @@ Eigen::VectorQd CustomController::ikBalanceControlCompute(WholebodyController &w
 	pelv_transform_desired.linear() = DyrosMath::rotationCubic(current_time_, program_start_time_, program_start_time_ + 3, pelv_transform_start_from_global_.linear(), Eigen::Matrix3d::Identity());
 
 	// pelv_transform_desired.translation() += kp_com*(com_pos_desired_ - com_pos_current_) - kp_zmp*(middle_of_both_foot_ - zmp_measured_);
+	com_pos_desired_(0) = com_pos_init_(0);
+	com_pos_desired_(1) = com_pos_init_(1);
+
 	pelv_transform_desired.translation() += kp_compos_*(com_pos_desired_ - com_pos_current_) - kd_compos_*(middle_of_both_foot_ - zmp_measured_);
 	computeIk(pelv_transform_desired, lfoot_transform_desired, rfoot_transform_desired, q_leg_desired);
 
@@ -7572,9 +7575,9 @@ void CustomController::preview_MJ(double dt, int NL, double x_i, double y_i, Eig
 	}
 
 	// Eigen::Matrix1x3d C;
-	// C(0,0) = 1; C(0,1) = 0; 
+	C(0,0) = 1; C(0,1) = 0; 
 	// C(0,2) = -zc_/GRAVITY;
-	// C(0,2) = -0.71/9.81;	//mj gain
+	C(0,2) = -0.71/9.81;	//mj gain
 
 	Eigen::VectorXd px, py;
 	px.resize(1); py.resize(1);
