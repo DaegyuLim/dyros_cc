@@ -1390,7 +1390,7 @@ void CustomController::walkingStateManager()
 	}
 
 
-	turning_duration_ = walking_duration_*0.8;
+	// turning_duration_ = walking_duration_*0.8;
 	turning_duration_ = DyrosMath::minmax_cut(turning_duration_, 0.2, 1.5);
 
 	walking_phase_ = (current_time_ - start_time_) / walking_duration_;
@@ -1399,11 +1399,11 @@ void CustomController::walkingStateManager()
 	turning_phase_ = DyrosMath::minmax_cut(turning_phase_, 0, 1);
 	// walking_duration_ = walking_duration_cmd_  - 1.0*(abs(com_pos_error_(1)) + abs(com_vel_error_(1))*0.3) - 1.0*(abs(com_pos_error_(0)) + abs(com_vel_error_(0))*0.3);
 
-	if( true)
-	{
-		cout<<"walking_phase: "<<walking_phase_<<endl;
-		cout<<"turning phase: "<<turning_phase_<<endl;
-	}
+	// if( true)
+	// {
+	// 	cout<<"walking_phase: "<<walking_phase_<<endl;
+	// 	cout<<"turning phase: "<<turning_phase_<<endl;
+	// }
 }
 
 bool CustomController::balanceTrigger(Eigen::Vector2d com_pos_2d, Eigen::Vector2d com_vel_2d)
@@ -5111,9 +5111,9 @@ void CustomController::getSwingFootXYZTrajectory()
 			swing_foot_pos_trajectory_from_support_ = swing_foot_transform_init_from_support_.translation();
 
 			swing_foot_vel_trajectory_from_support_.setZero();
-			// swing_foot_rot_trajectory_from_support_ = swing_foot_transform_init_.linear();
+			swing_foot_rot_trajectory_from_support_ = swing_foot_transform_init_.linear();
 			// swing_foot_rot_trajectory_from_support_.setIdentity();
-			swing_foot_rot_trajectory_from_support_ = DyrosMath::rotateWithZ(swing_foot_rpy_init_from_support_(2));
+			// swing_foot_rot_trajectory_from_support_ = DyrosMath::rotateWithZ(swing_foot_rpy_init_from_support_(2));
 		}
 		else
 		{
