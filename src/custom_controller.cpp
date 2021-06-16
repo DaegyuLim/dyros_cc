@@ -581,10 +581,10 @@ void CustomController::computeSlow()
 		savePreData();
 
 		////////////////////////////////TORQUE LIMIT//////// //////////////////////
-		for (int i = 0; i < MODEL_DOF; i++)
-		{
-			torque_task_(i) = DyrosMath::minmax_cut(torque_task_(i), torque_task_min_(i), torque_task_max_(i));
-		}
+		// for (int i = 0; i < MODEL_DOF; i++)
+		// {
+		// 	torque_task_(i) = DyrosMath::minmax_cut(torque_task_(i), torque_task_min_(i), torque_task_max_(i));
+		// }
 		///////////////////////////////////////////////////////////////////////////
         
 		//////////////////////////////FALLING//////////////////////////////
@@ -731,7 +731,7 @@ void CustomController::computeSlow()
 		// Vector3d temp_elbow = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-3].xpos - pelv_pos_current_);
 		// Vector3d temp_hand = pelv_yaw_rot_current_from_global_.transpose() * (rd_.link_[Left_Hand-1].xpos - pelv_pos_current_);
 		}
-		// printOutTextFile();
+		printOutTextFile();
 	}
 }
 
@@ -776,7 +776,7 @@ void CustomController::initWalkingParameter()
 	ankle2footcenter_offset_ = 0.02;
 	yaw_angular_vel_ = 0; //   rad/s
 	swing_foot_height_ = 0.05;
-	switching_phase_duration_ = 0.01;
+	switching_phase_duration_ = 0.05;
 	foot_contact_ = -1;
 	foot_contact_pre_ = foot_contact_;
 	step_width_ = 0.22;  						//for preview control
@@ -961,7 +961,7 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	
 	pelv_angvel_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[Pelvis].w;
 
-	com_pos_current_ = pelv_yaw_rot_current_from_global_.transpose() * (rd_.com_.pos - pelv_pos_current_);
+	com_pos_current_ = pelv_yaw_rot_current_from_global_.transpose() * (rd_.com_.pos- pelv_pos_current_);
 	// com_vel_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.link_[COM_id].v;
 	com_vel_current_ = pelv_yaw_rot_current_from_global_.transpose() * rd_.com_.vel;
 	com_mass_ = rd_.com_.mass;
@@ -1234,6 +1234,10 @@ void CustomController::walkingStateManager()
 			//first step start
 			if (foot_swing_trigger_ == false)
 			{
+
+				start_walking_trigger_ = false;
+				stop_walking_trigger_ = true;
+
 				if (stop_walking_trigger_ == true)
 				{
 					// if (balanceTrigger(com_pos_current_.segment<2>(0), com_vel_current_.segment<2>(0))) //gonna be fall
@@ -1260,9 +1264,9 @@ void CustomController::walkingStateManager()
 					// else
 					// {
 						foot_swing_trigger_ = false;
-						start_walking_trigger_ = false;
 						first_step_trigger_ = false;
 						start_time_ = current_time_;
+						// std::cout << " ################################ STOP WALKING ON! ################################" << std::endl;
 					// }
 				}
 			}
@@ -1350,7 +1354,8 @@ void CustomController::walkingStateManager()
 				{
 					first_step_trigger_ = false;
 				}
-				// std::cout << " ################################ Balancing Control ON! ################################" << std::endl;
+				std::cout << " ################################ Robot Is Stopping! ################################" << std::endl;
+				std::cout << " ################################"<<max_stop_walking_num_- stop_walking_counter_<<"steps are left################################" << std::endl;
 			}
 			else
 			{
@@ -1363,7 +1368,7 @@ void CustomController::walkingStateManager()
 				stance_start_time_ = current_time_;
 
 				stop_walking_counter_ = 0;
-				// std::cout << " ################################ Robot Stops Walking! ################################" << std::endl;
+				std::cout << " ################################ Robot Stops Walking! ################################" << std::endl;
 			}
 		}
 		else
@@ -1374,7 +1379,7 @@ void CustomController::walkingStateManager()
 			start_walking_trigger_ = false;
 
 			foot_contact_ = -foot_contact_;
-			// std::cout << " ################################ Support Foot Changed! ################################" << std::endl;
+			std::cout << " ################################ Support Foot Changed! ################################" << std::endl;
 		}
 		start_time_ = current_time_;
 	}
@@ -1569,6 +1574,10 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		com_acc_pre_desired_from_support_ = swing_foot_transform_current_from_support_.linear()*com_acc_pre_desired_from_support_;
 		com_jerk_pre_desired_from_support_ = swing_foot_transform_current_from_support_.linear()*com_jerk_pre_desired_from_support_;
 
+		lfoot_transform_desired_last_ = swing_foot_transform_current_from_support_*lfoot_transform_desired_;
+		rfoot_transform_desired_last_ =	swing_foot_transform_current_from_support_*rfoot_transform_desired_;
+		pelv_transform_desired_last_ = swing_foot_transform_current_from_support_*pelv_transform_desired_;
+
 		cout<<"_______________Support Foot is Changed!!!_______________"<<endl;
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
@@ -1660,6 +1669,13 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		lfoot_transform_start_from_support_	= lfoot_transform_current_from_support_;
 		rfoot_transform_start_from_support_	= rfoot_transform_current_from_support_;
 
+		lfoot_transform_desired_ = lfoot_transform_current_from_support_;
+		rfoot_transform_desired_ = rfoot_transform_current_from_support_;
+		pelv_transform_desired_ = pelv_transform_current_from_support_;
+
+		lfoot_transform_desired_last_ = lfoot_transform_current_from_support_;
+		rfoot_transform_desired_last_ =	rfoot_transform_current_from_support_;
+		pelv_transform_desired_last_ =	pelv_transform_current_from_support_;
 
 		pelv_transform_start_from_global_.translation()  = pelv_pos_current_;
 		pelv_transform_start_from_global_.linear()  = pelv_rot_current_;
@@ -1834,6 +1850,28 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 
 		//preview gain update
 		previewParam_MJ(1/preview_hz_, zmp_size_, zc_, K_act_ , Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
+
+		cout<<"===================First Preview is On==========================="<<endl;
+		cout<<"zc_:"<<endl;
+		cout<<zc_<<endl;
+		cout<<"K_act_:"<<endl;
+		cout<<K_act_<<endl;
+		cout<<"Gi_:"<<endl;
+		cout<<Gi_<<endl;
+		cout<<"Gd_:"<<endl;
+		cout<<Gd_<<endl;
+		cout<<"Gx_:"<<endl;
+		cout<<Gx_<<endl;
+		cout<<"A_:"<<endl;
+		cout<<A_<<endl;
+		cout<<"B_:"<<endl;
+		cout<<B_<<endl;
+		cout<<"C_:"<<endl;
+		cout<<C_<<endl;
+		cout<<"D_:"<<endl;
+		cout<<D_<<endl;
+		cout<<"===================First Preview is On==========================="<<endl;
+
 		last_preview_param_update_time_ = current_time_;
 		preview_update_time_ = current_time_;
 
@@ -4921,9 +4959,6 @@ void CustomController::getLegIK()
 	//sim
 	double kp_com = 0.7;
 	double kp_zmp = 0.0;
-	Eigen::Isometry3d lfoot_transform_desired;
-	Eigen::Isometry3d rfoot_transform_desired;
-	Eigen::Isometry3d pelv_transform_desired;
 	Vector12d q_leg_desired;
 	q_leg_desired.setZero();
 
@@ -4937,31 +4972,43 @@ void CustomController::getLegIK()
 	double target_pelv_yaw = yaw_angular_vel_*turning_duration_/2;
 	double pelv_yaw_current = DyrosMath::cubic(turning_phase_, 0, 1, pelv_rpy_init_from_support_(2), target_pelv_yaw, 0, 0);
 
-	// pelv_transform_desired.linear().setIdentity();
-	pelv_transform_desired.linear() = DyrosMath::rotateWithZ(pelv_yaw_current);
-	pelv_transform_desired.translation() = pelv_transform_current_from_support_.translation() + kp_com*(com_pos_desired_from_support_ - com_pos_current_from_support_) - kp_zmp*(middle_of_both_foot_ - zmp_measured_);
+	pelv_transform_desired_.linear().setIdentity();
+	// pelv_transform_desired_.linear() = DyrosMath::rotationCubic(walking_phase_, 0, dsp_ratio_, pelv_transform_desired_last_.linear(),  DyrosMath::rotateWithZ(pelv_yaw_current));
+	pelv_transform_desired_.translation() = pelv_transform_current_from_support_.translation() + kp_com*(com_pos_desired_from_support_ - com_pos_current_from_support_) - kp_zmp*(middle_of_both_foot_ - zmp_measured_);
 	// pelv_transform_desired.translation().setZero();
-	pelv_transform_desired.translation()(2) = DyrosMath::QuinticSpline(walking_phase_, 0, dsp_ratio_/2, pelv_transform_init_from_support_.translation()(2), 0, 0, pelv_transform_start_from_support_.translation()(2), 0, 0)(0);
+	pelv_transform_desired_.translation()(2) = DyrosMath::QuinticSpline(walking_phase_, 0, dsp_ratio_, pelv_transform_desired_last_.translation()(2), 0, 0, pelv_transform_start_from_support_.translation()(2), 0, 0)(0);
 	// pelv_transform_desired.translation()(2) = com_target_height_;
 
+	Vector3d zeros; 
+	zeros.setZero();
 
 	if(foot_contact_ == -1)	//right support foot
 	{
-		lfoot_transform_desired.translation() = swing_foot_pos_trajectory_from_support_;
-		lfoot_transform_desired.linear() = swing_foot_rot_trajectory_from_support_;
+		lfoot_transform_desired_.translation() = DyrosMath::cubicVector<3>(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, lfoot_transform_desired_last_.translation(),  swing_foot_pos_trajectory_from_support_, zeros, zeros);
+		lfoot_transform_desired_.linear() = DyrosMath::rotationCubic(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, lfoot_transform_desired_last_.linear(),  swing_foot_rot_trajectory_from_support_);
+		// lfoot_transform_desired_.linear() = swing_foot_rot_trajectory_from_support_;
 
-		rfoot_transform_desired = support_foot_transform_current_from_support_; //support foot
+		rfoot_transform_desired_.translation() = DyrosMath::cubicVector<3>(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, rfoot_transform_desired_last_.translation(),  support_foot_transform_current_from_support_.translation(), zeros, zeros);
+		// rfoot_transform_desired_.linear() = DyrosMath::rotationCubic(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, rfoot_transform_desired_last_.linear(),  Eigen::Matrix3d::Identity());
+		// rfoot_transform_desired_.linear() = support_foot_transform_current_from_support_.linear();
+		rfoot_transform_desired_.linear().setIdentity();
+
+		// rfoot_transform_desired_ = support_foot_transform_current_from_support_; //support foot
 	}
 	else
 	{
-		rfoot_transform_desired.translation() = swing_foot_pos_trajectory_from_support_;
-		rfoot_transform_desired.linear() = swing_foot_rot_trajectory_from_support_;
-		
-		lfoot_transform_desired = support_foot_transform_current_from_support_;	
+		rfoot_transform_desired_.translation() = DyrosMath::cubicVector<3>(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, rfoot_transform_desired_last_.translation(),  swing_foot_pos_trajectory_from_support_, zeros, zeros);
+		rfoot_transform_desired_.linear() = DyrosMath::rotationCubic(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, rfoot_transform_desired_last_.linear(),  swing_foot_rot_trajectory_from_support_);
+		// rfoot_transform_desired_.linear() = swing_foot_rot_trajectory_from_support_;
+
+		lfoot_transform_desired_.translation() = DyrosMath::cubicVector<3>(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, lfoot_transform_desired_last_.translation(),  support_foot_transform_current_from_support_.translation(), zeros, zeros);
+		// lfoot_transform_desired_.linear() = DyrosMath::rotationCubic(walking_phase_, dsp_ratio_/3, dsp_ratio_*2/3, lfoot_transform_desired_last_.linear(),  Eigen::Matrix3d::Identity());
+		lfoot_transform_desired_.linear().setIdentity();
+		// lfoot_transform_desired_.linear() = support_foot_transform_current_from_support_.linear();
 	}
 	
 
-	computeIk(pelv_transform_desired, lfoot_transform_desired, rfoot_transform_desired, q_leg_desired);
+	computeIk(pelv_transform_desired_, lfoot_transform_desired_, rfoot_transform_desired_, q_leg_desired);
 
 	for(int i =0; i<12; i++)
 	{
@@ -5109,11 +5156,16 @@ void CustomController::getSwingFootXYZTrajectory()
 		if (walking_phase_ < dsp_ratio_)
 		{
 			swing_foot_pos_trajectory_from_support_ = swing_foot_transform_init_from_support_.translation();
-
+			
+			swing_foot_pos_trajectory_from_support_(2) = 
+			DyrosMath::QuinticSpline(walking_phase_, 0, dsp_ratio_/2, 
+			swing_foot_transform_init_from_support_.translation()(2), 0, 0, 
+			0, 0, 0)(0);
+			
 			swing_foot_vel_trajectory_from_support_.setZero();
-			swing_foot_rot_trajectory_from_support_ = swing_foot_transform_init_.linear();
+			// swing_foot_rot_trajectory_from_support_ = swing_foot_transform_init_from_support_.linear();
 			// swing_foot_rot_trajectory_from_support_.setIdentity();
-			// swing_foot_rot_trajectory_from_support_ = DyrosMath::rotateWithZ(swing_foot_rpy_init_from_support_(2));
+			swing_foot_rot_trajectory_from_support_ = DyrosMath::rotateWithZ(swing_foot_rpy_init_from_support_(2));
 		}
 		else
 		{
@@ -5147,12 +5199,12 @@ void CustomController::getSwingFootXYZTrajectory()
 			{
 				swing_foot_pos_trajectory_from_support_(2) = 
 				DyrosMath::QuinticSpline(walking_phase_, dsp_ratio_, swingfoot_highest_time_, 
-				swing_foot_transform_init_from_support_.translation()(2), 0, 0, 
+				0, 0, 0, 
 				swing_foot_height_, 0, 0)(0);
 
 				swing_foot_vel_trajectory_from_support_(2) = 
 				DyrosMath::QuinticSpline(walking_phase_, dsp_ratio_, swingfoot_highest_time_, 
-				swing_foot_transform_init_from_support_.translation()(2), 0, 0, 
+				0, 0, 0, 
 				swing_foot_height_, 0, 0)(1);
 			}
 			else
@@ -5179,7 +5231,7 @@ void CustomController::getSwingFootXYZTrajectory()
 	{
 		swing_foot_pos_trajectory_from_support_ = swing_foot_transform_init_from_support_.translation();
 		swing_foot_vel_trajectory_from_support_.setZero();
-		swing_foot_rot_trajectory_from_support_ = swing_foot_transform_init_from_support_.linear();
+		swing_foot_rot_trajectory_from_support_ = DyrosMath::rotateWithZ(swing_foot_rpy_init_from_support_(2));
 	}
 
 	if (foot_contact_ == 1) //left support
@@ -6921,7 +6973,7 @@ void CustomController::savePreData()
 void CustomController::WalkingSliderCommandCallback(const std_msgs::Float32MultiArray &msg)
 {
 	walking_speed_ = msg.data[0];
-	walking_speed_ = DyrosMath::minmax_cut(walking_speed_, -0.5, 1.0);
+	walking_speed_ = DyrosMath::minmax_cut(walking_speed_, -0.1, 0.1);
 	
 	// walking_duration_cmd_ = msg.data[1];
 	// walking_duration_cmd_ = DyrosMath::minmax_cut(walking_duration_cmd_, 0.4, 1.0);
@@ -7444,10 +7496,10 @@ void CustomController::previewParam_MJ(double dt, int NL, double zc, Eigen::Matr
     A(2,1) = 0;
     A(2,2) = 1;
 
-	B.resize(3);
-	B(0) = dt*dt*dt/6;
-	B(1) = dt*dt/2;
-	B(2) = dt;
+	B.resize(3,1);
+	B(0,0) = dt*dt*dt/6;
+	B(1,0) = dt*dt/2;
+	B(2,0) = dt;
 
 	C.resize(1,3);
 	C(0,0) = 1;
@@ -7464,10 +7516,9 @@ void CustomController::previewParam_MJ(double dt, int NL, double zc, Eigen::Matr
 
 	Eigen::MatrixXd I_bar;
 	Eigen::MatrixXd F_bar;
-	A_bar.resize(4,4);
-	I_bar.resize(4,1);
-	F_bar.resize(4,3);
-	F_bar.setZero();
+	A_bar.setZero(4,4);
+	I_bar.setZero(4,1);
+	F_bar.setZero(4,3);
 
 	F_bar.block<1,3>(0,0) = C*A;
 	F_bar.block<3,3>(1,0) = A;
@@ -7556,8 +7607,7 @@ void CustomController::previewParam_MJ(double dt, int NL, double zc, Eigen::Matr
 	{
 		Gd.segment(i,1) = Gd_col;
 		Gd_col = Temp_mat_inv * B_bar_tran * X_bar.col(i);
-	}
-    
+	}   
 }
 
 void CustomController::preview_MJ(double dt, int NL, double x_i, double y_i, Eigen::Vector3d xs, Eigen::Vector3d ys, double& UX, double& UY, 
@@ -7861,7 +7911,7 @@ void CustomController::getZmpTrajectory()
 			{
 				int num_of_step = (j- first_step_residual_tick)/one_step_ticks +1; //start from 1 
 
-				int step_side = (num_of_step%2); //0: planning support foot side zmp, 1: planning swing foot side zm
+				int step_side = (num_of_step%2); //0: planning support foot side zmp, 1: planning swing foot side zmp
 				
 				int each_step_tick = (j - first_step_residual_tick)%int(walking_duration_cmd_*preview_hz_);
 				double dsp_phase = DyrosMath::minmax_cut(each_step_tick/(dsp_duration_*preview_hz_), 0, 1);
@@ -7872,7 +7922,7 @@ void CustomController::getZmpTrajectory()
 				zmp_target(0) = walking_speed_*walking_duration_;
 				zmp_target(1) = -(step_width_ + 2*zmp_y_offset_)*foot_contact_;
 				
-				//swing foot error compensation
+				// // swing foot error compensation
 				// if(num_of_step == 1)
 				// {
 				// 	zmp_target(1) -= swing_foot_pos_error_from_support_(1);
@@ -7943,7 +7993,7 @@ void CustomController::getZmpTrajectory()
 				{
 					zmp_target(1) = - (step_width_/2 + zmp_y_offset_)*foot_contact_;
 
-					//swing foot error compensation
+					// // swing foot error compensation
 					// zmp_target(1) -= swing_foot_pos_error_from_support_(1);
 					// zmp_target(0) -= swing_foot_pos_error_from_support_(0);
 
@@ -7962,7 +8012,7 @@ void CustomController::getZmpTrajectory()
 					zmp_target(0) = walking_speed_*walking_duration_;
 					zmp_target(1) = -(step_width_ + 2*zmp_y_offset_)*foot_contact_;
 					
-					// swing foot error compensation
+					// // swing foot error compensation
 					// if(num_of_step == 1)
 					// {
 					// 	zmp_target(1) -= swing_foot_pos_error_from_support_(1);

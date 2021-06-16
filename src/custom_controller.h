@@ -15,20 +15,20 @@ const int FILE_CNT = 14;
 const std::string FILE_NAMES[FILE_CNT] =
 {
   ///change this directory when you use this code on the other computer///
-    "/home/dyros/data/tacabi_cc/0_flag_.txt",
-    "/home/dyros/data/tocabi_cc/1_com_.txt",
-    "/home/dyros/data/tocabi_cc/2_zmp_.txt",
-    "/home/dyros/data/tocabi_cc/3_foot_.txt",
-    "/home/dyros/data/tocabi_cc/4_torque_.txt",
-    "/home/dyros/data/tocabi_cc/5_joint_.txt",
-    "/home/dyros/data/tocabi_cc/6_hand_.txt",
-    "/home/dyros/data/tocabi_cc/7_elbow_.txt",
-    "/home/dyros/data/tocabi_cc/8_shoulder_.txt",
-    "/home/dyros/data/tocabi_cc/9_acromion_.txt",
-    "/home/dyros/data/tocabi_cc/10_hmd_.txt",
-    "/home/dyros/data/tocabi_cc/11_tracker_.txt",
-    "/home/dyros/data/tocabi_cc/12_qpik_.txt",
-    "/home/dyros/data/tocabi_cc/13_tracker_vel_.txt"
+    "/home/dg/data/tacabi_cc/0_flag_.txt",
+    "/home/dg/data/tocabi_cc/1_com_.txt",
+    "/home/dg/data/tocabi_cc/2_zmp_.txt",
+    "/home/dg/data/tocabi_cc/3_foot_.txt",
+    "/home/dg/data/tocabi_cc/4_torque_.txt",
+    "/home/dg/data/tocabi_cc/5_joint_.txt",
+    "/home/dg/data/tocabi_cc/6_hand_.txt",
+    "/home/dg/data/tocabi_cc/7_elbow_.txt",
+    "/home/dg/data/tocabi_cc/8_shoulder_.txt",
+    "/home/dg/data/tocabi_cc/9_acromion_.txt",
+    "/home/dg/data/tocabi_cc/10_hmd_.txt",
+    "/home/dg/data/tocabi_cc/11_tracker_.txt",
+    "/home/dg/data/tocabi_cc/12_qpik_.txt",
+    "/home/dg/data/tocabi_cc/13_tracker_vel_.txt"
 };
 
 //real robot
@@ -241,6 +241,9 @@ public:
     double walking_duration_cmd_;
     double walking_duration_start_delay_;
     double walking_phase_;
+    // double dsp_phase_;
+    // double ssp_phase_;
+
     double turning_duration_;
     double turning_phase_;
     double switching_phase_duration_;
@@ -403,6 +406,14 @@ public:
     Eigen::Vector6d swing_foot_vel_init_;
 
     Eigen::Vector6d support_foot_vel_current_;
+
+    //getLegIK
+    Eigen::Isometry3d lfoot_transform_desired_;
+	Eigen::Isometry3d rfoot_transform_desired_;
+	Eigen::Isometry3d pelv_transform_desired_;
+    Eigen::Isometry3d lfoot_transform_desired_last_;
+	Eigen::Isometry3d rfoot_transform_desired_last_;
+	Eigen::Isometry3d pelv_transform_desired_last_;
 
     Eigen::MatrixXd jac_com_;
     Eigen::MatrixXd jac_com_pos_;
