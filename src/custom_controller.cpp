@@ -570,7 +570,7 @@ void CustomController::computeSlow()
 		desired_q_dot_.setZero();
 		
 		// desired_q_ = hipAngleCompensator(desired_q_);	//real robot
-		desired_q_ = init_q_;
+		// desired_q_ = init_q_;
 		torque_task_ += jointControl(wbc_, current_q_, desired_q_, current_q_dot_, desired_q_dot_, pd_control_mask_);
 
 		// torque_task_.segment(0, 12).setZero();
@@ -6271,8 +6271,8 @@ Eigen::VectorQd CustomController::gravityCompensator(WholebodyController &wbc, E
 				torque_g_ssp = wbc.gravity_compensation_torque(rd_);
 				
 				//real robot
-				torque_g_ssp(1) = 1.4*torque_g_ssp(1);	
-				torque_g_ssp(5) = 1.15*torque_g_ssp(5);
+				// torque_g_ssp(1) = 1.4*torque_g_ssp(1);	
+				// torque_g_ssp(5) = 1.15*torque_g_ssp(5);
 			}
 			else
 			{
@@ -6280,8 +6280,8 @@ Eigen::VectorQd CustomController::gravityCompensator(WholebodyController &wbc, E
 				torque_g_ssp = wbc.gravity_compensation_torque(rd_);
 
 				//real robot
-				torque_g_ssp(7) = 1.4*torque_g_ssp(7);	
-				torque_g_ssp(11) = 1.15*torque_g_ssp(11);
+				// torque_g_ssp(7) = 1.4*torque_g_ssp(7);	
+				// torque_g_ssp(11) = 1.15*torque_g_ssp(11);
 			}
 		}
 	}
@@ -6926,14 +6926,14 @@ void CustomController::WalkingSliderCommandCallback(const std_msgs::Float32Multi
 	// walking_duration_cmd_ = msg.data[1];
 	// walking_duration_cmd_ = DyrosMath::minmax_cut(walking_duration_cmd_, 0.4, 1.0);
 
-	yaw_angular_vel_ = msg.data[2];
-	yaw_angular_vel_ = DyrosMath::minmax_cut(yaw_angular_vel_, -0.3, 0.3);
+	// yaw_angular_vel_ = msg.data[2];
+	// yaw_angular_vel_ = DyrosMath::minmax_cut(yaw_angular_vel_, -0.3, 0.3);
 
-	knee_target_angle_ = msg.data[3];
-	knee_target_angle_ = DyrosMath::minmax_cut(knee_target_angle_, 0.0, M_PI/2);	
+	// knee_target_angle_ = msg.data[3];
+	// knee_target_angle_ = DyrosMath::minmax_cut(knee_target_angle_, 0.0, M_PI/2);	
 
-	swing_foot_height_ = msg.data[4];
-	swing_foot_height_ = DyrosMath::minmax_cut(swing_foot_height_, 0.005, 0.10);
+	// swing_foot_height_ = msg.data[4];
+	// swing_foot_height_ = DyrosMath::minmax_cut(swing_foot_height_, 0.005, 0.10);
 }
 
 void CustomController::UpperbodyModeCallback(const std_msgs::Float32 &msg)
@@ -8076,19 +8076,19 @@ void CustomController::printOutTextFile()
 		<<com_vel_desired_from_support_(0)<<"\t"<<com_vel_desired_from_support_(1)<<"\t"<<com_vel_desired_from_support_(2)<<"\t"					//16
 		<<com_acc_desired_from_support_(0)<<"\t"<<com_acc_desired_from_support_(1)<<"\t"<<com_acc_desired_from_support_(2)<<endl;
 
-		file[2]<<ref_zmp_(0,0)<<"\t"<<ref_zmp_(0,1)<<"\t"<< zmp_current_by_com_from_support_(0)<<"\t"<< zmp_current_by_com_from_support_(1)<<endl;
+		// file[2]<<ref_zmp_(0,0)<<"\t"<<ref_zmp_(0,1)<<"\t"<< zmp_current_by_com_from_support_(0)<<"\t"<< zmp_current_by_com_from_support_(1)<<endl;
 		
-		// for(int i = 0; i<zmp_size_; i++)
-		// {
-		// 	if( i%10 == 0)
-		// 		file[2]<<ref_zmp_(i, 0)<<"\t";
-		// }
-		// for(int i = 0; i<zmp_size_; i++)
-		// {
-		// 	if( i%10 == 0)
-		// 		file[2]<<ref_zmp_(i, 1)<<"\t";
-		// }
-		// file[2]<< zmp_current_by_com_from_support_(0)<<"\t"<< zmp_current_by_com_from_support_(1)<<endl;
+		for(int i = 0; i<zmp_size_; i++)
+		{
+			if( i%10 == 0)
+				file[2]<<ref_zmp_(i, 0)<<"\t";
+		}
+		for(int i = 0; i<zmp_size_; i++)
+		{
+			if( i%10 == 0)
+				file[2]<<ref_zmp_(i, 1)<<"\t";
+		}
+		file[2]<< zmp_current_by_com_from_support_(0)<<"\t"<< zmp_current_by_com_from_support_(1)<<endl;
 
 		file[3]<<current_time_ - program_start_time_<<"\t"<<walking_phase_<<"\t"<<foot_contact_<<"\t"																								//1
 		<<lfoot_transform_current_from_support_.translation()(0)<<"\t"<<lfoot_transform_current_from_support_.translation()(1)<<"\t"<<lfoot_transform_current_from_support_.translation()(2)<<"\t"		//4
