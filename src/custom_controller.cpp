@@ -605,11 +605,7 @@ void CustomController::computeSlow()
 
 				updateNextStepTime();
 
-				q_prev_MJ_ = rd_.q_;
-				cout<<"walking_tick_mj: "<<walking_tick_mj/2000.0<<endl;
-				cout<<"ControlVal_: \n"<<ControlVal_(3)<<endl;
-				cout<<"ref_q_: \n"<<ref_q_(3)<<endl;
-				// cout<<"Gravity_MJ_: \n"<<Gravity_MJ_<<endl;          
+				q_prev_MJ_ = rd_.q_;         
 			}        
 		}
 		else
@@ -659,6 +655,7 @@ void CustomController::computeSlow()
 			if(walking_tick_mj == 0)
 			{     
 				parameterSetting();
+				initial_flag = 0; 
 				cout <<  "\n\n\n\n" << endl;
 				cout <<  "___________________________ " << endl;
 				cout <<  "\n           Start " << endl;
@@ -710,16 +707,16 @@ void CustomController::computeSlow()
 		}
 		else
 		{
-				if(walking_end_flag == 0)
-				{
-					cout << "walking finish" << endl;
-					walking_end_flag = 1; initial_flag = 0;        
-				} 
+			if(walking_end_flag == 0)
+			{
+				cout << "walking finish" << endl;
+				walking_end_flag = 1; initial_flag = 0;        
+			} 
 
-				wbc_.set_contact(rd_, 1, 1);
-				Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
-				for(int i = 0; i < MODEL_DOF; i++)
-				{ ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); }
+			wbc_.set_contact(rd_, 1, 1);
+			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+			for(int i = 0; i < MODEL_DOF; i++)
+			{ ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); }
 		}		
 	}
 	else if (tc.mode == 14) 
@@ -1750,7 +1747,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		com_jerk_pre_desired_from_support_.setZero();
 
 		xs_.setZero();
-		ys_mj_.setZero();
+		ys_.setZero();
 
 		xi_ = com_pos_current_from_support_(0);
 		yi_ = com_pos_current_from_support_(1);
@@ -1783,7 +1780,7 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		pelv_transform_desired_last_ =	pelv_transform_current_from_support_;
 
 		pelv_transform_start_from_global_.translation()  = pelv_pos_current_;
-		pelv_transform_start_from_global_.linear()  = pelv_rot_current_;
+		pelv_transform_start_from_global_.linear()  = pelv_rot_current_yaw_aline_;
 		lfoot_transform_start_from_global_ = lfoot_transform_current_from_global_;
 		rfoot_transform_start_from_global_ = rfoot_transform_current_from_global_;
 		
@@ -6661,7 +6658,7 @@ Eigen::VectorQd CustomController::ikBalanceControlCompute(WholebodyController &w
 	// double kp_com = 0.2;
 	// double kp_zmp = 0.04;
 	//sim
-	double kp_com = 0.9;
+	double kp_com = 0.7;
 	double kp_zmp = 0.1;
 	Eigen::Isometry3d lfoot_transform_desired;
 	Eigen::Isometry3d rfoot_transform_desired;
@@ -6679,7 +6676,7 @@ Eigen::VectorQd CustomController::ikBalanceControlCompute(WholebodyController &w
 	pelv_transform_desired.translation().setZero();
 	// pelv_transform_desired.translation() = (lfoot_transform_init_from_global_.translation()+ rfoot_transform_init_from_global_.translation())/2;
 	// pelv_transform_desired.translation()(2) = 0;
-	pelv_transform_desired.linear() = pelv_rot_init_;
+	pelv_transform_desired.linear() = pelv_rot_current_yaw_aline_;
 
 	// lfoot_transform_desired.translation()(0) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ + 3, lfoot_transform_init_from_global_.translation()(0), 0, 0, 0);
 	// rfoot_transform_desired.translation()(0) = DyrosMath::cubic(current_time_, program_start_time_, program_start_time_ + 3, rfoot_transform_init_from_global_.translation()(0), 0, 0, 0);
