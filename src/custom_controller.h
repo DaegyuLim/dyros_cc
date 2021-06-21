@@ -623,6 +623,8 @@ public:
     Eigen::VectorQd torque_grav_pre_;
     Eigen::VectorQd torque_qp_;
     Eigen::VectorQd torque_g_;
+    Eigen::VectorQd torque_upper_;
+    Eigen::VectorQd torque_lower_;
 
     Eigen::VectorQd torque_task_min_;
     Eigen::VectorQd torque_task_max_;

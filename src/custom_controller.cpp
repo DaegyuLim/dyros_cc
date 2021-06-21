@@ -562,6 +562,7 @@ void CustomController::computeSlow()
 			if(walking_tick_mj == 0)
 			{     
 				parameterSetting();
+				initial_flag = 0;
 				cout << "parameter setting OK" << endl;
 				cout << "mode = 11" << endl;
 			}        
@@ -595,9 +596,10 @@ void CustomController::computeSlow()
 
 				CP_compen_MJ();
 				
-				for(int i = 0; i < MODEL_DOF; i++)
+				torque_lower_.setZero();
+				for(int i = 0; i < 12; i++)
 				{
-					ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) + Tau_CP(i) ;  
+					torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + Tau_CP(i) + 1.0 * Gravity_MJ_(i);  
 					// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
 				}               
 							
@@ -618,10 +620,41 @@ void CustomController::computeSlow()
 
 			wbc_.set_contact(rd_, 1, 1);
 			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
-			for(int i = 0; i < MODEL_DOF; i++)
-			{ ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); }
-			
-		}        		
+			torque_lower_.setZero();
+			for(int i = 0; i < 12; i++)
+			{
+				torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); 
+			}	
+		}
+	/////////////////////////////////////////////////////////////////////////////////////////
+		
+		if (tc.task_init == true)
+		{
+			initWalkingParameter();
+			tc.task_init = false;
+		}
+
+		//data process//
+		getRobotData(wbc_);
+		walkingStateManager(); //avatar
+		getProcessedRobotData(wbc_);	
+		
+		//motion planing and control//
+		motionGenerator();
+
+		torque_upper_.setZero();
+		for (int i = 12; i < MODEL_DOF; i++)
+		{
+			torque_upper_(i) = (kp_joint_(i) * (motion_q_(i) - current_q_(i)) + kv_joint_(i) * (0 - current_q_dot_(i)) + 1.0 * Gravity_MJ_(i));
+			torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+		}
+        savePreData();
+
+		///////////////////////////////FINAL TORQUE COMMAND/////////////////////////////
+		for (int i = 0; i < MODEL_DOF; i++)
+		{
+			ControlVal_(i) = torque_upper_(i) + torque_lower_(i) ; 
+		}
 	}
 	else if (tc.mode == 12)
 	{
@@ -691,10 +724,11 @@ void CustomController::computeSlow()
 				}
 
 				CP_compen_MJ();
-				
+
+				torque_lower_.setZero();
 				for(int i = 0; i < MODEL_DOF; i++)
 				{
-					ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) + Tau_CP(i) ;  
+					torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) + Tau_CP(i) ;  
 					// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
 				}               
 							
@@ -715,9 +749,44 @@ void CustomController::computeSlow()
 
 			wbc_.set_contact(rd_, 1, 1);
 			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+
+			torque_lower_.setZero();
 			for(int i = 0; i < MODEL_DOF; i++)
-			{ ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); }
-		}		
+			{ 
+				torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); 
+			}
+		}
+		
+		/////////////////////////////////////////////////////////////////////////////////////////
+		
+		if (tc.task_init == true)
+		{
+			initWalkingParameter();
+			tc.task_init = false;
+		}
+
+		//data process//
+		getRobotData(wbc_);
+		walkingStateManager(); //avatar
+		getProcessedRobotData(wbc_);	
+		
+		//motion planing and control//
+		motionGenerator();
+
+		torque_upper_.setZero();
+		for (int i = 12; i < MODEL_DOF; i++)
+		{
+			torque_upper_(i) = (kp_joint_(i) * (motion_q_(i) - current_q_(i)) + kv_joint_(i) * (0 - current_q_dot_(i)) + 1.0 * Gravity_MJ_(i));
+			torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+		}
+        savePreData();
+
+		///////////////////////////////FINAL TORQUE COMMAND/////////////////////////////
+		for (int i = 0; i < MODEL_DOF; i++)
+		{
+			ControlVal_(i) = torque_upper_(i) + torque_lower_(i) ; 
+		}
+
 	}
 	else if (tc.mode == 14) 
 	{
