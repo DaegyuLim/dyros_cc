@@ -726,7 +726,7 @@ void CustomController::computeSlow()
 				CP_compen_MJ();
 
 				torque_lower_.setZero();
-				for(int i = 0; i < MODEL_DOF; i++)
+				for(int i = 0; i < 12; i++)
 				{
 					torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) + Tau_CP(i) ;  
 					// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
@@ -751,7 +751,7 @@ void CustomController::computeSlow()
 			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
 
 			torque_lower_.setZero();
-			for(int i = 0; i < MODEL_DOF; i++)
+			for(int i = 0; i < 12; i++)
 			{ 
 				torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); 
 			}
@@ -770,14 +770,22 @@ void CustomController::computeSlow()
 		walkingStateManager(); //avatar
 		getProcessedRobotData(wbc_);	
 		
+		foot_swing_trigger_ = false;	//stay avatar
 		//motion planing and control//
 		motionGenerator();
+
+		for (int i = 12; i < MODEL_DOF; i++)
+		{
+			desired_q_(i) = motion_q_(i);
+			// desired_q_dot_(i) = motion_q_dot_(i);
+			desired_q_dot_(i) = 0;
+		}
 
 		torque_upper_.setZero();
 		for (int i = 12; i < MODEL_DOF; i++)
 		{
-			torque_upper_(i) = (kp_joint_(i) * (motion_q_(i) - current_q_(i)) + kv_joint_(i) * (0 - current_q_dot_(i)) + 1.0 * Gravity_MJ_(i));
-			torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+			torque_upper_(i) = kp_joint_(i) * (desired_q_(i) - current_q_(i)) + kv_joint_(i) * (desired_q_dot_(i) - current_q_dot_(i))  + 1.0 * Gravity_MJ_(i);
+			// torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
 		}
         savePreData();
 
@@ -786,6 +794,8 @@ void CustomController::computeSlow()
 		{
 			ControlVal_(i) = torque_upper_(i) + torque_lower_(i) ; 
 		}
+
+		// printOutTextFile();
 
 	}
 	else if (tc.mode == 14) 
@@ -2022,26 +2032,26 @@ void CustomController::getProcessedRobotData(WholebodyController &wbc)
 		//preview gain update
 		previewParam_MJ(1/preview_hz_, zmp_size_, zc_, K_act_ , Gi_, Gd_, Gx_, A_, B_, C_, D_, A_bar_, B_bar_);
 
-		cout<<"===================First Preview is On==========================="<<endl;
-		cout<<"zc_:"<<endl;
-		cout<<zc_<<endl;
-		cout<<"K_act_:"<<endl;
-		cout<<K_act_<<endl;
-		cout<<"Gi_:"<<endl;
-		cout<<Gi_<<endl;
-		cout<<"Gd_:"<<endl;
-		cout<<Gd_<<endl;
-		cout<<"Gx_:"<<endl;
-		cout<<Gx_<<endl;
-		cout<<"A_:"<<endl;
-		cout<<A_<<endl;
-		cout<<"B_:"<<endl;
-		cout<<B_<<endl;
-		cout<<"C_:"<<endl;
-		cout<<C_<<endl;
-		cout<<"D_:"<<endl;
-		cout<<D_<<endl;
-		cout<<"===================First Preview is On==========================="<<endl;
+		// cout<<"===================First Preview is On==========================="<<endl;
+		// cout<<"zc_:"<<endl;
+		// cout<<zc_<<endl;
+		// cout<<"K_act_:"<<endl;
+		// cout<<K_act_<<endl;
+		// cout<<"Gi_:"<<endl;
+		// cout<<Gi_<<endl;
+		// cout<<"Gd_:"<<endl;
+		// cout<<Gd_<<endl;
+		// cout<<"Gx_:"<<endl;
+		// cout<<Gx_<<endl;
+		// cout<<"A_:"<<endl;
+		// cout<<A_<<endl;
+		// cout<<"B_:"<<endl;
+		// cout<<B_<<endl;
+		// cout<<"C_:"<<endl;
+		// cout<<C_<<endl;
+		// cout<<"D_:"<<endl;
+		// cout<<D_<<endl;
+		// cout<<"===================First Preview is On==========================="<<endl;
 
 		last_preview_param_update_time_ = current_time_;
 		preview_update_time_ = current_time_;
@@ -2407,7 +2417,7 @@ void CustomController::motionGenerator()
 
 		}
 	}
-	else if(upper_body_mode_ == 6)
+	else if(upper_body_mode_ == 6)	//HQPIK
 	{
 		if(hmd_check_pose_calibration_[3] == false)
 		{
@@ -4096,7 +4106,16 @@ void CustomController::poseCalibration()
 	Eigen::Vector3d hmd_pelv_rpy;
 	Eigen::Matrix3d hmd_pelv_yaw_rot;
 	Eigen::Isometry3d hmd_pelv_pose_yaw_only;
-	hmd_pelv_pose_yaw_only.translation() = hmd_pelv_pose_init_.translation();
+
+	if(still_pose_cali_flag_ == true)
+	{
+		hmd_pelv_pose_yaw_only.translation() = hmd_pelv_pose_.translation();
+	}
+	else
+	{
+		hmd_pelv_pose_yaw_only.translation() = hmd_pelv_pose_init_.translation();
+	}
+
 	hmd_pelv_rpy = DyrosMath::rot2Euler(hmd_pelv_pose_.linear());
 	hmd_pelv_yaw_rot = DyrosMath::rotateWithZ(hmd_pelv_rpy(2));
 	hmd_pelv_pose_yaw_only.linear() = hmd_pelv_yaw_rot;
@@ -4512,7 +4531,7 @@ Eigen::Isometry3d CustomController::velocityFilter(Eigen::Isometry3d data, Eigen
 void CustomController::abruptMotionFilter()
 {
 	int maximum_data_cut_num = 200; 
-	bool verbose = 0; 
+	bool verbose = 1; 
 	bool fast_head_move_flag = false;
 	bool fast_lupperarm_move_flag = false;
 	bool fast_lhand_move_flag = false;
