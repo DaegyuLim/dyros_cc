@@ -1132,7 +1132,8 @@ void CustomController::getRobotData(WholebodyController &wbc)
 	pelv_rot_current_ = rd_.link_[Pelvis].Rotm;
 	pelv_rpy_current_ = DyrosMath::rot2Euler(pelv_rot_current_); //ZYX multiply
 	// pelv_rpy_current_ = (pelv_rot_current_).eulerAngles(2, 1, 0);
-	pelv_yaw_rot_current_from_global_ = DyrosMath::rotateWithZ(pelv_rpy_current_(2));
+	// pelv_yaw_rot_current_from_global_ = DyrosMath::rotateWithZ(pelv_rpy_current_(2));
+	pelv_yaw_rot_current_from_global_ = pelv_rot_current_;
 	pelv_rot_current_yaw_aline_ = pelv_yaw_rot_current_from_global_.transpose() * pelv_rot_current_;
 	// pelv_pos_current_ = pelv_yaw_rot_current_from_global_.transpose() * pelv_pos_current_;
 
@@ -1260,11 +1261,11 @@ void CustomController::getRobotData(WholebodyController &wbc)
     Quaterniond q(pelv_rot_current_yaw_aline_);// conversion error
 
 	pre_desired_q_qvqd_.setZero();
-	pre_desired_q_qvqd_(3) = q.x(); 	//x y z
-	pre_desired_q_qvqd_(4) = q.y(); 	//x y z
-	pre_desired_q_qvqd_(5) = q.z(); 	//x y z			
-	pre_desired_q_qvqd_(39) = q.w();						//w
-	// pre_desired_q_qvqd_(39) = 1;
+	// pre_desired_q_qvqd_(3) = q.x(); 	//x y z
+	// pre_desired_q_qvqd_(4) = q.y(); 	//x y z
+	// pre_desired_q_qvqd_(5) = q.z(); 	//x y z			
+	// pre_desired_q_qvqd_(39) = q.w();						//w
+	pre_desired_q_qvqd_(39) = 1;
 	pre_desired_q_qvqd_.segment(6, MODEL_DOF) = pre_desired_q_;
 
     pre_desired_q_dot_vqd_.setZero();
