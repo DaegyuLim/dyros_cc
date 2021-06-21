@@ -623,6 +623,8 @@ public:
     Eigen::VectorQd torque_grav_pre_;
     Eigen::VectorQd torque_qp_;
     Eigen::VectorQd torque_g_;
+    Eigen::VectorQd torque_upper_;
+    Eigen::VectorQd torque_lower_;
 
     Eigen::VectorQd torque_task_min_;
     Eigen::VectorQd torque_task_max_;
@@ -953,9 +955,9 @@ public:
     Eigen::VectorXd g_upperbody_, u_dot_upperbody_[4], qpres_upperbody_, ub_upperbody_, lb_upperbody_, ubA_upperbody_, lbA_upperbody_;
     Eigen::VectorXd q_dot_upperbody_;
 
-    MatrixXd N1_upperbody_, N2_aug_upperbody_, N3_aug_upperbody_;
-    MatrixXd J2_aug_upperbody_, J2_aug_pinv_upperbody_, J3_aug_upperbody_, J3_aug_pinv_upperbody_, J1_pinv_upperbody_,  J2N1_upperbody_, J3N2_aug_upperbody_, J4N3_aug_upperbody_;
-    MatrixXd I3_upperbody_, I6_upperbody_, I15_upperbody_, I21_upperbody_;
+    Eigen::MatrixXd N1_upperbody_, N2_aug_upperbody_, N3_aug_upperbody_;
+    Eigen::MatrixXd J2_aug_upperbody_, J2_aug_pinv_upperbody_, J3_aug_upperbody_, J3_aug_pinv_upperbody_, J1_pinv_upperbody_,  J2N1_upperbody_, J3N2_aug_upperbody_, J4N3_aug_upperbody_;
+    Eigen::MatrixXd I3_upperbody_, I6_upperbody_, I15_upperbody_, I21_upperbody_;
     /////////////////////////////////////////////
 
     /////////////HQPIK//////////////////////////
@@ -1201,8 +1203,8 @@ public:
     double t_double2_;
     double t_total_;
     double foot_height_;
-    double total_step_num_;
-    double current_step_num_;
+    int total_step_num_;
+    int current_step_num_;
 
     double step_length_x_;
     double step_length_y_;
