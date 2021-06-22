@@ -1,5 +1,6 @@
 #include "custom_controller.h"
 
+
 CustomController::CustomController(DataContainer &dc, RobotData &rd) : dc_(dc), rd_(rd), wbc_(dc.wbc_)
 {
 	ControlVal_.setZero();
@@ -529,28 +530,35 @@ void CustomController::computeSlow()
 {
 	if (tc.mode == 10)
 	{
-		if(initial_flag == 0)
-		{   
-			Joint_gain_set_MJ();
-			walking_enable_ = true;            
-			// Initial pose             
-			ref_q_ = rd_.q_;
-			for(int i = 0; i < 12; i ++)
-			{
-				Initial_ref_q_(i) = ref_q_(i);
-			}
-			initial_flag = 1; 
-			q_prev_MJ_ = rd_.q_;
-			walking_tick_mj = 0;
-			walking_end_flag = 0;
-			cout << "mode = 10" << endl;
-		}
+		// if(initial_flag == 0)
+		// {   
+		// 	Joint_gain_set_MJ();
+		// 	walking_enable_ = true;            
+		// 	// Initial pose             
+		// 	ref_q_ = rd_.q_;
+		// 	for(int i = 0; i < 12; i ++)
+		// 	{
+		// 		Initial_ref_q_(i) = ref_q_(i);
+		// 	}
+		// 	initial_flag = 1; 
+		// 	q_prev_MJ_ = rd_.q_;
+		// 	walking_tick_mj = 0;
+		// 	walking_end_flag = 0;
+		// 	cout << "mode = 10" << endl;
+		// 	Gravity_MJ_fast_.setZero();
+		// 	atb_grav_update_ = false;
+		// }
 
-		wbc_.set_contact(rd_, 1, 1);  
-		Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
-			
-		for(int i = 0; i < MODEL_DOF; i++)
-		{ ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) ; }
+		if(atb_grav_update_ == false)
+		{
+			atb_grav_update_ = true;
+			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+			atb_grav_update_ = false;
+		}	
+		// for(int i = 0; i < MODEL_DOF; i++)
+		// { ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) ; }
+
+		
 	}
 	else if (tc.mode == 11)
 	{
@@ -559,72 +567,83 @@ void CustomController::computeSlow()
 	////////////////////////////////////////////////////////////////////////////
 		if(walking_enable_ == true)
 		{
-			if(walking_tick_mj == 0)
-			{     
-				parameterSetting();
-				initial_flag = 0;
-				cout << "parameter setting OK" << endl;
-				cout << "mode = 11" << endl;
-			}        
-			updateInitialState();
-			getRobotState();
-			floatToSupportFootstep();
+			// if(walking_tick_mj == 0)
+			// {     
+			// 	parameterSetting();
+			// 	initial_flag = 0;
+			// 	cout << "parameter setting OK" << endl;
+			// 	cout << "mode = 11" << endl;
+			// }        
+			// updateInitialState();
+			// getRobotState();
+			// floatToSupportFootstep();
 
 			if(current_step_num_< total_step_num_)
 			{   
-				getZmpTrajectory();
-				getComTrajectory();            
-				getFootTrajectory();
-				getPelvTrajectory();
-				supportToFloatPattern();
-				computeIkControl_MJ(pelv_trajectory_float_, lfoot_trajectory_float_, rfoot_trajectory_float_, q_des);
+				// getZmpTrajectory();
+				// getComTrajectory();            
+				// getFootTrajectory();
+				// getPelvTrajectory();
+				// supportToFloatPattern();
+				// computeIkControl_MJ(pelv_trajectory_float_, lfoot_trajectory_float_, rfoot_trajectory_float_, q_des);
 				
-				Compliant_control(q_des);
-				for(int i = 0; i < 12; i ++)
-				{
-					// ref_q_(i) = q_des(i);
-					ref_q_(i) = DOB_IK_output_(i);
-				}            
-				hip_compensator();
-				GravityCalculate_MJ();
-
-				if(walking_tick_mj < 1.0*hz_)
-				{
-					for(int i = 0; i < 12; i ++)
-					{ ref_q_(i) = DyrosMath::cubic(walking_tick_mj, 0, 1.0*hz_, Initial_ref_q_(i), q_des(i), 0.0, 0.0); }
-				}
-
-				CP_compen_MJ();
+				// Compliant_control(q_des);
+				// for(int i = 0; i < 12; i ++)
+				// {
+				// 	// ref_q_(i) = q_des(i);
+				// 	ref_q_(i) = DOB_IK_output_(i);
+				// }            
+				// hip_compensator();
 				
-				torque_lower_.setZero();
-				for(int i = 0; i < 12; i++)
+
+				if(atb_grav_update_ == false)
 				{
-					torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + Tau_CP(i) + 1.0 * Gravity_MJ_(i);  
-					// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
-				}               
+					atb_grav_update_ = true;
+					GravityCalculate_MJ();
+					atb_grav_update_ = false;
+				}	
+				// if(walking_tick_mj < 1.0*hz_)
+				// {
+				// 	for(int i = 0; i < 12; i ++)
+				// 	{ ref_q_(i) = DyrosMath::cubic(walking_tick_mj, 0, 1.0*hz_, Initial_ref_q_(i), q_des(i), 0.0, 0.0); }
+				// }
+
+				// CP_compen_MJ();
+				
+				// torque_lower_.setZero();
+				// for(int i = 0; i < 12; i++)
+				// {
+				// 	torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + Tau_CP(i) + 1.0 * Gravity_MJ_(i);  
+				// 	// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
+				// }               
 							
-				desired_q_not_compensated_ = ref_q_;           
+				// desired_q_not_compensated_ = ref_q_;           
 
-				updateNextStepTime();
+				// updateNextStepTime();
 
-				q_prev_MJ_ = rd_.q_;         
+				// q_prev_MJ_ = rd_.q_;         
 			}        
 		}
 		else
 		{
-			if(walking_end_flag == 0)
-			{
-				cout << "walking finish" << endl;
-				walking_end_flag = 1; initial_flag = 0;        
-			} 
+			// if(walking_end_flag == 0)
+			// {
+			// 	cout << "walking finish" << endl;
+			// 	walking_end_flag = 1; initial_flag = 0;        
+			// } 
 
 			wbc_.set_contact(rd_, 1, 1);
-			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
-			torque_lower_.setZero();
-			for(int i = 0; i < 12; i++)
+			if(atb_grav_update_ == false)
 			{
-				torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); 
+				atb_grav_update_ = true;
+				Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+				atb_grav_update_ = false;
 			}	
+			// torque_lower_.setZero();
+			// for(int i = 0; i < 12; i++)
+			// {
+			// 	torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); 
+			// }	
 		}
 	/////////////////////////////////////////////////////////////////////////////////////////
 		
@@ -642,119 +661,149 @@ void CustomController::computeSlow()
 		//motion planing and control//
 		motionGenerator();
 
-		torque_upper_.setZero();
 		for (int i = 12; i < MODEL_DOF; i++)
 		{
-			torque_upper_(i) = (kp_joint_(i) * (motion_q_(i) - current_q_(i)) + kv_joint_(i) * (0 - current_q_dot_(i)) + 1.0 * Gravity_MJ_(i));
-			torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+			desired_q_(i) = motion_q_(i);
+			// desired_q_dot_(i) = motion_q_dot_(i);
+			desired_q_dot_(i) = 0;
 		}
+
+		if(atb_upper_update_ == false)
+		{
+			atb_upper_update_ = true;
+			torque_upper_.setZero();
+			for (int i = 12; i < MODEL_DOF; i++)
+			{
+				torque_upper_(i) = (kp_joint_(i) * (desired_q_(i) - current_q_(i)) + kv_joint_(i) * (desired_q_dot_(i) - current_q_dot_(i)) + 1.0 * Gravity_MJ_(i));
+				torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+			}
+			atb_upper_update_ = false;
+		}
+
         savePreData();
 
 		///////////////////////////////FINAL TORQUE COMMAND/////////////////////////////
-		for (int i = 0; i < MODEL_DOF; i++)
-		{
-			ControlVal_(i) = torque_upper_(i) + torque_lower_(i) ; 
-		}
+		// for (int i = 0; i < MODEL_DOF; i++)
+		// {
+		// 	ControlVal_(i) = torque_upper_(i) + torque_lower_(i) ; 
+		// }
 	}
 	else if (tc.mode == 12)
 	{
-       if(initial_flag == 0)
-        {
-			Joint_gain_set_MJ();
-			walking_enable_ = false;                        
-			ref_q_ = rd_.q_;
-			for(int i = 0; i < 12; i ++)
-			{
-			Initial_ref_q_(i) = ref_q_(i);
-			}
-			initial_flag = 1; 
-			q_prev_MJ_ = rd_.q_;
-			walking_tick_mj = 0;
-			walking_end_flag = 1;
-			joy_input_enable_ = true;
-			cout << "mode = 12 : Pedal Init" << endl;
-        }
+    //    if(initial_flag == 0)
+    //     {
+	// 		Joint_gain_set_MJ();
+	// 		walking_enable_ = false;                        
+	// 		ref_q_ = rd_.q_;
+	// 		for(int i = 0; i < 12; i ++)
+	// 		{
+	// 		Initial_ref_q_(i) = ref_q_(i);
+	// 		}
+	// 		initial_flag = 1; 
+	// 		q_prev_MJ_ = rd_.q_;
+	// 		walking_tick_mj = 0;
+	// 		walking_end_flag = 1;
+	// 		joy_input_enable_ = true;
+	// 		cout << "mode = 12 : Pedal Init" << endl;
+    //     }
 
-        wbc_.set_contact(rd_, 1, 1);  
-        Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
-          
-        for(int i = 0; i < MODEL_DOF; i++)
-        { ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) ; }		
+		if(atb_grav_update_ == false)
+		{
+			atb_grav_update_ = true;
+			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+			atb_grav_update_ = false;
+		}	     
+
+        // for(int i = 0; i < MODEL_DOF; i++)
+        // { ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) ; }		
 	}
 	else if (tc.mode == 13)
 	{
       	if(walking_enable_ == true)
       	{
-			if(walking_tick_mj == 0)
-			{     
-				parameterSetting();
-				initial_flag = 0; 
-				cout <<  "\n\n\n\n" << endl;
-				cout <<  "___________________________ " << endl;
-				cout <<  "\n           Start " << endl;
-				cout << "parameter setting OK" << endl;
-				cout << "mode = 13" << endl;
-			}        
-			updateInitialStateJoy();
-			getRobotState();
-			floatToSupportFootstep();
+			// if(walking_tick_mj == 0)
+			// {     
+			// 	parameterSetting();
+			// 	initial_flag = 0; 
+			// 	cout <<  "\n\n\n\n" << endl;
+			// 	cout <<  "___________________________ " << endl;
+			// 	cout <<  "\n           Start " << endl;
+			// 	cout << "parameter setting OK" << endl;
+			// 	cout << "mode = 13" << endl;
+			// }        
+			// updateInitialStateJoy();
+			// getRobotState();
+			// floatToSupportFootstep();
 
 			if(current_step_num_< total_step_num_)
 			{   
-				getZmpTrajectory();
-				getComTrajectory();            
-				getFootTrajectory();
-				getPelvTrajectory();
-				supportToFloatPattern();
-				computeIkControl_MJ(pelv_trajectory_float_, lfoot_trajectory_float_, rfoot_trajectory_float_, q_des);
+				// getZmpTrajectory();
+				// getComTrajectory();            
+				// getFootTrajectory();
+				// getPelvTrajectory();
+				// supportToFloatPattern();
+				// computeIkControl_MJ(pelv_trajectory_float_, lfoot_trajectory_float_, rfoot_trajectory_float_, q_des);
 				
-				Compliant_control(q_des);
-				for(int i = 0; i < 12; i ++)
-				{
-					//ref_q_(i) = q_des(i);
-					ref_q_(i) = DOB_IK_output_(i);
-				}            
-				hip_compensator();
-				GravityCalculate_MJ();
+				// Compliant_control(q_des);
+				// for(int i = 0; i < 12; i ++)
+				// {
+				// 	//ref_q_(i) = q_des(i);
+				// 	ref_q_(i) = DOB_IK_output_(i);
+				// }            
+				// hip_compensator();
 
-				if(walking_tick_mj < 1.0*hz_)
+				if(atb_grav_update_ == false)
 				{
-					for(int i = 0; i < 12; i ++)
-					{ ref_q_(i) = DyrosMath::cubic(walking_tick_mj, 0, 1.0*hz_, Initial_ref_q_(i), q_des(i), 0.0, 0.0); }
-				}
+					atb_grav_update_ = true;
+					GravityCalculate_MJ();
+					atb_grav_update_ = false;
+				}	
 
-				CP_compen_MJ();
+				// if(walking_tick_mj < 1.0*hz_)
+				// {
+				// 	for(int i = 0; i < 12; i ++)
+				// 	{ ref_q_(i) = DyrosMath::cubic(walking_tick_mj, 0, 1.0*hz_, Initial_ref_q_(i), q_des(i), 0.0, 0.0); }
+				// }
 
-				torque_lower_.setZero();
-				for(int i = 0; i < 12; i++)
-				{
-					torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) + Tau_CP(i) ;  
-					// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
-				}               
+				// CP_compen_MJ();
+
+				// torque_lower_.setZero();
+				// for(int i = 0; i < 12; i++)
+				// {
+				// 	torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) + Tau_CP(i) ;  
+				// 	// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
+				// }               
 							
-				desired_q_not_compensated_ = ref_q_;           
+				// desired_q_not_compensated_ = ref_q_;           
 
-				updateNextStepTimeJoy();
+				// updateNextStepTimeJoy();
 
-				q_prev_MJ_ = rd_.q_;            
+				// q_prev_MJ_ = rd_.q_;            
 			}        
 		}
 		else
 		{
-			if(walking_end_flag == 0)
-			{
-				cout << "walking finish" << endl;
-				walking_end_flag = 1; initial_flag = 0;        
-			} 
+			// if(walking_end_flag == 0)
+			// {
+			// 	cout << "walking finish" << endl;
+			// 	walking_end_flag = 1; initial_flag = 0;        
+			// } 
 
 			wbc_.set_contact(rd_, 1, 1);
-			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+			if(atb_grav_update_ == false)
+			{
+				atb_grav_update_ = true;
+				Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+				atb_grav_update_ = false;
+			}	
 
-			torque_lower_.setZero();
-			for(int i = 0; i < 12; i++)
-			{ 
-				torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); 
-			}
+			// Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+
+			// torque_lower_.setZero();
+			// for(int i = 0; i < 12; i++)
+			// { 
+			// 	torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i); 
+			// }
 		}
 		
 		/////////////////////////////////////////////////////////////////////////////////////////
@@ -770,7 +819,6 @@ void CustomController::computeSlow()
 		walkingStateManager(); //avatar
 		getProcessedRobotData(wbc_);	
 		
-		foot_swing_trigger_ = false;	//stay avatar
 		//motion planing and control//
 		motionGenerator();
 
@@ -781,19 +829,25 @@ void CustomController::computeSlow()
 			desired_q_dot_(i) = 0;
 		}
 
-		torque_upper_.setZero();
-		for (int i = 12; i < MODEL_DOF; i++)
+		if(atb_upper_update_ == false)
 		{
-			torque_upper_(i) = kp_joint_(i) * (desired_q_(i) - current_q_(i)) + kv_joint_(i) * (desired_q_dot_(i) - current_q_dot_(i))  + 1.0 * Gravity_MJ_(i);
-			// torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+			atb_upper_update_ = true;
+			torque_upper_.setZero();
+			for (int i = 12; i < MODEL_DOF; i++)
+			{
+				torque_upper_(i) = (kp_joint_(i) * (desired_q_(i) - current_q_(i)) + kv_joint_(i) * (desired_q_dot_(i) - current_q_dot_(i)) + 1.0 * Gravity_MJ_(i));
+				torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+			}
+			atb_upper_update_ = false;
 		}
+
         savePreData();
 
 		///////////////////////////////FINAL TORQUE COMMAND/////////////////////////////
-		for (int i = 0; i < MODEL_DOF; i++)
-		{
-			ControlVal_(i) = torque_upper_(i) + torque_lower_(i) ; 
-		}
+		// for (int i = 0; i < MODEL_DOF; i++)
+		// {
+		// 	ControlVal_(i) = torque_upper_(i) + torque_lower_(i) ; 
+		// }
 
 		// printOutTextFile();
 
@@ -919,8 +973,354 @@ void CustomController::computeFast()
 {
 	if (tc.mode == 10)
 	{
+		if(initial_flag == 0)
+		{   
+			Joint_gain_set_MJ();
+			walking_enable_ = true;            
+			// Initial pose             
+			ref_q_ = rd_.q_;
+			for(int i = 0; i < 12; i ++)
+			{
+				Initial_ref_q_(i) = ref_q_(i);
+			}
+			initial_flag = 1; 
+			q_prev_MJ_ = rd_.q_;
+			walking_tick_mj = 0;
+			walking_end_flag = 0;
+			cout << "mode = 10" << endl;
+			
+			wbc_.set_contact(rd_, 1, 1);  
+			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+			atb_grav_update_ = false;
+		}
+
+		// wbc_.set_contact(rd_, 1, 1);  
+		// Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+		if(atb_grav_update_ == false)
+		{
+			atb_grav_update_ = true;
+			Gravity_MJ_fast_ = Gravity_MJ_;
+			atb_grav_update_ = false;
+		}	
+		
+		for(int i = 0; i < MODEL_DOF; i++)
+		{ 
+			ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_fast_(i); 
+		}
+
 	}
-	else if (tc.mode == 14)
+	else if (tc.mode == 11)
+	{
+	////////////////////////////////////////////////////////////////////////////
+	/////////////////// Biped Walking Controller made by MJ ////////////////////
+	////////////////////////////////////////////////////////////////////////////
+		if(walking_enable_ == true)
+		{
+			if(walking_tick_mj == 0)
+			{     
+				parameterSetting();
+				initial_flag = 0;
+				
+				atb_grav_update_ = false;
+				atb_upper_update_ = false;
+				torque_upper_fast_.setZero();
+				torque_upper_fast_.segment(12, MODEL_DOF-12) = ControlVal_.segment(12, MODEL_DOF-12);
+				torque_upper_.setZero();
+				torque_upper_.segment(12, MODEL_DOF-12) = ControlVal_.segment(12, MODEL_DOF-12);
+				
+				cout << "parameter setting OK" << endl;
+				cout << "mode = 11" << endl;
+			}        
+			updateInitialState();
+			getRobotState();
+			floatToSupportFootstep();
+
+			if(current_step_num_< total_step_num_)
+			{   
+				getZmpTrajectory();
+				getComTrajectory();            
+				getFootTrajectory();
+				getPelvTrajectory();
+				supportToFloatPattern();
+				computeIkControl_MJ(pelv_trajectory_float_, lfoot_trajectory_float_, rfoot_trajectory_float_, q_des);
+				
+				Compliant_control(q_des);
+				for(int i = 0; i < 12; i ++)
+				{
+					// ref_q_(i) = q_des(i);
+					ref_q_(i) = DOB_IK_output_(i);
+				}            
+				hip_compensator();
+				// GravityCalculate_MJ();
+				
+				if(atb_grav_update_ == false)
+				{
+					atb_grav_update_ = true;
+					Gravity_MJ_fast_ = Gravity_MJ_;
+					atb_grav_update_ = false;
+				}
+
+				if(walking_tick_mj < 1.0*hz_)
+				{
+					for(int i = 0; i < 12; i ++)
+					{ ref_q_(i) = DyrosMath::cubic(walking_tick_mj, 0, 1.0*hz_, Initial_ref_q_(i), q_des(i), 0.0, 0.0); }
+				}
+
+				CP_compen_MJ();
+				
+				torque_lower_.setZero();
+				for(int i = 0; i < 12; i++)
+				{
+					torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + Tau_CP(i) + 1.0 * Gravity_MJ_fast_(i);  
+					// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
+				}               
+							
+				desired_q_not_compensated_ = ref_q_;           
+
+				updateNextStepTime();
+
+				q_prev_MJ_ = rd_.q_;         
+			}        
+		}
+		else
+		{
+			if(walking_end_flag == 0)
+			{
+				cout << "walking finish" << endl;
+				walking_end_flag = 1; initial_flag = 0;        
+			} 
+
+			// wbc_.set_contact(rd_, 1, 1);
+			// Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+
+			if(atb_grav_update_ == false)
+			{
+				atb_grav_update_ = true;
+				Gravity_MJ_fast_ = Gravity_MJ_;
+				atb_grav_update_ = false;
+			}			
+
+			torque_lower_.setZero();
+			for(int i = 0; i < 12; i++)
+			{
+				torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_fast_(i); 
+			}	
+		}
+		/////////////////////////////////////////////////////////////////////////////////////////
+		
+		// if (tc.task_init == true)
+		// {
+		// 	initWalkingParameter();
+		// 	tc.task_init = false;
+		// }
+
+		// //data process//
+		// getRobotData(wbc_);
+		// walkingStateManager(); //avatar
+		// getProcessedRobotData(wbc_);	
+		
+		// //motion planing and control//
+		// motionGenerator();
+
+		// torque_upper_.setZero();
+		// for (int i = 12; i < MODEL_DOF; i++)
+		// {
+		// 	torque_upper_(i) = (kp_joint_(i) * (motion_q_(i) - current_q_(i)) + kv_joint_(i) * (0 - current_q_dot_(i)) + 1.0 * Gravity_MJ_(i));
+		// 	torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+		// }
+        // savePreData();
+		if(atb_upper_update_ == false)
+		{
+			atb_upper_update_ = true;
+			torque_upper_fast_ = torque_upper_;
+			atb_upper_update_ = false;
+		}	
+
+		///////////////////////////////FINAL TORQUE COMMAND/////////////////////////////
+		ControlVal_ = torque_lower_ + torque_upper_fast_; 
+		///////////////////////////////////////////////////////////////////////////////
+	}
+	else if (tc.mode == 12)
+	{
+       if(initial_flag == 0)
+        {
+			Joint_gain_set_MJ();
+			walking_enable_ = false;                        
+			ref_q_ = rd_.q_;
+			for(int i = 0; i < 12; i ++)
+			{
+				Initial_ref_q_(i) = ref_q_(i);
+			}
+			initial_flag = 1; 
+			q_prev_MJ_ = rd_.q_;
+			walking_tick_mj = 0;
+			walking_end_flag = 1;
+			joy_input_enable_ = true;
+			cout << "mode = 12 : Pedal Init" << endl;
+			
+			wbc_.set_contact(rd_, 1, 1);  
+			Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+			atb_grav_update_ = false;
+        }
+
+        // wbc_.set_contact(rd_, 1, 1);  
+        // Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+
+		if(atb_grav_update_ == false)
+		{
+			atb_grav_update_ = true;
+			Gravity_MJ_fast_ = Gravity_MJ_;
+			atb_grav_update_ = false;
+		}
+
+        for(int i = 0; i < MODEL_DOF; i++)
+        { 
+			ControlVal_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_(i) ; 
+		}		
+	}
+	else if (tc.mode == 13)
+	{
+      	if(walking_enable_ == true)
+      	{
+			if(walking_tick_mj == 0)
+			{     
+				parameterSetting();
+				initial_flag = 0; 
+				
+				atb_grav_update_ = false;
+				atb_upper_update_ = false;
+				torque_upper_fast_.setZero();
+				torque_upper_fast_.segment(12, MODEL_DOF-12) = ControlVal_.segment(12, MODEL_DOF-12);
+				torque_upper_.setZero();
+				torque_upper_.segment(12, MODEL_DOF-12) = ControlVal_.segment(12, MODEL_DOF-12);
+
+				cout <<  "\n\n\n\n" << endl;
+				cout <<  "___________________________ " << endl;
+				cout <<  "\n           Start " << endl;
+				cout << "parameter setting OK" << endl;
+				cout << "mode = 13" << endl;
+			}        
+			updateInitialStateJoy();
+			getRobotState();
+			floatToSupportFootstep();
+
+			if(current_step_num_< total_step_num_)
+			{   
+				getZmpTrajectory();
+				getComTrajectory();            
+				getFootTrajectory();
+				getPelvTrajectory();
+				supportToFloatPattern();
+				computeIkControl_MJ(pelv_trajectory_float_, lfoot_trajectory_float_, rfoot_trajectory_float_, q_des);
+				
+				Compliant_control(q_des);
+				for(int i = 0; i < 12; i ++)
+				{
+					//ref_q_(i) = q_des(i);
+					ref_q_(i) = DOB_IK_output_(i);
+				}            
+				hip_compensator();
+				// GravityCalculate_MJ();
+
+				if(atb_grav_update_ == false)
+				{
+					atb_grav_update_ = true;
+					Gravity_MJ_fast_ = Gravity_MJ_;
+					atb_grav_update_ = false;
+				}
+
+				if(walking_tick_mj < 1.0*hz_)
+				{
+					for(int i = 0; i < 12; i ++)
+					{ ref_q_(i) = DyrosMath::cubic(walking_tick_mj, 0, 1.0*hz_, Initial_ref_q_(i), q_des(i), 0.0, 0.0); }
+				}
+
+				CP_compen_MJ();
+
+				torque_lower_.setZero();
+				for(int i = 0; i < 12; i++)
+				{
+					torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_fast_(i) + Tau_CP(i) ;  
+					// 4 (Ankle_pitch_L), 5 (Ankle_roll_L), 10 (Ankle_pitch_R),11 (Ankle_roll_R)
+				}               
+							
+				desired_q_not_compensated_ = ref_q_;           
+
+				updateNextStepTimeJoy();
+
+				q_prev_MJ_ = rd_.q_;            
+			}        
+		}
+		else
+		{
+			if(walking_end_flag == 0)
+			{
+				cout << "walking finish" << endl;
+				walking_end_flag = 1;         
+			} 
+			initial_flag = 0;
+			// wbc_.set_contact(rd_, 1, 1);
+			// Gravity_MJ_ = wbc_.gravity_compensation_torque(rd_);
+
+			if(atb_grav_update_ == false)
+			{
+				atb_grav_update_ = true;
+				Gravity_MJ_fast_ = Gravity_MJ_;
+				atb_grav_update_ = false;
+			}
+
+			torque_lower_.setZero();
+			for(int i = 0; i < 12; i++)
+			{ 
+				torque_lower_(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_fast_(i); 
+			}
+		}
+		
+		/////////////////////////////////////////////////////////////////////////////////////////
+		
+		// if (tc.task_init == true)
+		// {
+		// 	initWalkingParameter();
+		// 	tc.task_init = false;
+		// }
+
+		// //data process//
+		// getRobotData(wbc_);
+		// walkingStateManager(); //avatar
+		// getProcessedRobotData(wbc_);	
+		
+		// foot_swing_trigger_ = false;	//stay avatar
+		// //motion planing and control//
+		// motionGenerator();
+
+		// for (int i = 12; i < MODEL_DOF; i++)
+		// {
+		// 	desired_q_(i) = motion_q_(i);
+		// 	// desired_q_dot_(i) = motion_q_dot_(i);
+		// 	desired_q_dot_(i) = 0;
+		// }
+
+		// torque_upper_.setZero();
+		// for (int i = 12; i < MODEL_DOF; i++)
+		// {
+		// 	torque_upper_(i) = kp_joint_(i) * (desired_q_(i) - current_q_(i)) + kv_joint_(i) * (desired_q_dot_(i) - current_q_dot_(i))  + 1.0 * Gravity_MJ_(i);
+		// 	torque_upper_(i) = torque_upper_(i) * pd_control_mask_(i); // masking for joint pd control
+		// }
+        // savePreData();
+		
+		if(atb_upper_update_ == false)
+		{
+			atb_upper_update_ = true;
+			torque_upper_fast_ = torque_upper_;
+			atb_upper_update_ = false;
+		}
+
+		///////////////////////////////FINAL TORQUE COMMAND/////////////////////////////
+		ControlVal_ = torque_lower_ + torque_upper_fast_; 
+		////////////////////////////////////////////////////////////////////////////////
+		// printOutTextFile();
+	}
+	else if (tc.mode == 14) 
 	{
 
 	}
@@ -8997,7 +9397,7 @@ void CustomController::calculateFootStepTotal_MJ()
  
   if(length_to_target == 0)
   {
-    middle_total_step_number = 6; //
+    middle_total_step_number = 60; //
     dlength = 0;
   }
 

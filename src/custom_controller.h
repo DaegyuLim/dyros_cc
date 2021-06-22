@@ -38,9 +38,9 @@ const std::string FILE_NAMES[FILE_CNT] =
 };
 
 //real robot
-const std::string calibration_folder_dir_ = "/home/dyros/data/vive_tracker/calibration_log/donghyun";
+// const std::string calibration_folder_dir_ = "/home/dyros/data/vive_tracker/calibration_log/donghyun";
 //dg pc
-// const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
+const std::string calibration_folder_dir_ = "/home/dg/data/vive_tracker/calibration_log/kaleem";
 //remote comsimulation
 // const std::string calibration_folder_dir_ = "/home/dyros_rm/DG/xprize/vive_tracker/calibration_log/donghyun";
 
@@ -72,7 +72,8 @@ public:
     CQuadraticProgram QP_qdot_wholebody;
     std::vector<CQuadraticProgram> QP_qdot_hqpik_;
 
-    
+    std::atomic<bool> atb_grav_update_{false};
+    std::atomic<bool> atb_upper_update_{false};
     //////////dg custom controller functions////////
     void setGains();
     void getRobotData(WholebodyController &wbc);
@@ -624,6 +625,7 @@ public:
     Eigen::VectorQd torque_qp_;
     Eigen::VectorQd torque_g_;
     Eigen::VectorQd torque_upper_;
+    Eigen::VectorQd torque_upper_fast_;
     Eigen::VectorQd torque_lower_;
 
     Eigen::VectorQd torque_task_min_;
@@ -1064,6 +1066,7 @@ public:
     Eigen::Vector12d DOB_IK_output_b_;
     Eigen::Vector12d DOB_IK_output_;
     Eigen::VectorQd ref_q_;
+    Eigen::VectorQd ref_q_fast_;
     Eigen::VectorQd Kp;
     Eigen::VectorQd Kd;
     Eigen::VectorQd desired_q_not_compensated_;
@@ -1166,6 +1169,7 @@ public:
     Eigen::VectorXd B_mj_;
     Eigen::MatrixXd C_mj_;
 
+    Eigen::VectorQd Gravity_MJ_fast_;
     Eigen::VectorQd Gravity_MJ_;
     Eigen::VectorQd Gravity_DSP_;
     Eigen::VectorQd Gravity_DSP_last_;
